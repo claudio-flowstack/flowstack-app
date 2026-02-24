@@ -1,0 +1,244 @@
+@import "tailwindcss";
+
+/* ── Dark mode variant ── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ── Design Tokens → Tailwind Utilities ── */
+@theme inline {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-fade-out: fade-out 0.15s ease-in;
+  --animate-slide-in: slide-in 0.2s ease-out;
+  --animate-slide-out: slide-out 0.15s ease-in;
+  --animate-scale-in: scale-in 0.15s ease-out;
+  --animate-spin-slow: spin 2s linear infinite;
+}
+
+/* ── Light Theme ── */
+:root {
+  --background: #fafafa;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #6366f1;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #eef2ff;
+  --accent-foreground: #312e81;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #6366f1;
+  --sidebar: #f8f8fc;
+  --sidebar-foreground: #3f3f46;
+  --sidebar-accent: #eef2ff;
+  --sidebar-accent-foreground: #312e81;
+  --sidebar-border: #e5e5ea;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+}
+
+/* ── Dark Theme ── */
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #111113;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #818cf8;
+  --primary-foreground: #ffffff;
+  --secondary: #1c1c22;
+  --secondary-foreground: #fafafa;
+  --muted: #18181b;
+  --muted-foreground: #a1a1aa;
+  --accent: #1e1b4b;
+  --accent-foreground: #e0e7ff;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #818cf8;
+  --sidebar: #0c0c0f;
+  --sidebar-foreground: #a1a1aa;
+  --sidebar-accent: #1e1b4b;
+  --sidebar-accent-foreground: #c7d2fe;
+  --sidebar-border: #1f1f23;
+  --success: #10b981;
+  --success-foreground: #ffffff;
+  --warning: #f59e0b;
+  --warning-foreground: #ffffff;
+}
+
+/* ── Base styles ── */
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 3px;
+  opacity: 0.3;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.5;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+}
+
+/* ── Animations ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-in {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slide-out {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(4px); opacity: 0; }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ── Funnel Canvas Animations ── */
+@keyframes funnel-node-appear {
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.funnel-node-appear {
+  animation: funnel-node-appear 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Canvas V3 Connection Animations ── */
+@keyframes v3-data-flow {
+  from { stroke-dashoffset: 20; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Idle: static dashes (no animation for performance) */
+.v3-connection-idle {
+  stroke-dasharray: 8 4;
+}
+
+/* Active (execution): faster, more prominent flow */
+.v3-connection-active {
+  stroke-dasharray: 8 4;
+  animation: v3-data-flow 0.6s linear infinite;
+}
+
+/* ── Canvas Node Animations ── */
+@keyframes v2-bubble-in {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.v2-bubble {
+  animation: v2-bubble-in 0.3s ease-out forwards;
+}
+
+/* ── NodeLab V3 — Agent thinking glow ── */
+@keyframes lab-agent-think {
+  0%, 100% { box-shadow: 0 0 0 2px #7c3aed, 0 0 20px rgba(124,58,237,0.2); }
+  50% { box-shadow: 0 0 0 3px #7c3aed, 0 0 35px rgba(124,58,237,0.4); }
+}
+.lab-node-agent-thinking {
+  animation: lab-agent-think 1.5s ease-in-out infinite;
+}
+
+/* ── NodeLab V3 — Approval waiting pulse ── */
+@keyframes lab-approval-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #f59e0b, 0 0 12px rgba(245,158,11,0.2); }
+  50% { box-shadow: 0 0 0 4px #f59e0b, 0 0 24px rgba(245,158,11,0.35); }
+}
+.lab-node-approval-waiting {
+  animation: lab-approval-pulse 2s ease-in-out infinite;
+}
+
+/* ── NodeLab V3 — Circuit breaker open pulse ── */
+@keyframes lab-circuit-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.lab-circuit-open {
+  animation: lab-circuit-pulse 1s ease-in-out infinite;
+}
+
+@keyframes fadeSlideUp {
+  0% { opacity: 0; transform: translate(-50%, 12px); }
+  100% { opacity: 1; transform: translate(-50%, 0); }
+}
