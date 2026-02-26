@@ -170,6 +170,8 @@ async def google_api(method: str, url: str, data: Optional[dict] = None) -> dict
     if resp.status_code >= 400:
         log.error(f"Google API error: {resp.status_code} {resp.text}")
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
+    if resp.status_code == 204 or not resp.text.strip():
+        return {}
     return resp.json()
 
 
