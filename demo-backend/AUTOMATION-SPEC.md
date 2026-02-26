@@ -1,7 +1,7 @@
 # Novacode Recruiting Automation — Demo-Spezifikation
 
-> Letzte Aktualisierung: 26.02.2026
-> Status: In Entwicklung
+> Letzte Aktualisierung: 26.02.2026 (Abends)
+> Status: Funktionsfaehig — 27/27 Nodes getestet
 > Firma: Novacode GmbH | Service: Recruiting | Region: NRW
 
 ---
@@ -34,8 +34,8 @@ Vom Onboarding-Formular ueber Infrastruktur-Setup, Kickoff, Strategie, Text-Erst
 Funnel-Bau, Kampagnen-Setup bis zum Go-Live.
 
 **Gesamtdauer Demo:** ~7-10 Minuten
-**Echte API-Calls:** ~20 (Close, Google, Slack, ClickUp)
-**Simulierte Schritte:** KI-Analyse, Funnel-Bau, Meta Ads Setup
+**Echte API-Calls:** 27 (Close, Google, Slack, ClickUp, Meta Ads)
+**Simulierte Schritte:** KI-Analyse, Funnel-Bau
 **Vorbereitete Dokumente:** 12 Google Docs (Strategie + Copy)
 
 ### Teamstruktur
@@ -54,7 +54,7 @@ Funnel-Bau, Kampagnen-Setup bis zum Go-Live.
 | **Gmail** | Willkommens-E-Mail | Ja (echte API) |
 | **Slack** | Ops-Nachrichten + Kundenkanal | Ja (Webhook + API) |
 | **ClickUp** | Projekt, Tasks, Checklisten | Ja (echte API) |
-| **Meta Ads** | Kampagnen, Anzeigengruppen, Ads | Nein (simuliert) |
+| **Meta Ads** | Kampagnen, Anzeigengruppen, Ads, Audiences | Ja (echte API) |
 
 ---
 
@@ -240,7 +240,7 @@ fn03 -> fn04         fn06 + fn07 + fn08 -> fn10 -> fn11
 
 ## 9. Phase 7: Zielgruppen & Kampagnen
 
-**Nodes:** ca01-ca11 | **Dauer:** ~83s | **Echte API-Calls:** 0 (simuliert)
+**Nodes:** ca01-ca11 | **Dauer:** ~85s | **Echte API-Calls:** 9 (Meta Ads API)
 
 ### Zielgruppen (Website Retargeting Audiences)
 
@@ -283,13 +283,18 @@ fn03 -> fn04         fn06 + fn07 + fn08 -> fn10 -> fn11
 - **1-2 Ad Sets:** NRW_Warmup_Views_30d
 - **1-2 Video-Creatives** (Employer Insights, Team Culture)
 
-### Datenfluss (3 parallele Branches)
+### Datenfluss (mit Dependency-Edges)
 ```
-ca01 -> ca04 -> ca05 -> ca10 (QA)
-ca02 -> ca06 -> ca07 -> ca10
-ca03 -> ca08 -> ca09 -> ca11 (Review)
-ca10 -> ca11 (Konvergenz)
+ca01 -> ca04 -> ca05 -> ca07 -> ca09 -> ca11
+ca02 -> ca06 -> ca07              (ca07 wartet auf ca06 UND ca05)
+ca03 -> ca08 -> ca09              (ca09 wartet auf ca08 UND ca07)
+ca04 -> ca07                      (image_hashes Dependency)
+ca04 -> ca09                      (image_hashes Dependency)
+ca05 -> ca10 -> ca11
+ca07 -> ca10
 ```
+**Wichtig:** Ad Sets laufen sequentiell (ca05 -> ca07 -> ca09) wegen Meta API Rate-Limiting.
+Bilder werden einmalig in ca04 hochgeladen und via Context an ca05/ca07/ca09 weitergegeben.
 
 ---
 
@@ -381,19 +386,26 @@ rl08 -> rl09 -> rl10 -> rl11 -> rl13
 
 ### Google Drive
 - Root: `{Firma}_Recruiting`
-- Unterordner: 01_Administration, 02_Strategy, 03_Copy, 04_Creatives, 05_Funnel, 06_Ads, 07_Tracking, 08_Transcripts
+- Unterordner: 01_Verwaltung, 02_Strategie, 03_Texte, 04_Creatives, 05_Funnel, 06_Anzeigen, 07_Tracking, 08_Transkripte
+- Strategie-Unterordner: Zielgruppen_Avatar, Arbeitgeber_Avatar, Messaging_Framework, Creative_Brief, Brand_Design_Richtlinien
+- Creatives-Unterordner: Roh_Uploads, Bearbeitete_Creatives, Finale_Anzeigen
 
 ### ClickUp
 - Projekt: `{Firma} - Recruiting`
 - Tasks enthalten Firmennamen NICHT (sind bereits im Projekt-Kontext)
 
-### Meta Kampagnen
-- `[Phase]_{Firma}_Recruiting_[Objective]`
-- Beispiel: Initial_Novacode GmbH_Recruiting_Leads
+### Meta Kampagnen (DACH Best Practice, Pipe-getrennt)
+- `[Funnel] | [Datum] | [Ziel] | [Land] | [Firma] Recruiting`
+- Beispiel: `TOF | 2026-02 | Leads | DE | Novacode GmbH Recruiting`
 
 ### Meta Ad Sets
-- `[Region]_[AudienceType]_[Window]`
-- Beispiel: NRW_Broad_20-55, NRW_RT_AllVisitors_30d
+- `[Targeting] | [Gender] | [Alter] | [Land] | [Platzierung] | [Event] | [Datum]`
+- Beispiel: `Broad | Alle | 25-55 | DE | Feed | LEAD | 2026-02`
+- Retargeting: `WV-30d-AllPages | Alle | 25-55 | DE | Auto | LEAD | 2026-02`
+
+### Meta Ads/Creatives
+- `[Format] | [Konzept] | [Angle] | [Creator] | [Variante] | [Datum]`
+- Beispiel: `Image | PainPoint | Fachkraefte | Inhouse | V1 | 2026-02`
 
 ### Slack
 - Kundenkanal: #client-{firma-lowercase}
@@ -421,28 +433,37 @@ rl08 -> rl09 -> rl10 -> rl11 -> rl13
 
 ## 16. Offene Punkte / Backlog
 
-### Noch umzusetzen
-- [x] "Novacode Solutions GmbH" -> "Novacode GmbH" (ueberall) — side-effects.ts, demo-data.ts, server.py
-- [ ] Slack: Echten Kundenkanal #client-novacode erstellen (Slack API conversations.create)
-- [x] Kalender: Random Arbeitszeit Mo-Fr 9-16 Uhr innerhalb 2-7 Tage + Google Meet + Teilnehmer
-- [ ] Drive: Root-Ordner mit Kunden-E-Mail teilen (Berechtigung)
-- [ ] E-Mail: Umfangreicher mit Kickoff-Termin, Vorbereitung, Upload-Link
-- [ ] Slack nach Strategie (st10): Zusaetzliche Nachricht
-- [ ] Slack nach Copy (cc05): Zusaetzliche Nachricht
-- [ ] Ad-Texte: Deutlich verbessern — laenger, Pain-Point-fokussiert, professionelle Frameworks
-- [ ] Kampagnen: Aktuelles Datum verwenden
+### Erledigt
+- [x] "Novacode Solutions GmbH" -> "Novacode GmbH" (ueberall)
+- [x] Slack: Kundenkanal #client-novacode erstellen + Team einladen + Block-Kit Welcome
+- [x] Kalender: Random Arbeitszeit Mo-Fr 9-16 Uhr + Google Meet + Teilnehmer
+- [x] Drive: Root-Ordner mit Kunden-E-Mail teilen (Writer)
+- [x] E-Mail: HTML mit Kickoff-Termin, Vorbereitung, Upload-Link
+- [x] Slack nach Strategie (st10): Block-Kit mit Strategy-Docs
+- [x] Slack nach Copy (cc05): Block-Kit mit Copy-Docs
+- [x] Kampagnen: Aktuelles Datum, DACH Naming Convention
+- [x] Meta Ads: Echte API-Integration (3 Kampagnen, 7 Ad Sets, Ads mit Bildern)
+- [x] fn08 -> fn10 Edge (Dankeseite -> Pixel-Tracking)
+- [x] Kickoff-Delays reduziert
+- [x] Alle Outputs auf Deutsch
+- [x] Tracking Sheet Recruiting-Version
+- [x] Zuruecksetzen-Button sichtbar
+- [x] Dokumente-Panel reaktiv
+- [x] Cleanup: Template-Dateien geschuetzt
+- [x] Race Condition gefixt (image_hashes + Meta Rate-Limit via DAG-Edges)
+- [x] Drive-Ordner auf Deutsch (01_Verwaltung, 02_Strategie, etc.)
+- [x] Email-Betreff Encoding gefixt (kein em-dash)
+- [x] Ad/Creative Naming Convention (DACH: Format | Konzept | Angle | Creator | Variante | Datum)
+- [x] Slack Cleanup: Bot joined vor Archive
+- [x] ClickUp "name taken" Fallback
+
+### Noch offen
 - [ ] st05 Doc-ID fixen (teilt sich aktuell mit st02)
-- [x] fn08 -> fn10 Edge hinzugefuegt (Dankeseite -> Pixel-Tracking)
-- [x] Kickoff-Delays reduziert (kc02: 20s->5s, kc03: 35s->10s)
 - [ ] Tracking Sheet in 07_Tracking ablegen (is07 Node)
 - [ ] ClickUp Tasks mit Links zu Dokumenten in Beschreibungen
 - [ ] Node Labels/Beschreibungen pruefen (nicht abgeschnitten)
 - [ ] Systemname im Editor nicht abgeschnitten
-- [x] Alle Outputs komplett auf Deutsch (ausser Fachbegriffe wie "Ads Angle", "PAS", etc.)
-- [x] Tracking Sheet: Recruiting-Version erstellt (1HiPHnlWd31327uiGMQBRyaAZLhSDP6VaqwrZqPP5k6I)
-- [x] Zuruecksetzen-Button: Sichtbar im Editor + Praesentationsmodus (Bedingung gefixt)
-- [x] Dokumente-Panel: Button immer sichtbar, liveOutputs reaktiv
-- [x] Cleanup: Template-Dateien werden nie geloescht
+- [ ] Tracking Sheet Inhalt auf Recruiting anpassen (manuell in Google Sheets)
 
 ### Regeln fuer Zuruecksetzen (Cleanup)
 Folgende Dinge werden beim Zuruecksetzen **NICHT** geloescht:

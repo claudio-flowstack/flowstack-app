@@ -207,8 +207,14 @@ const LinkedIn: React.FC = () => (
 )
 
 const Meta: React.FC = () => (
-  <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-    <path d="M5 12c0-3.5 1.5-7 3.5-7 1.3 0 2 1.5 3.5 4.5 1.5-3 2.2-4.5 3.5-4.5 2 0 3.5 3.5 3.5 7s-1.5 7-3.5 7c-1.3 0-2-1.5-3.5-4.5-1.5 3-2.2 4.5-3.5 4.5C6.5 19 5 15.5 5 12z" fill="#0081FB"/>
+  <svg width={s} height={s} viewBox="0 0 512 512" fill="none">
+    <defs>
+      <linearGradient id="meta-g" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#0081FB"/>
+        <stop offset="100%" stopColor="#0064E0"/>
+      </linearGradient>
+    </defs>
+    <path d="M115.2 256c0-66.8 22-119.6 51.2-143.2 14-11.2 29.6-16 45.6-12.8 20 4 38.8 22.8 60 60l24 42c14.4 25.2 26.4 44.4 42 56.8 16.8 13.2 35.6 17.6 58 10 27.6-9.2 47.2-40 58.4-80.4 9.2-33.2 13.6-74 13.6-116.4h-60c0 38-3.6 72-11.2 98.8-8.4 30-20.8 47.6-34 52-7.6 2.4-13.6.4-21.2-5.6-10-8-19.6-22-32.4-44.4l-25.2-44c-24-42.4-48-68-82-74.4-26.4-5.2-51.6 3.2-73.2 20.4C91.6 115.6 56 180.4 56 256s35.6 140.4 72.8 181.2c21.6 17.2 46.8 25.6 73.2 20.4 34-6.4 58-32 82-74.4l25.2-44c12.8-22.4 22.4-36.4 32.4-44.4 7.6-6 13.6-8 21.2-5.6 13.2 4.4 25.6 22 34 52 7.6 26.8 11.2 60.8 11.2 98.8h60c0-42.4-4.4-83.2-13.6-116.4-11.2-40.4-30.8-71.2-58.4-80.4-22.4-7.6-41.2-3.2-58 10-15.6 12.4-27.6 31.6-42 56.8l-24 42c-21.2 37.2-40 56-60 60-16 3.2-31.6-1.6-45.6-12.8-29.2-23.6-51.2-76.4-51.2-143.2z" fill="url(#meta-g)"/>
   </svg>
 )
 
@@ -232,9 +238,19 @@ const TikTok: React.FC = () => (
 
 const Instagram: React.FC = () => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-    <rect x="3" y="3" width="18" height="18" rx="5" stroke="#E4405F" strokeWidth="1.5" fill="#E4405F" opacity={0.12}/>
-    <circle cx="12" cy="12" r="4" stroke="#E4405F" strokeWidth="1.5" fill="none"/>
-    <circle cx="17.5" cy="6.5" r="1.2" fill="#E4405F"/>
+    <defs>
+      <linearGradient id="ig-g" x1="0%" y1="100%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#FFDC80"/>
+        <stop offset="25%" stopColor="#F77737"/>
+        <stop offset="50%" stopColor="#E1306C"/>
+        <stop offset="75%" stopColor="#C13584"/>
+        <stop offset="100%" stopColor="#833AB4"/>
+      </linearGradient>
+    </defs>
+    <rect x="2" y="2" width="20" height="20" rx="6" fill="url(#ig-g)"/>
+    <rect x="4.5" y="4.5" width="15" height="15" rx="4" stroke="white" strokeWidth="1.5" fill="none"/>
+    <circle cx="12" cy="12" r="3.5" stroke="white" strokeWidth="1.5" fill="none"/>
+    <circle cx="17" cy="7" r="1.1" fill="white"/>
   </svg>
 )
 

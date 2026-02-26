@@ -77,6 +77,7 @@ SLACK_CLAUDIO = "U0AA1KHD0G2"
 SLACK_ANAK = "U0A9L6KUT5M"
 SLACK_TEAM_MEMBERS = [SLACK_CLAUDIO, SLACK_ANAK]  # Werden automatisch in neue Client-Channels eingeladen
 
+
 # Vorbereitete Dokument-Links (Google Docs)
 STRATEGY_DOCS = {
     "Zielgruppen-Avatar": "https://docs.google.com/document/d/1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY/edit",
@@ -327,6 +328,9 @@ async def upload_meta_images() -> list[str]:
     return hashes
 
 
+_AD_CONCEPTS = ["PainPoint", "SocialProof", "Testimonial"]
+_AD_ANGLES = ["Fachkraefte", "Zeitersparnis", "ROI"]
+
 async def create_meta_ads(
     acct: str,
     adset_id: str,
@@ -335,16 +339,24 @@ async def create_meta_ads(
     company: str,
     destination_url: str,
     cta_type: str = "APPLY_NOW",
+    funnel_stage: str = "TOF",
 ) -> list[str]:
-    """Ads erstellen: 1 Ad pro Bild, alle mit dem gleichen Copy-Text."""
+    """Ads erstellen: 1 Ad pro Bild mit DACH Naming Convention."""
     if not META_PAGE_ID:
-        log.warning("Kein META_PAGE_ID — Ads-Erstellung übersprungen")
+        log.warning("Kein META_PAGE_ID — Ads-Erstellung uebersprungen")
         return []
     ad_ids: list[str] = []
+    month = datetime.now().strftime("%Y-%m")
     copy_text = copy_texts[0].format(company=company) if copy_texts else f"Jetzt bewerben bei {company}!"
     for i, img_hash in enumerate(image_hashes):
+        concept = _AD_CONCEPTS[i % len(_AD_CONCEPTS)]
+        angle = _AD_ANGLES[i % len(_AD_ANGLES)]
+        variant = f"V{i+1}"
+        # DACH Naming: Format | Konzept | Angle | Creator | Variante | Datum
+        creative_name = f"Image | {concept} | {angle} | Inhouse | {variant} | {month}"
+        ad_name = f"{funnel_stage} | {concept} | {angle} | {variant} | {month}"
         creative = await meta_api("POST", f"{acct}/adcreatives", {
-            "name": f"Creative_{i+1}_{adset_id[:8]}",
+            "name": creative_name,
             "object_story_spec": {
                 "page_id": META_PAGE_ID,
                 "link_data": {
@@ -359,13 +371,13 @@ async def create_meta_ads(
             },
         })
         ad = await meta_api("POST", f"{acct}/ads", {
-            "name": f"Ad_{i+1}_{adset_id[:8]}",
+            "name": ad_name,
             "adset_id": adset_id,
             "creative": {"creative_id": creative["id"]},
             "status": "PAUSED",
         })
         ad_ids.append(ad["id"])
-    log.info(f"Meta Ads erstellt für AdSet {adset_id}: {ad_ids}")
+    log.info(f"Meta Ads erstellt fuer AdSet {adset_id}: {ad_ids}")
     return ad_ids
 
 
@@ -492,14 +504,14 @@ async def create_drive_folders(body: Optional[dict] = None):
 
     # Unterordner
     subfolders = [
-        "01_Administration",
-        "02_Strategy",
-        "03_Copy",
+        "01_Verwaltung",
+        "02_Strategie",
+        "03_Texte",
         "04_Creatives",
         "05_Funnel",
-        "06_Ads",
+        "06_Anzeigen",
         "07_Tracking",
-        "08_Transcripts",
+        "08_Transkripte",
     ]
 
     created = {}
@@ -511,23 +523,23 @@ async def create_drive_folders(body: Optional[dict] = None):
         })
         created[name] = folder["id"]
 
-    # Zusätzliche Unterordner für 02_Strategy
+    # Zusätzliche Unterordner für 02_Strategie
     strategy_subs = [
-        "Target_Audience_Avatar",
-        "Employer_Avatar",
+        "Zielgruppen_Avatar",
+        "Arbeitgeber_Avatar",
         "Messaging_Framework",
         "Creative_Brief",
-        "Brand_Design_Guidelines",
+        "Brand_Design_Richtlinien",
     ]
     for name in strategy_subs:
         await google_api("POST", "https://www.googleapis.com/drive/v3/files", {
             "name": name,
             "mimeType": "application/vnd.google-apps.folder",
-            "parents": [created["02_Strategy"]],
+            "parents": [created["02_Strategie"]],
         })
 
     # Unterordner für 04_Creatives
-    for name in ["Raw_Uploads", "Edited_Creatives", "Final_Ads"]:
+    for name in ["Roh_Uploads", "Bearbeitete_Creatives", "Finale_Anzeigen"]:
         await google_api("POST", "https://www.googleapis.com/drive/v3/files", {
             "name": name,
             "mimeType": "application/vnd.google-apps.folder",
@@ -640,7 +652,7 @@ async def send_welcome_email(body: Optional[dict] = None):
     kickoff_date = (body or {}).get("kickoff_date", "in den nächsten Tagen")
 
     import base64
-    subject = f"Willkommen bei Flowstack — Ihr Recruiting Kickoff ({company})"
+    subject = f"Willkommen bei Flowstack - Ihr Recruiting Kickoff ({company})"
     body_html = f"""\
 <!DOCTYPE html>
 <html lang="de">
@@ -1431,6 +1443,7 @@ async def execute_node(body: dict):
 
         elif node_id == "ca05":
             # Initial Ad Sets (3x) — Manuelle Placements: nur Facebook Feed + Instagram Feed
+
             campaign_id = context.get("meta_campaigns", {}).get("initial")
             if not campaign_id:
                 result = {"skipped": True, "reason": "Keine Initial-Kampagne"}
@@ -1474,7 +1487,7 @@ async def execute_node(body: dict):
                         if image_hashes:
                             await create_meta_ads(
                                 acct, resp_data["id"], image_hashes,
-                                AD_COPY_INITIAL, company, destination_url, "APPLY_NOW",
+                                AD_COPY_INITIAL, company, destination_url, "APPLY_NOW", "TOF",
                             )
                     ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"
                     result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": ads_url}
@@ -1482,6 +1495,7 @@ async def execute_node(body: dict):
                 except Exception as e:
                     log.error(f"Meta ca05 Initial Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"}
+
 
         elif node_id == "ca06":
             # Retargeting Campaign — Objective: Leads, CBO: OFF
@@ -1508,6 +1522,7 @@ async def execute_node(body: dict):
 
         elif node_id == "ca07":
             # Retargeting Ad Sets (3x) — Auto-Placements, 10€/Tag
+
             campaign_id = context.get("meta_campaigns", {}).get("retargeting")
             if not campaign_id:
                 result = {"skipped": True, "reason": "Keine Retargeting-Kampagne"}
@@ -1547,7 +1562,7 @@ async def execute_node(body: dict):
                         if image_hashes:
                             await create_meta_ads(
                                 acct, resp_data["id"], image_hashes,
-                                AD_COPY_RETARGETING, company, destination_url, "APPLY_NOW",
+                                AD_COPY_RETARGETING, company, destination_url, "APPLY_NOW", "RT",
                             )
                     ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"
                     result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": ads_url}
@@ -1555,6 +1570,7 @@ async def execute_node(body: dict):
                 except Exception as e:
                     log.error(f"Meta ca07 Retargeting Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"}
+
 
         elif node_id == "ca08":
             # Warmup Campaign — Objective: Awareness, CBO: OFF
@@ -1581,6 +1597,7 @@ async def execute_node(body: dict):
 
         elif node_id == "ca09":
             # Warmup Ad Sets — Video-freundliche Placements, 10€/Tag
+
             campaign_id = context.get("meta_campaigns", {}).get("warmup")
             if not campaign_id:
                 result = {"skipped": True, "reason": "Keine Warmup-Kampagne"}
@@ -1613,8 +1630,8 @@ async def execute_node(body: dict):
                     # Warmup: Bild-Ads als Platzhalter (Video-Ads können später ergänzt werden)
                     if image_hashes:
                         await create_meta_ads(
-                            acct, adset_id, image_hashes[:1],  # 1 Bild für Warmup
-                            AD_COPY_WARMUP, company, destination_url, "LEARN_MORE",
+                            acct, adset_id, image_hashes[:1],  # 1 Bild fuer Warmup
+                            AD_COPY_WARMUP, company, destination_url, "LEARN_MORE", "WU",
                         )
                     ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"
                     result = {"adset_ids": [adset_id], "count": 1, "url": ads_url}
@@ -1622,6 +1639,7 @@ async def execute_node(body: dict):
                 except Exception as e:
                     log.error(f"Meta ca09 Warmup Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"}
+
 
         else:
             return {"ok": True, "result": None, "message": f"Kein Side-Effect für {node_id}"}
@@ -1702,10 +1720,17 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             errors.append(f"calendar_event:{event_id} — {e}")
             log.error(f"Cleanup: Calendar Event {event_id} fehlgeschlagen: {e}")
 
-    # Slack Channel archivieren (nicht löschen — kann bei Bedarf wiederhergestellt werden)
+    # Slack Channel archivieren (Bot muss erst joinen falls nicht mehr drin)
     if channel_id and SLACK_BOT_TOKEN:
         try:
             async with httpx.AsyncClient() as client:
+                # Erst joinen (falls Bot nicht mehr im Channel)
+                await client.post(
+                    "https://slack.com/api/conversations.join",
+                    headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
+                    json={"channel": channel_id},
+                )
+                # Dann archivieren
                 resp = await client.post(
                     "https://slack.com/api/conversations.archive",
                     headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
@@ -1715,6 +1740,8 @@ async def cleanup_demo_data(body: Optional[dict] = None):
                 if r.get("ok"):
                     deleted.append(f"slack_channel:{channel_id}")
                     log.info(f"Cleanup: Slack Channel {channel_id} archiviert")
+                elif r.get("error") == "already_archived":
+                    deleted.append(f"slack_channel:{channel_id}")
                 else:
                     errors.append(f"slack_channel:{channel_id} — {r.get('error')}")
         except Exception as e:

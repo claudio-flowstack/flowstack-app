@@ -71,6 +71,10 @@ interface NodeResult {
   error?: string
   timestamp: string
   durationMs: number
+  /** Was an die API geschickt wurde */
+  request: { nodeId: string; context: ExecutionContext }
+  /** Snapshot des Contexts zum Zeitpunkt des Aufrufs */
+  contextAtStart: ExecutionContext
 }
 
 const _nodeResults = new Map<string, NodeResult>()
@@ -122,14 +126,14 @@ export async function executeSideEffect(
   }
 
   const startTime = Date.now()
+  const contextSnapshot: ExecutionContext = { ..._context }
+  const requestPayload = { nodeId, context: contextSnapshot }
+
   try {
     const resp = await fetch(`${BACKEND_URL}/api/execute-node`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodeId,
-        context: { ..._context },
-      }),
+      body: JSON.stringify(requestPayload),
       signal: AbortSignal.timeout(30000),
     })
 
@@ -140,6 +144,8 @@ export async function executeSideEffect(
         error: `HTTP ${resp.status}: ${errText}`,
         timestamp: new Date().toISOString(),
         durationMs: Date.now() - startTime,
+        request: requestPayload,
+        contextAtStart: contextSnapshot,
       })
       return null
     }
@@ -151,6 +157,8 @@ export async function executeSideEffect(
       result: data.result ?? data,
       timestamp: new Date().toISOString(),
       durationMs: Date.now() - startTime,
+      request: requestPayload,
+      contextAtStart: contextSnapshot,
     })
 
     // Kontext mit Ergebnissen anreichern
@@ -175,6 +183,8 @@ export async function executeSideEffect(
       error: errMsg,
       timestamp: new Date().toISOString(),
       durationMs: Date.now() - startTime,
+      request: requestPayload,
+      contextAtStart: contextSnapshot,
     })
     return null
   }

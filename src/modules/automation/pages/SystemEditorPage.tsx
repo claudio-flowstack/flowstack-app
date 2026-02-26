@@ -108,7 +108,11 @@ function persistArtifacts(
     const sysOutputs: typeof masterOutputs = []
     for (const node of sys.nodes) {
       if (node.demoConfig?.artifacts) {
-        for (const art of node.demoConfig.artifacts) {
+        // Only persist artifacts with real links — skip status notifications (type=text, url=#)
+        const realArtifacts = node.demoConfig.artifacts.filter(art =>
+          art.url !== '#' || art.type === 'url' || art.type === 'image'
+        )
+        for (const art of realArtifacts) {
           const output = {
             id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
             name: art.label,
@@ -382,8 +386,24 @@ export function SystemEditorPage() {
       const mapType = (t: string) =>
         t === 'image' ? ('image' as const) : t === 'url' ? ('website' as const) : ('document' as const)
 
+      // Helper: find node label across all systems
+      const findNodeLabel = (nid: string) => {
+        for (const sys of allSystems) {
+          const n = sys.nodes.find((nd) => nd.id === nid)
+          if (n) return n.label
+        }
+        return nid
+      }
+
       startDagExecution(dagNodes, dagEdges, {
         onNodeRunning: (nodeId) => {
+          // Log: node started
+          const label = findNodeLabel(nodeId)
+          setExecutionLog((prev) => [
+            ...prev,
+            { id: `log-${nodeId}-run`, timestamp: new Date().toISOString(), status: 'running', message: `${label}`, nodeId },
+          ])
+
           if (hasSideEffect(nodeId)) {
             executeSideEffect(nodeId)
               .then((result) => {
@@ -401,13 +421,35 @@ export function SystemEditorPage() {
                 }
                 completeNode(nodeId)
               })
-              .catch(() => completeNode(nodeId))
+              .catch((err) => {
+                // Log: side-effect failed
+                setExecutionLog((prev) => [
+                  ...prev,
+                  { id: `log-${nodeId}-err`, timestamp: new Date().toISOString(), status: 'error', message: `${label}: ${err instanceof Error ? err.message : 'Fehler'}`, nodeId },
+                ])
+                completeNode(nodeId)
+              })
           }
         },
         onNodeCompleted: (nodeId, systemId, durationMs) => {
           // Find the node and persist its artifacts progressively
           const sys = allSystems.find(s => s.id === systemId)
           const node = sys?.nodes.find(n => n.id === nodeId)
+
+          // Log: node completed with description
+          const description = node?.demoConfig?.artifacts?.[0]?.contentPreview || node?.description
+          setExecutionLog((prev) => [
+            ...prev,
+            {
+              id: `log-${nodeId}-done`,
+              timestamp: new Date().toISOString(),
+              status: 'success',
+              message: description ? `${node?.label ?? nodeId}: ${description}` : (node?.label ?? nodeId),
+              nodeId,
+              duration: durationMs,
+            },
+          ])
+
           if (!node?.demoConfig?.artifacts) return
 
           // Only persist artifacts with real links — skip status notifications (type=text, url=#)
@@ -538,7 +580,25 @@ export function SystemEditorPage() {
     }
 
     startGlobalExecution(entries, {
-      onComplete: () => persistArtifacts(effectiveSystem, allSystems, updateSystem),
+      onComplete: () => {
+        persistArtifacts(effectiveSystem, allSystems, updateSystem)
+        // Generate log entries for all nodes
+        const logEntries: ExecutionLogEntry[] = []
+        for (const sys of [effectiveSystem, ...systems.filter((s) => s.parentId === effectiveSystem.id)]) {
+          for (const node of sys.nodes) {
+            const desc = node.demoConfig?.artifacts?.[0]?.contentPreview || node.description
+            logEntries.push({
+              id: `log-${node.id}`,
+              timestamp: new Date().toISOString(),
+              status: 'success',
+              message: desc ? `${node.label}: ${desc}` : node.label,
+              nodeId: node.id,
+              duration: node.demoConfig?.delay,
+            })
+          }
+        }
+        setExecutionLog(logEntries)
+      },
     })
   }, [effectiveSystem, systems, updateSystem])
 
@@ -633,17 +693,29 @@ export function SystemEditorPage() {
     stopGlobalExecution()
     // 2. Cleanup created resources in backend
     await cleanupSideEffects()
-    // 3. Clear outputs on all systems + executionLog on current system
-    //    (merged into single updateSystem per system to avoid race condition)
+    // 3. Clear outputs on all related systems sequentially (await each to avoid
+    //    localStorage race condition where concurrent writes overwrite each other)
     if (effectiveSystem) {
       const subs = systems.filter((s) => s.parentId === effectiveSystem.id)
       for (const s of [effectiveSystem, ...subs]) {
-        updateSystem(s.id,
+        await updateSystem(s.id,
           s.id === systemId ? { outputs: [], executionLog: [] } : { outputs: [] },
         )
       }
+      // Also clear parent system outputs (execution accumulates outputs there too)
+      if (effectiveSystem.parentId) {
+        const parent = systems.find((s) => s.id === effectiveSystem.parentId)
+        if (parent) {
+          await updateSystem(parent.id, { outputs: [] })
+          // Clear sibling sub-systems too
+          const siblings = systems.filter((s) => s.parentId === parent.id && s.id !== effectiveSystem.id)
+          for (const sib of siblings) {
+            await updateSystem(sib.id, { outputs: [] })
+          }
+        }
+      }
     } else if (systemId) {
-      updateSystem(systemId, { executionLog: [] })
+      await updateSystem(systemId, { executionLog: [] })
     }
     // 4. Clear local execution log state
     setExecutionLog([])

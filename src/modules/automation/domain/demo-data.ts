@@ -278,6 +278,8 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     connections: [
       { from: 'ca01', to: 'ca04' }, { from: 'ca02', to: 'ca06' }, { from: 'ca03', to: 'ca08' },
       { from: 'ca04', to: 'ca05' }, { from: 'ca06', to: 'ca07' }, { from: 'ca08', to: 'ca09' },
+      { from: 'ca04', to: 'ca07' }, { from: 'ca04', to: 'ca09' },  // image_hashes: ca07+ca09 brauchen Bilder von ca04
+      { from: 'ca05', to: 'ca07' }, { from: 'ca07', to: 'ca09' },  // Meta Rate-Limit: Ad Sets sequentiell
       { from: 'ca05', to: 'ca10' }, { from: 'ca07', to: 'ca10' },
       { from: 'ca09', to: 'ca11' },
       { from: 'ca10', to: 'ca11' },

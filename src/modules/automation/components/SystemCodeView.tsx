@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   ChevronRight,
   ArrowDownRight,
@@ -36,9 +36,17 @@ export function SystemCodeView({
   const expandAll = () => setExpanded(new Set(system.nodes.map((n) => n.id)))
   const collapseAll = () => setExpanded(new Set())
 
-  // Read live execution data
+  // Live-Polling: re-read execution data every 500ms during execution
+  const [tick, setTick] = useState(0)
+  useEffect(() => {
+    const iv = setInterval(() => setTick((t) => t + 1), 500)
+    return () => clearInterval(iv)
+  }, [])
+
+  // Read live execution data (re-evaluated on every tick)
   const context = getExecutionContext()
   const nodeResults = getNodeResults()
+  void tick // used to trigger re-reads above
   const hasContext = Object.keys(context).some(
     (k) => k !== 'company' && k !== 'email' && context[k as keyof typeof context] != null,
   )
@@ -309,24 +317,68 @@ export function SystemCodeView({
                     </div>
                   )}
 
-                  {/* Side-Effect Result */}
-                  {result && !result.error && (
-                    <div className={cn('border-b border-border', compact ? 'px-2 py-1.5' : 'px-3 py-2')}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Server className="h-3 w-3 text-blue-500 shrink-0" />
-                        <span className={cn('font-medium text-blue-500', compact ? 'text-[10px]' : 'text-[11px]')}>
-                          API Response
-                        </span>
-                        <span className="text-[9px] text-muted-foreground">{result.durationMs}ms</span>
-                      </div>
-                      <pre
-                        className={cn(
-                          'bg-zinc-950 rounded-md font-mono text-emerald-400 whitespace-pre-wrap break-words select-all overflow-auto',
-                          compact ? 'p-2 text-[9px] leading-relaxed max-h-40' : 'p-2 text-[10px] leading-relaxed max-h-52',
-                        )}
-                      >
-                        {JSON.stringify(result.result, null, 2)}
-                      </pre>
+                  {/* Side-Effect: Request + Response + Context */}
+                  {result && (
+                    <div className={cn('border-b border-border space-y-2', compact ? 'px-2 py-2' : 'px-3 py-2')}>
+                      {/* Context at start */}
+                      {result.contextAtStart && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <span className={cn('font-medium text-muted-foreground', compact ? 'text-[9px]' : 'text-[10px]')}>
+                              Context bei Aufruf
+                            </span>
+                          </div>
+                          <pre
+                            className={cn(
+                              'bg-zinc-950 rounded-md font-mono text-zinc-500 whitespace-pre-wrap break-words select-all overflow-auto',
+                              compact ? 'p-2 text-[8px] leading-relaxed max-h-28' : 'p-2 text-[9px] leading-relaxed max-h-36',
+                            )}
+                          >
+                            {JSON.stringify(result.contextAtStart, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* Request */}
+                      {result.request && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <ArrowUpRight className="h-3 w-3 text-amber-500 shrink-0" />
+                            <span className={cn('font-medium text-amber-500', compact ? 'text-[9px]' : 'text-[10px]')}>
+                              Request
+                            </span>
+                          </div>
+                          <pre
+                            className={cn(
+                              'bg-zinc-950 rounded-md font-mono text-amber-400/70 whitespace-pre-wrap break-words select-all overflow-auto',
+                              compact ? 'p-2 text-[8px] leading-relaxed max-h-28' : 'p-2 text-[9px] leading-relaxed max-h-36',
+                            )}
+                          >
+                            {JSON.stringify(result.request, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+
+                      {/* Response */}
+                      {!result.error && (
+                        <div>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <Server className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span className={cn('font-medium text-emerald-500', compact ? 'text-[9px]' : 'text-[10px]')}>
+                              Response
+                            </span>
+                            <span className="text-[9px] text-muted-foreground">{result.durationMs}ms</span>
+                          </div>
+                          <pre
+                            className={cn(
+                              'bg-zinc-950 rounded-md font-mono text-emerald-400 whitespace-pre-wrap break-words select-all overflow-auto',
+                              compact ? 'p-2 text-[8px] leading-relaxed max-h-32' : 'p-2 text-[9px] leading-relaxed max-h-44',
+                            )}
+                          >
+                            {JSON.stringify(result.result, null, 2)}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   )}
 
