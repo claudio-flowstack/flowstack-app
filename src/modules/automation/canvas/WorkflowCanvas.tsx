@@ -900,6 +900,8 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
   // Feature Log + Presentation panels
   const [showFeatureLog, setShowFeatureLog] = useState(false);
   const [showPresDocuments, setShowPresDocuments] = useState(false);
+  const [showPresCode, setShowPresCode] = useState(false);
+  const [presCodeExpanded, setPresCodeExpanded] = useState(new Set());
 
   // Live timer refs — update DOM directly to avoid full canvas re-renders (100ms interval)
   const timerRef1 = useRef<HTMLSpanElement>(null);
@@ -5374,7 +5376,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
               </div>
 
               {/* Runtime badge + Documents panel (top-left, below edit toggle) */}
-              {(effectiveIsExecuting || (showExecKpis && execDuration > 0) || showPresDocuments) && (
+              {(effectiveIsExecuting || (showExecKpis && execDuration > 0) || showPresDocuments || showPresCode) && (
                 <div className="absolute top-14 left-3 z-50 flex flex-col gap-2" style={{ maxHeight: 'calc(100vh - 80px)' }}>
                   {/* Runtime Badge */}
                   {(effectiveIsExecuting || (showExecKpis && execDuration > 0)) && (
@@ -5445,6 +5447,69 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                       )}
                     </div>
                   )}
+
+                  {/* Code Panel */}
+                  {showPresCode && initialSystem && (
+                    <div className="w-72 bg-zinc-900/95 rounded-2xl border border-white/10 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
+                        <span className="text-[11px] text-white/80 font-semibold">Code</span>
+                        <span className="text-[9px] text-white/40">{initialSystem.nodes.length} Nodes</span>
+                        <button onClick={() => setShowPresCode(false)} className="p-0.5 rounded hover:bg-white/10"><X size={12} className="text-white/50" /></button>
+                      </div>
+                      <div className="max-h-[50vh] overflow-y-auto p-2 space-y-0.5">
+                        {initialSystem.nodes.map((node) => {
+                          const inC = initialSystem.connections.filter(c => c.to === node.id)
+                          const outC = initialSystem.connections.filter(c => c.from === node.id)
+                          const artCount = node.demoConfig?.artifacts?.length ?? 0
+                          const isOpen = presCodeExpanded.has(node.id)
+                          return (
+                            <div key={node.id} className="rounded-lg overflow-hidden">
+                              <button
+                                onClick={() => setPresCodeExpanded(prev => { const n = new Set(prev); n.has(node.id) ? n.delete(node.id) : n.add(node.id); return n; })}
+                                className="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded-lg hover:bg-white/5 transition-colors"
+                              >
+                                <ChevronRight size={10} className={`text-white/30 shrink-0 transition-transform duration-150 ${isOpen ? 'rotate-90' : ''}`} />
+                                <span className={`text-[8px] font-mono px-1 py-0.5 rounded shrink-0 ${node.demoConfig ? 'bg-emerald-500/15 text-emerald-400' : 'bg-white/10 text-white/40'}`}>{node.type}</span>
+                                <span className="text-[10px] text-white/80 font-medium truncate flex-1">{node.label}</span>
+                                {artCount > 0 && <span className="text-[8px] text-purple-400 tabular-nums">{artCount}</span>}
+                                <span className="text-[8px] text-white/25 tabular-nums">{inC.length}/{outC.length}</span>
+                              </button>
+                              {isOpen && (
+                                <div className="mx-1 mb-1">
+                                  {(inC.length > 0 || outC.length > 0) && (
+                                    <div className="px-2 py-1 space-y-0.5">
+                                      {inC.map(c => { const fn = initialSystem.nodes.find(n => n.id === c.from); return (
+                                        <div key={`i-${c.from}`} className="flex items-center gap-1 text-[9px]">
+                                          <span className="text-blue-400">&#8592;</span>
+                                          <span className="text-white/50">von</span>
+                                          <span className="text-white/70 truncate">{fn?.label ?? c.from}</span>
+                                        </div>
+                                      )})}
+                                      {outC.map(c => { const tn = initialSystem.nodes.find(n => n.id === c.to); return (
+                                        <div key={`o-${c.to}`} className="flex items-center gap-1 text-[9px]">
+                                          <span className="text-amber-400">&#8594;</span>
+                                          <span className="text-white/50">nach</span>
+                                          <span className="text-white/70 truncate">{tn?.label ?? c.to}</span>
+                                        </div>
+                                      )})}
+                                    </div>
+                                  )}
+                                  <pre className="bg-black/40 rounded-md p-2 text-[8px] leading-relaxed text-emerald-400 font-mono whitespace-pre-wrap break-words select-all max-h-40 overflow-auto">
+                                    {JSON.stringify({
+                                      id: node.id,
+                                      ...(node.demoConfig ? { demoConfig: node.demoConfig } : {}),
+                                      ...(node.linkedResourceId ? { linkedResource: node.linkedResourceId } : {}),
+                                      ...(node.linkedSubSystemId ? { linkedSubSystem: node.linkedSubSystemId } : {}),
+                                    }, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -5510,6 +5575,13 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                     title={lang === 'en' ? 'Feature Log' : 'Feature-Log'}
                   >
                     <SlidersHorizontal size={14} />
+                  </button>
+                  <button
+                    onClick={() => setShowPresCode(c => !c)}
+                    className={`p-1.5 rounded-full transition-colors ${showPresCode ? 'text-white bg-white/15' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+                    title="Code"
+                  >
+                    <Code2 size={14} />
                   </button>
                   <div className="w-px h-4 bg-white/20" />
                   <button

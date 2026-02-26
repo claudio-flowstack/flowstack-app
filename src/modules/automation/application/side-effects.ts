@@ -65,6 +65,16 @@ let _context: ExecutionContext = {
   email: 'clazahlungskonto@gmail.com',
 }
 
+/** Per-Node Ergebnisse der Side-Effects */
+interface NodeResult {
+  result: Record<string, unknown> | null
+  error?: string
+  timestamp: string
+  durationMs: number
+}
+
+const _nodeResults = new Map<string, NodeResult>()
+
 let _enabled = false
 let _backendAvailable = false
 
@@ -79,6 +89,7 @@ export function resetSideEffectContext() {
     company: 'Novacode GmbH',
     email: 'clazahlungskonto@gmail.com',
   }
+  _nodeResults.clear()
 }
 
 /** Pruefen ob Backend erreichbar ist */
@@ -110,6 +121,7 @@ export async function executeSideEffect(
     return null
   }
 
+  const startTime = Date.now()
   try {
     const resp = await fetch(`${BACKEND_URL}/api/execute-node`, {
       method: 'POST',
@@ -121,9 +133,25 @@ export async function executeSideEffect(
       signal: AbortSignal.timeout(30000),
     })
 
-    if (!resp.ok) return null
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => resp.statusText)
+      _nodeResults.set(nodeId, {
+        result: null,
+        error: `HTTP ${resp.status}: ${errText}`,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - startTime,
+      })
+      return null
+    }
 
     const data = await resp.json()
+
+    // Per-Node Result speichern
+    _nodeResults.set(nodeId, {
+      result: data.result ?? data,
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+    })
 
     // Kontext mit Ergebnissen anreichern
     if (data.result) {
@@ -140,7 +168,14 @@ export async function executeSideEffect(
 
     return data.result
   } catch (err) {
+    const errMsg = err instanceof Error ? err.message : String(err)
     console.warn(`Side-Effect fuer ${nodeId} fehlgeschlagen:`, err)
+    _nodeResults.set(nodeId, {
+      result: null,
+      error: errMsg,
+      timestamp: new Date().toISOString(),
+      durationMs: Date.now() - startTime,
+    })
     return null
   }
 }
@@ -179,4 +214,14 @@ export async function cleanupSideEffects(): Promise<Record<string, unknown> | nu
 /** Gibt eine Kopie des aktuellen Execution-Kontexts zurueck */
 export function getExecutionContext(): ExecutionContext {
   return { ..._context }
+}
+
+/** Gibt alle per-Node Side-Effect Ergebnisse zurueck */
+export function getNodeResults(): Map<string, NodeResult> {
+  return new Map(_nodeResults)
+}
+
+/** Ist dieser Node ein Side-Effect Node? */
+export function isSideEffectNode(nodeId: string): boolean {
+  return SIDE_EFFECT_NODES.has(nodeId)
 }

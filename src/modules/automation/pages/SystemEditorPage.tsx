@@ -27,6 +27,7 @@ import {
 import { WorkflowCanvas } from '../canvas/WorkflowCanvas'
 import { OutputViewer } from '../components/OutputViewer'
 import { ResourceManager } from '../components/ResourceManager'
+import { SystemCodeView } from '../components/SystemCodeView'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
 import { EmptyState } from '@/shared/components/EmptyState'
 import { cn } from '@/shared/lib/utils'
@@ -48,16 +49,18 @@ import {
   PanelRightClose,
   Plus,
   X,
+  Code2,
 } from 'lucide-react'
 
 // ── Panel tab config ─────────────────────────────────────────────────────────
 
-type PanelTab = 'documents' | 'log' | 'resources'
+type PanelTab = 'documents' | 'log' | 'resources' | 'code'
 
 const PANEL_TABS: { key: PanelTab; label: string; icon: typeof FolderOpen }[] = [
   { key: 'documents', label: 'Dokumente', icon: FolderOpen },
   { key: 'log', label: 'Log', icon: Clock },
   { key: 'resources', label: 'Ressourcen', icon: FileBox },
+  { key: 'code', label: 'Debug', icon: Code2 },
 ]
 
 // ── Log helpers ──────────────────────────────────────────────────────────────
@@ -630,18 +633,20 @@ export function SystemEditorPage() {
     stopGlobalExecution()
     // 2. Cleanup created resources in backend
     await cleanupSideEffects()
-    // 3. Clear outputs on all Novacode systems
+    // 3. Clear outputs on all systems + executionLog on current system
+    //    (merged into single updateSystem per system to avoid race condition)
     if (effectiveSystem) {
       const subs = systems.filter((s) => s.parentId === effectiveSystem.id)
       for (const s of [effectiveSystem, ...subs]) {
-        updateSystem(s.id, { outputs: [] })
+        updateSystem(s.id,
+          s.id === systemId ? { outputs: [], executionLog: [] } : { outputs: [] },
+        )
       }
-    }
-    // 4. Clear execution log
-    setExecutionLog([])
-    if (systemId) {
+    } else if (systemId) {
       updateSystem(systemId, { executionLog: [] })
     }
+    // 4. Clear local execution log state
+    setExecutionLog([])
   }, [effectiveSystem, systems, systemId, updateSystem])
 
   // ── Top-level systems for navigation ───────────────────────────────────
@@ -835,26 +840,28 @@ export function SystemEditorPage() {
             {/* Panel Header with Tabs */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
               <div className="flex items-center gap-0.5">
-                {PANEL_TABS.map(({ key, label, icon: TabIcon }) => (
-                  <button
-                    key={key}
-                    onClick={() => setPanelTab(key)}
-                    className={cn(
-                      'flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md transition-colors',
-                      panelTab === key
-                        ? 'bg-muted text-foreground'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    <TabIcon className="h-3 w-3" />
-                    {label}
-                    {key === 'log' && executionLog.length > 0 && (
-                      <span className="text-[9px] bg-primary/10 text-primary rounded-full px-1 min-w-[16px] text-center">
-                        {executionLog.length}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {PANEL_TABS.map(({ key, label, icon: TabIcon }) => {
+                  const isActive = panelTab === key
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setPanelTab(key)}
+                      title={label}
+                      className={cn(
+                        'flex items-center gap-1 py-1 text-[11px] font-medium rounded-md transition-colors',
+                        isActive ? 'bg-muted text-foreground px-2' : 'text-muted-foreground hover:text-foreground px-1.5',
+                      )}
+                    >
+                      <TabIcon className="h-3 w-3 shrink-0" />
+                      {isActive && label}
+                      {key === 'log' && executionLog.length > 0 && (
+                        <span className="text-[9px] bg-primary/10 text-primary rounded-full px-1 min-w-[16px] text-center">
+                          {executionLog.length}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
               <button
                 onClick={() => setShowPanel(false)}
@@ -969,6 +976,13 @@ export function SystemEditorPage() {
                       }
                     }}
                   />
+                </div>
+              )}
+
+              {/* ── Code ──────────────────────────────────────────── */}
+              {panelTab === 'code' && (
+                <div className="p-3">
+                  <SystemCodeView system={system} compact />
                 </div>
               )}
             </div>

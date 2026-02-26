@@ -5,6 +5,7 @@ import { useAutomationStore } from '../application/automation-store'
 import type { AutomationSystem, SystemNode, WorkflowVersion } from '../domain/types'
 import { OutputViewer } from '../components/OutputViewer'
 import { ResourceManager } from '../components/ResourceManager'
+import { SystemCodeView } from '../components/SystemCodeView'
 import { PipelineView } from '../components/PipelineView'
 import { NodeEditModal } from '../canvas/NodeEditModal'
 import { EmptyState } from '@/shared/components/EmptyState'
@@ -28,17 +29,19 @@ import {
   Power,
   PowerOff,
   Plus,
+  Code2,
 } from 'lucide-react'
 
 // ── Tab config ───────────────────────────────────────────────────────────────
 
-type DetailTab = 'documents' | 'resources' | 'versions' | 'settings'
+type DetailTab = 'documents' | 'resources' | 'versions' | 'settings' | 'code'
 
 const DETAIL_TABS: { key: DetailTab; label: string; icon: typeof FolderOpen }[] = [
   { key: 'documents', label: 'Dokumente', icon: FolderOpen },
   { key: 'resources', label: 'Ressourcen', icon: FileBox },
   { key: 'versions', label: 'Versionen', icon: GitBranch },
   { key: 'settings', label: 'Einstellungen', icon: Settings },
+  { key: 'code', label: 'Debug', icon: Code2 },
 ]
 
 // ── System Detail Page (Level 2) ─────────────────────────────────────────────
@@ -701,6 +704,17 @@ export function SystemDetailPage() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ── Code ────────────────────────────────────────────────── */}
+        {detailTab === 'code' && (
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <Code2 className="h-5 w-5 text-muted-foreground" />
+              <h3 className="text-sm font-semibold text-foreground">System-Konfiguration</h3>
+            </div>
+            <SystemCodeView system={system} />
           </div>
         )}
       </div>
