@@ -20,7 +20,17 @@ import {
   FolderOpen,
   Globe,
   FileQuestion,
+  Timer,
 } from 'lucide-react'
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const s = ms / 1000
+  if (s < 60) return `${s.toFixed(1)}s`
+  const m = Math.floor(s / 60)
+  const rem = Math.round(s % 60)
+  return `${m}m ${rem}s`
+}
 
 // ── Filter tab definition ─────────────────────────────────────────────────
 
@@ -34,6 +44,7 @@ interface TabDef {
 const FILTER_TABS: TabDef[] = [
   { key: 'all', label: 'Alle' },
   { key: 'document', label: 'Dokument' },
+  { key: 'website', label: 'Webseite' },
   { key: 'spreadsheet', label: 'Tabelle' },
   { key: 'email', label: 'E-Mail' },
   { key: 'image', label: 'Bild' },
@@ -306,7 +317,7 @@ interface OutputViewerProps {
 // ── Component ─────────────────────────────────────────────────────────────
 
 export function OutputViewer({ outputs, className, compact }: OutputViewerProps) {
-  const items = outputs.length > 0 ? outputs : MOCK_OUTPUTS
+  const items = outputs
 
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -435,14 +446,20 @@ export function OutputViewer({ outputs, className, compact }: OutputViewerProps)
               {output.contentPreview}
             </p>
           )}
-          <p
+          <div
             className={cn(
-              'text-[11px] text-muted-foreground/70',
+              'flex items-center gap-2 text-[11px] text-muted-foreground/70',
               isGrid ? 'mt-2' : 'mt-0.5',
             )}
           >
-            {formatDate(output.createdAt)}
-          </p>
+            <span>{formatDate(output.createdAt)}</span>
+            {output.durationMs != null && output.durationMs > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                <Timer className="h-2.5 w-2.5" />
+                {formatDuration(output.durationMs)}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Action indicators */}

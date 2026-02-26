@@ -6,6 +6,7 @@ import type {
   NodeExecutionStatus,
   DemoNodeConfig,
 } from '../domain/types'
+import { executeSideEffect, hasSideEffect } from './side-effects'
 
 // ── BFS Schedule ────────────────────────────────────────────────────────────
 
@@ -215,7 +216,7 @@ export function createMockEventSource(): WorkflowEventSource {
           }, baseDelay),
         )
 
-        // Running
+        // Running + Side-Effect
         timeouts.push(
           setTimeout(() => {
             nodeStatusRegistry.emit({
@@ -224,6 +225,10 @@ export function createMockEventSource(): WorkflowEventSource {
               timestamp: Date.now(),
               message: 'Wird ausgeführt…',
             })
+            // Echte API-Calls feuern (async, blockiert Animation nicht)
+            if (hasSideEffect(item.nodeId)) {
+              executeSideEffect(item.nodeId).catch(() => {})
+            }
           }, baseDelay + 400),
         )
 

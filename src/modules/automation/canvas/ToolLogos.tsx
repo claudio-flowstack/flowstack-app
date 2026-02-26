@@ -326,6 +326,24 @@ const Mailchimp: React.FC = () => (
   </svg>
 )
 
+// ── Close CRM ────────────────────────────────────────────────────────────────
+
+const CloseCRM: React.FC = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="2" width="20" height="20" rx="4" fill="#1C2B3A"/>
+    <text x="12" y="16.5" textAnchor="middle" fill="#ffffff" fontSize="14" fontWeight="700" fontFamily="Arial, sans-serif">C</text>
+  </svg>
+)
+
+// ── ClickUp ──────────────────────────────────────────────────────────────────
+
+const ClickUp: React.FC = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+    <path d="M4.5 14.4l3.1-2.4c1.4 1.8 3 2.7 4.5 2.7s3.1-.9 4.5-2.7l3.1 2.4C17.5 17.3 15 18.7 12.1 18.7s-5.4-1.4-7.6-4.3z" fill="#7B68EE"/>
+    <path d="M4.5 10.5l3.1-2.4c1.4 1.8 3 2.7 4.5 2.7s3.1-.9 4.5-2.7l3.1 2.4C17.5 13.4 15 14.8 12.1 14.8s-5.4-1.4-7.6-4.3z" fill="#49CCF9"/>
+  </svg>
+)
+
 // ── Logo Registry ────────────────────────────────────────────────────────────
 
 export interface ToolLogo {
@@ -354,6 +372,10 @@ export const TOOL_LOGOS: Record<string, ToolLogo> = {
   'logo-hubspot':          { id: 'logo-hubspot',          name: 'HubSpot',          category: 'CRM',           component: HubSpot,         color: '#FF7A59' },
   'logo-salesforce':       { id: 'logo-salesforce',       name: 'Salesforce',       category: 'CRM',           component: Salesforce,      color: '#00A1E0' },
   'logo-pipedrive':        { id: 'logo-pipedrive',        name: 'Pipedrive',        category: 'CRM',           component: Pipedrive,       color: '#017737' },
+  'logo-close':            { id: 'logo-close',            name: 'Close CRM',       category: 'CRM',           component: CloseCRM,        color: '#1C2B3A' },
+
+  // Project Management
+  'logo-clickup':          { id: 'logo-clickup',          name: 'ClickUp',          category: 'PM',            component: ClickUp,         color: '#7B68EE' },
 
   // Automation
   'logo-make':             { id: 'logo-make',             name: 'Make',             category: 'Automation',    component: Make,            color: '#6D00CC' },

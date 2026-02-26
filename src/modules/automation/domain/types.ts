@@ -165,6 +165,8 @@ export interface SystemOutput {
   createdAt: string
   contentPreview?: string
   artifactType?: ArtifactSourceType
+  /** Generation duration in ms (from DAG execution) */
+  durationMs?: number
 }
 
 export type AdvancedOutputType = OutputType | 'json' | 'table' | 'csv'

@@ -489,6 +489,10 @@ const translations: Record<Language, Record<string, string>> = {
     'kpi.tab.activities': 'Aktivitäten',
     'kpi.tab.pipeline': 'Pipeline',
     'kpi.tab.analysis': 'Analyse',
+
+    // ── Edit ──
+    'edit.cancel': 'Abbrechen',
+    'edit.save': 'Speichern',
   },
 
   en: {
@@ -979,6 +983,10 @@ const translations: Record<Language, Record<string, string>> = {
     'kpi.tab.activities': 'Activities',
     'kpi.tab.pipeline': 'Pipeline',
     'kpi.tab.analysis': 'Analysis',
+
+    // ── Edit ──
+    'edit.cancel': 'Cancel',
+    'edit.save': 'Save',
   },
 }
 

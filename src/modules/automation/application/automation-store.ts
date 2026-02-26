@@ -117,15 +117,36 @@ export const useAutomationStore = create<AutomationStore>((set, get) => ({
     try {
       let systems = await systemRepo.getAll()
 
-      // Always sync demo systems with latest code:
-      // Remove old demo versions, keep user-created systems, re-add fresh demos
+      // Demo-Systeme: Nur initialisieren wenn sie fehlen oder Version sich ändert.
+      // Benutzer-Änderungen (Node-Positionen, Outputs, etc.) bleiben erhalten.
+      const DEMO_DATA_VERSION = '2026-02-26-v8'
+      const storedVersion = localStorage.getItem('flowstack-demo-version')
+      const needsRefresh = storedVersion !== DEMO_DATA_VERSION
       const demoIds = new Set(DEMO_SYSTEMS.map((d) => d.id))
-      const userSystems = systems.filter((s) => !demoIds.has(s.id))
-      for (const demo of DEMO_SYSTEMS) {
-        await systemRepo.delete(demo.id).catch(() => {})
-        await systemRepo.create(demo)
+      const userSystems = systems.filter((s) => !demoIds.has(s.id) && !s.isDemo)
+
+      if (needsRefresh) {
+        // Version geändert → Alle alten Demo-Systeme löschen + aktuelle aus Code übernehmen
+        for (const s of systems) {
+          if (s.isDemo || demoIds.has(s.id)) {
+            await systemRepo.delete(s.id).catch(() => {})
+          }
+        }
+        for (const demo of DEMO_SYSTEMS) {
+          await systemRepo.create(demo)
+        }
+        localStorage.setItem('flowstack-demo-version', DEMO_DATA_VERSION)
+        systems = [...userSystems, ...DEMO_SYSTEMS]
+      } else {
+        // Nur fehlende Demo-Systeme ergänzen, existierende nicht überschreiben
+        const existingIds = new Set(systems.map((s) => s.id))
+        for (const demo of DEMO_SYSTEMS) {
+          if (!existingIds.has(demo.id)) {
+            await systemRepo.create(demo)
+            systems.push(demo)
+          }
+        }
       }
-      systems = [...userSystems, ...DEMO_SYSTEMS]
 
       set({ systems, loading: false })
     } catch (e) {

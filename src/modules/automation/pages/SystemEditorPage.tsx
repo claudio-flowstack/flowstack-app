@@ -4,12 +4,26 @@ import { useAutomationStore } from '../application/automation-store'
 import type { AutomationSystem, ExecutionLogEntry, NodeExecutionStatus, WorkflowVersion } from '../domain/types'
 import {
   startGlobalExecution,
+  startDagExecution,
+  completeNode,
   getNodeStates,
+  getNodeDuration,
   isExecutionActive,
   subscribeExecution,
   stopGlobalExecution,
   type ScheduledNode,
+  type DagNode,
+  type DagEdge,
+  type SubSystemPlaceholder,
 } from '../application/global-execution'
+import {
+  enableSideEffects,
+  resetSideEffectContext,
+  checkBackendHealth,
+  hasSideEffect,
+  executeSideEffect,
+  cleanupSideEffects,
+} from '../application/side-effects'
 import { WorkflowCanvas } from '../canvas/WorkflowCanvas'
 import { OutputViewer } from '../components/OutputViewer'
 import { ResourceManager } from '../components/ResourceManager'
@@ -73,6 +87,53 @@ const LOG_TEXT_COLORS: Record<ExecutionLogEntry['status'], string> = {
   error: 'text-red-600 dark:text-red-400',
   warning: 'text-amber-600 dark:text-amber-400',
   running: 'text-blue-600 dark:text-blue-400',
+}
+
+// ── Artifact persistence helper ──────────────────────────────────────────
+
+function persistArtifacts(
+  master: AutomationSystem,
+  allSystems: AutomationSystem[],
+  updateSystem: (id: string, patch: Partial<AutomationSystem>) => void,
+) {
+  const mapType = (t: string) =>
+    t === 'image' ? ('image' as const) : t === 'url' ? ('website' as const) : ('document' as const)
+
+  const masterOutputs: { id: string; name: string; type: string; link: string; createdAt: string; contentPreview?: string; durationMs?: number }[] = []
+
+  for (const sys of allSystems) {
+    const sysOutputs: typeof masterOutputs = []
+    for (const node of sys.nodes) {
+      if (node.demoConfig?.artifacts) {
+        for (const art of node.demoConfig.artifacts) {
+          const output = {
+            id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
+            name: art.label,
+            type: mapType(art.type),
+            link: art.url,
+            createdAt: new Date().toISOString(),
+            contentPreview: art.contentPreview,
+            durationMs: getNodeDuration(node.id),
+          }
+          sysOutputs.push(output)
+          masterOutputs.push(output)
+        }
+      }
+    }
+    if (sys.id !== master.id) {
+      updateSystem(sys.id, {
+        outputs: sysOutputs as never,
+        lastExecuted: new Date().toISOString(),
+        executionCount: (sys.executionCount ?? 0) + 1,
+      })
+    }
+  }
+
+  updateSystem(master.id, {
+    outputs: masterOutputs as never,
+    lastExecuted: new Date().toISOString(),
+    executionCount: (master.executionCount ?? 0) + 1,
+  })
 }
 
 // ── Full-Screen Editor Page (Level 3) ──────────────────────────────────────
@@ -228,30 +289,184 @@ export function SystemEditorPage() {
     })
   }, [systemId])
 
-  // Build & start global execution schedule when master system runs
-  const handleExecuteGlobal = useCallback(() => {
+  // Build & start execution when master system runs
+  const handleExecuteGlobal = useCallback(async () => {
     if (!effectiveSystem) return
     const subs = systems.filter((s) => s.parentId === effectiveSystem.id)
     if (subs.length === 0) return // Not a master → canvas handles internally
 
+    const isNovacode = effectiveSystem.id.startsWith('demo-novacode')
+    const allSystems = [effectiveSystem, ...subs]
+
+    // ── Novacode: Event-driven DAG Execution ─────────────────────────────
+    if (isNovacode) {
+      resetSideEffectContext()
+      enableSideEffects(true)
+      await checkBackendHealth()
+
+      const dagNodes: DagNode[] = []
+      const dagEdges: DagEdge[] = []
+      const placeholders: SubSystemPlaceholder[] = []
+
+      // Master real nodes (skip subsystem placeholders)
+      for (const node of effectiveSystem.nodes) {
+        if (node.type === 'subsystem' && node.linkedSubSystemId) {
+          placeholders.push({
+            placeholderId: node.id,
+            masterSystemId: effectiveSystem.id,
+            subSystemId: node.linkedSubSystemId,
+          })
+          continue
+        }
+        dagNodes.push({
+          nodeId: node.id,
+          systemId: effectiveSystem.id,
+          duration: node.demoConfig?.delay ?? 2000,
+          dynamic: hasSideEffect(node.id),
+        })
+      }
+
+      // Per-subsystem: trigger + internal nodes + edges
+      const subSinkMap = new Map<string, string[]>()
+      for (const sub of subs) {
+        const triggerId = `__trigger-${sub.id}`
+        dagNodes.push({ nodeId: triggerId, systemId: sub.id, duration: 500 })
+
+        const outgoing = new Set(sub.connections.map((c) => c.from))
+        const incoming = new Set(sub.connections.map((c) => c.to))
+        const starts = sub.nodes.filter((n) => !incoming.has(n.id))
+        const sinks = sub.nodes.filter((n) => !outgoing.has(n.id))
+        subSinkMap.set(sub.id, sinks.map((n) => n.id))
+
+        for (const node of sub.nodes) {
+          dagNodes.push({
+            nodeId: node.id,
+            systemId: sub.id,
+            duration: node.demoConfig?.delay ?? 2000,
+            dynamic: hasSideEffect(node.id),
+          })
+        }
+
+        // Trigger → start nodes
+        for (const s of starts) dagEdges.push({ from: triggerId, to: s.id })
+        // Internal connections
+        for (const c of sub.connections) dagEdges.push({ from: c.from, to: c.to })
+      }
+
+      // Master connections: resolve subsystem placeholders
+      for (const conn of effectiveSystem.connections) {
+        const fromNode = effectiveSystem.nodes.find((n) => n.id === conn.from)
+        const toNode = effectiveSystem.nodes.find((n) => n.id === conn.to)
+        const fromIsSub = fromNode?.type === 'subsystem' && fromNode.linkedSubSystemId
+        const toIsSub = toNode?.type === 'subsystem' && toNode.linkedSubSystemId
+
+        if (fromIsSub && toIsSub) {
+          const sinks = subSinkMap.get(fromNode!.linkedSubSystemId!) ?? []
+          const toTrigger = `__trigger-${toNode!.linkedSubSystemId!}`
+          for (const sinkId of sinks) dagEdges.push({ from: sinkId, to: toTrigger })
+        } else if (fromIsSub) {
+          const sinks = subSinkMap.get(fromNode!.linkedSubSystemId!) ?? []
+          for (const sinkId of sinks) dagEdges.push({ from: sinkId, to: conn.to })
+        } else if (toIsSub) {
+          dagEdges.push({ from: conn.from, to: `__trigger-${toNode!.linkedSubSystemId!}` })
+        } else {
+          dagEdges.push({ from: conn.from, to: conn.to })
+        }
+      }
+
+      // Progressive artifact accumulation
+      const accOutputs = new Map<string, { id: string; name: string; type: string; link: string; createdAt: string; contentPreview?: string; durationMs?: number }[]>()
+      const mapType = (t: string) =>
+        t === 'image' ? ('image' as const) : t === 'url' ? ('website' as const) : ('document' as const)
+
+      startDagExecution(dagNodes, dagEdges, {
+        onNodeRunning: (nodeId) => {
+          if (hasSideEffect(nodeId)) {
+            executeSideEffect(nodeId)
+              .then((result) => {
+                // Update artifact URL with real URL from backend
+                if (result?.url) {
+                  for (const sys of allSystems) {
+                    const node = sys.nodes.find(n => n.id === nodeId)
+                    if (node?.demoConfig?.artifacts?.[0]) {
+                      node.demoConfig.artifacts[0].url = result.url as string
+                      if (node.demoConfig.artifacts[0].type === 'text') {
+                        node.demoConfig.artifacts[0].type = 'url'
+                      }
+                    }
+                  }
+                }
+                completeNode(nodeId)
+              })
+              .catch(() => completeNode(nodeId))
+          }
+        },
+        onNodeCompleted: (nodeId, systemId, durationMs) => {
+          // Find the node and persist its artifacts progressively
+          const sys = allSystems.find(s => s.id === systemId)
+          const node = sys?.nodes.find(n => n.id === nodeId)
+          if (!node?.demoConfig?.artifacts) return
+
+          // Only persist artifacts with real links — skip status notifications (type=text, url=#)
+          const realArtifacts = node.demoConfig.artifacts.filter(art =>
+            art.url !== '#' || art.type === 'url' || art.type === 'image'
+          )
+          if (realArtifacts.length === 0) return
+
+          const newOutputs = realArtifacts.map(art => ({
+            id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
+            name: art.label,
+            type: mapType(art.type),
+            link: art.url,
+            createdAt: new Date().toISOString(),
+            contentPreview: art.contentPreview,
+            durationMs,
+          }))
+
+          // Accumulate per-system outputs
+          const sysAcc = accOutputs.get(systemId) ?? []
+          sysAcc.push(...newOutputs)
+          accOutputs.set(systemId, sysAcc)
+
+          // Accumulate master outputs
+          if (systemId !== effectiveSystem.id) {
+            const masterAcc = accOutputs.get(effectiveSystem.id) ?? []
+            masterAcc.push(...newOutputs)
+            accOutputs.set(effectiveSystem.id, masterAcc)
+          }
+
+          // Update store progressively
+          updateSystem(systemId, { outputs: [...sysAcc] as never })
+          if (systemId !== effectiveSystem.id) {
+            updateSystem(effectiveSystem.id, { outputs: [...(accOutputs.get(effectiveSystem.id) ?? [])] as never })
+          }
+        },
+        onComplete: () => {
+          // Final: update execution metadata
+          for (const sys of allSystems) {
+            updateSystem(sys.id, {
+              lastExecuted: new Date().toISOString(),
+              executionCount: (sys.executionCount ?? 0) + 1,
+            })
+          }
+        },
+        subSystemPlaceholders: placeholders,
+      })
+      return
+    }
+
+    // ── Non-Novacode: Legacy timestamp-based execution ────────────────────
     const now = Date.now()
     const entries: ScheduledNode[] = []
-
-    // BFS the master system
     const eNodes = effectiveSystem.nodes
     const eConns = effectiveSystem.connections
     const incoming = new Set(eConns.map((c) => c.to))
-    const starts = eNodes.filter(
-      (n) => n.type === 'trigger' || !incoming.has(n.id),
-    )
+    const starts = eNodes.filter((n) => n.type === 'trigger' || !incoming.has(n.id))
     const first = eNodes[0]
     if (starts.length === 0 && first) starts.push(first)
 
     const visited = new Set<string>()
-    const queue: { id: string; depth: number }[] = starts.map((n) => ({
-      id: n.id,
-      depth: 0,
-    }))
+    const queue: { id: string; depth: number }[] = starts.map((n) => ({ id: n.id, depth: 0 }))
     const depthDelay = new Map<number, number>()
 
     while (queue.length > 0) {
@@ -261,63 +476,39 @@ export function SystemEditorPage() {
 
       const baseDelay = depthDelay.get(item.depth) ?? item.depth * 600
       const node = eNodes.find((n) => n.id === item.id)
-      const subSys =
-        node?.type === 'subsystem' && node.linkedSubSystemId
-          ? systems.find((s) => s.id === node.linkedSubSystemId)
-          : undefined
-      const nodeTime = subSys
-        ? Math.max(600, subSys.nodes.length * 400)
-        : 600
+      const subSys = node?.type === 'subsystem' && node.linkedSubSystemId
+        ? systems.find((s) => s.id === node.linkedSubSystemId) : undefined
+      const nodeTime = subSys ? Math.max(600, subSys.nodes.length * 400) : 600
 
-      // Schedule master node
       entries.push({
-        nodeId: item.id,
-        systemId: effectiveSystem.id,
-        pendingAt: now + baseDelay,
-        runningAt: now + baseDelay + 400,
-        completedAt: now + baseDelay + nodeTime,
+        nodeId: item.id, systemId: effectiveSystem.id,
+        pendingAt: now + baseDelay, runningAt: now + baseDelay + 400, completedAt: now + baseDelay + nodeTime,
       })
 
-      // Schedule sub-system internal nodes
       if (subSys && subSys.nodes.length > 0) {
         const subStart = now + baseDelay + 400
-        // Trigger node
         entries.push({
-          nodeId: `__trigger-${subSys.id}`,
-          systemId: subSys.id,
-          pendingAt: subStart,
-          runningAt: subStart + 200,
-          completedAt: subStart + 500,
+          nodeId: `__trigger-${subSys.id}`, systemId: subSys.id,
+          pendingAt: subStart, runningAt: subStart + 200, completedAt: subStart + 500,
         })
-        // BFS sub-system nodes
         const subIncoming = new Set(subSys.connections.map((c) => c.to))
-        const subStarts = subSys.nodes.filter(
-          (n) => !subIncoming.has(n.id),
-        )
+        const subStarts = subSys.nodes.filter((n) => !subIncoming.has(n.id))
         const subFirst = subSys.nodes[0]
         if (subStarts.length === 0 && subFirst) subStarts.push(subFirst)
         const subVisited = new Set<string>()
-        const subQueue: { id: string; depth: number }[] = subStarts.map(
-          (n) => ({ id: n.id, depth: 0 }),
-        )
+        const subQueue: { id: string; depth: number }[] = subStarts.map((n) => ({ id: n.id, depth: 0 }))
         const subDD = new Map<number, number>()
         const subOff = subStart + 500
-
         while (subQueue.length > 0) {
           const si = subQueue.shift()!
           if (subVisited.has(si.id)) continue
           subVisited.add(si.id)
           const sb = subDD.get(si.depth) ?? si.depth * 600
           entries.push({
-            nodeId: si.id,
-            systemId: subSys.id,
-            pendingAt: subOff + sb,
-            runningAt: subOff + sb + 400,
-            completedAt: subOff + sb + 600,
+            nodeId: si.id, systemId: subSys.id,
+            pendingAt: subOff + sb, runningAt: subOff + sb + 400, completedAt: subOff + sb + 600,
           })
-          for (const c of subSys.connections.filter(
-            (c) => c.from === si.id,
-          )) {
+          for (const c of subSys.connections.filter((c) => c.from === si.id)) {
             if (!subVisited.has(c.to)) {
               const nd = si.depth + 1
               subDD.set(nd, Math.max(subDD.get(nd) ?? 0, sb + 600))
@@ -325,22 +516,14 @@ export function SystemEditorPage() {
             }
           }
         }
-        // Fallback: schedule any disconnected sub-system nodes
         for (const sn of subSys.nodes) {
           if (!subVisited.has(sn.id)) {
-            const fallbackDelay = subVisited.size * 600
-            entries.push({
-              nodeId: sn.id,
-              systemId: subSys.id,
-              pendingAt: subOff + fallbackDelay,
-              runningAt: subOff + fallbackDelay + 400,
-              completedAt: subOff + fallbackDelay + 600,
-            })
+            const fd = subVisited.size * 600
+            entries.push({ nodeId: sn.id, systemId: subSys.id, pendingAt: subOff + fd, runningAt: subOff + fd + 400, completedAt: subOff + fd + 600 })
           }
         }
       }
 
-      // Update depth delays for next master nodes
       const nextDD = baseDelay + nodeTime
       for (const conn of eConns.filter((c) => c.from === item.id)) {
         if (!visited.has(conn.to)) {
@@ -351,8 +534,10 @@ export function SystemEditorPage() {
       }
     }
 
-    startGlobalExecution(entries)
-  }, [effectiveSystem, systems])
+    startGlobalExecution(entries, {
+      onComplete: () => persistArtifacts(effectiveSystem, allSystems, updateSystem),
+    })
+  }, [effectiveSystem, systems, updateSystem])
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleDrillDown = useCallback(
@@ -438,6 +623,26 @@ export function SystemEditorPage() {
       updateSystem(systemId, { executionLog: [] })
     }
   }, [systemId, updateSystem])
+
+  // ── Reset: cleanup backend + clear outputs ─────────────────────────────
+  const handleReset = useCallback(async () => {
+    // 1. Stop execution if running
+    stopGlobalExecution()
+    // 2. Cleanup created resources in backend
+    await cleanupSideEffects()
+    // 3. Clear outputs on all Novacode systems
+    if (effectiveSystem) {
+      const subs = systems.filter((s) => s.parentId === effectiveSystem.id)
+      for (const s of [effectiveSystem, ...subs]) {
+        updateSystem(s.id, { outputs: [] })
+      }
+    }
+    // 4. Clear execution log
+    setExecutionLog([])
+    if (systemId) {
+      updateSystem(systemId, { executionLog: [] })
+    }
+  }, [effectiveSystem, systems, systemId, updateSystem])
 
   // ── Top-level systems for navigation ───────────────────────────────────
   const topLevelSystems = useMemo(
@@ -600,9 +805,11 @@ export function SystemEditorPage() {
           <ErrorBoundary>
             <WorkflowCanvas
               initialSystem={effectiveSystem ?? system}
+              liveOutputs={system?.outputs}
               onSave={handleSave}
               onExecute={handleExecuteGlobal}
               onStop={stopGlobalExecution}
+              onReset={handleReset}
               nodeStates={globalNodeStates}
               className="w-full h-full"
               onDrillDown={handleDrillDown}

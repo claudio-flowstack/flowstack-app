@@ -1,0 +1,80 @@
+{
+  "created_at": "2026-02-25T20:29:26.585734",
+  "total": 12,
+  "successful": 12,
+  "failed": 0,
+  "documents": [
+    {
+      "id": "1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY",
+      "url": "https://docs.google.com/document/d/1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY/edit",
+      "name": "#02 – Zielgruppen-Avatar | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1de1XU5ykeIw36kKSiorQqzPAGkHfsceflnTCBpVY26Q",
+      "url": "https://docs.google.com/document/d/1de1XU5ykeIw36kKSiorQqzPAGkHfsceflnTCBpVY26Q/edit",
+      "name": "#03 – Arbeitgeber-Avatar | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1HLMrDn_p1aqL7nnfB09e0mPakj-m0BSIhQwTdkoX03E",
+      "url": "https://docs.google.com/document/d/1HLMrDn_p1aqL7nnfB09e0mPakj-m0BSIhQwTdkoX03E/edit",
+      "name": "#04 – Messaging-Matrix | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1sxB6R6l4DUn10hYEhY5xCEkNxZ4dvE9EUFvgT0hmCz8",
+      "url": "https://docs.google.com/document/d/1sxB6R6l4DUn10hYEhY5xCEkNxZ4dvE9EUFvgT0hmCz8/edit",
+      "name": "#05 – Creative Briefing | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1Xp0y_liDQ43AMdH3cjEwxdo9ZSZOP1AlVr8r-pn2Cps",
+      "url": "https://docs.google.com/document/d/1Xp0y_liDQ43AMdH3cjEwxdo9ZSZOP1AlVr8r-pn2Cps/edit",
+      "name": "#06 – Marken-Richtlinien | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1CEZAzrioyaqn7PMfc0ARadG1Jw5ic-uXTV4tE1aX2PU",
+      "url": "https://docs.google.com/document/d/1CEZAzrioyaqn7PMfc0ARadG1Jw5ic-uXTV4tE1aX2PU/edit",
+      "name": "#07 – Landingpage-Texte | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1Qe0zXGHVcABIEMTZUn4tMttloGfa14bpCtKU3L95-Qw",
+      "url": "https://docs.google.com/document/d/1Qe0zXGHVcABIEMTZUn4tMttloGfa14bpCtKU3L95-Qw/edit",
+      "name": "#08 – Formularseite-Texte | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "13M6owsnBTr6OAElN0LvhF5Oz_Ky4l0OdvhSb2dhfQ7g",
+      "url": "https://docs.google.com/document/d/13M6owsnBTr6OAElN0LvhF5Oz_Ky4l0OdvhSb2dhfQ7g/edit",
+      "name": "#09 – Dankeseite-Texte | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1lf2U2ZI47-Oz8eTW8OKziGwN_Z_SAssS8DiJAiiJ5SQ",
+      "url": "https://docs.google.com/document/d/1lf2U2ZI47-Oz8eTW8OKziGwN_Z_SAssS8DiJAiiJ5SQ/edit",
+      "name": "#10 – Anzeigentexte Hauptkampagne | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1ITRWWBL9tY-2AUi4CIB6wbPqbk6CGcv5UB6ePtH87j0",
+      "url": "https://docs.google.com/document/d/1ITRWWBL9tY-2AUi4CIB6wbPqbk6CGcv5UB6ePtH87j0/edit",
+      "name": "#11 – Anzeigentexte Retargeting | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "1UhYIjW_acVN34w3mmmj1X9v20NWXVH93YRM2LCaxjuE",
+      "url": "https://docs.google.com/document/d/1UhYIjW_acVN34w3mmmj1X9v20NWXVH93YRM2LCaxjuE/edit",
+      "name": "#12 – Anzeigentexte Warmup | NOVACODE Recruiting",
+      "status": "created"
+    },
+    {
+      "id": "171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs",
+      "url": "https://docs.google.com/document/d/171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs/edit",
+      "name": "#13 – Videoskript | NOVACODE Recruiting",
+      "status": "created"
+    }
+  ]
+}

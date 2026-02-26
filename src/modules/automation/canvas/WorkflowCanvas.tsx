@@ -33,7 +33,7 @@ import {
   // V2 feature icons
   Pin, PinOff, History, Variable, Code2,
   CheckCircle2, XCircle, AlertCircle, CircleDot,
-  Boxes, SlidersHorizontal,
+  Boxes, SlidersHorizontal, RotateCcw,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '@/core/theme/context';
@@ -536,7 +536,10 @@ interface WorkflowCanvasProps {
   onSave?: (system: AutomationSystem) => void;
   onExecute?: () => void;
   onStop?: () => void;
+  onReset?: () => void;
   initialSystem?: AutomationSystem;
+  /** Live-reactive outputs from store (bypasses initialSystem memoization) */
+  liveOutputs?: AutomationSystem['outputs'];
   readOnly?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -556,7 +559,7 @@ interface WorkflowCanvasProps {
   onPresentationModeChange?: (active: boolean) => void;
 }
 
-export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readOnly, className, style, nodeStates: externalNodeStates, onDrillDown, subSystemInfo, presNavigationSystems, startInPresentationMode, onPresNavigate, onPresentationModeChange }: WorkflowCanvasProps) {
+export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSystem, liveOutputs, readOnly, className, style, nodeStates: externalNodeStates, onDrillDown, subSystemInfo, presNavigationSystems, startInPresentationMode, onPresNavigate, onPresentationModeChange }: WorkflowCanvasProps) {
   const { t, lang } = useLanguage();
   const navigate = useNavigate();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -914,6 +917,19 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
     return () => clearInterval(iv);
   }, [effectiveIsExecuting, effectiveExecutionDone]);
 
+  // Sync external (DAG) execution completion → set internal timer/done state
+  // so timer persists even after externalNodeStates becomes undefined
+  const prevExternalDoneRef = useRef(false);
+  useEffect(() => {
+    if (externalDone && !prevExternalDoneRef.current && execStartRef.current > 0) {
+      setExecDuration((Date.now() - execStartRef.current) / 1000);
+      setShowExecKpis(true);
+      setIsExecuting(false);
+      setExecutionDone(true);
+    }
+    prevExternalDoneRef.current = externalDone;
+  }, [externalDone]);
+
   // V2: Mutual exclusivity — only one panel open at a time
   const closeAllPanels = useCallback(() => {
     setShowHistory(false);
@@ -959,9 +975,9 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
     return () => { document.head.removeChild(style); };
   }, []);
 
-  // V2: Generate mock execution data when execution completes
+  // V2: Generate mock execution data when execution completes (only for internal/non-DAG execution)
   useEffect(() => {
-    if (effectiveExecutionDone && nodes.length > 0 && executionDataMap.size === 0) {
+    if (effectiveExecutionDone && nodes.length > 0 && executionDataMap.size === 0 && !onExecute) {
       const map = new Map<string, NodeExecutionData>();
       const sampleOutputs: Record<string, Record<string, unknown>> = {
         trigger: { leadId: 'LD-4821', email: 'max@firma.de', company: 'TechCorp GmbH' },
@@ -1280,10 +1296,10 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
     const gCx = group.x + group.width / 2;
     const gCy = group.y + group.height / 2;
     // Auto-fit: zoom to show entire group with generous padding
-    const padded = 120;
+    const padded = 200;
     const scaleX = rect.width / (group.width + padded);
     const scaleY = rect.height / (group.height + padded);
-    const autoFitZoom = Math.min(scaleX, scaleY, 1.5);
+    const autoFitZoom = Math.min(scaleX, scaleY, 1.0);
     // Auto: use computed auto-fit zoom. Manual: scale by phaseZoomLevel
     const targetZoom = phaseZoomAuto ? autoFitZoom : autoFitZoom * (phaseZoomLevel / 100);
     const targetPan = {
@@ -2639,7 +2655,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
         webhookUrl: '',
         nodes, connections, groups: groups.length > 0 ? groups : undefined,
         stickyNotes: stickyNotes.length > 0 ? stickyNotes : undefined,
-        outputs: initialSystem?.outputs || [],
+        outputs: liveOutputs || initialSystem?.outputs || [],
         executionCount: initialSystem?.executionCount || 0,
         canvasZoom: zoom,
         canvasPan: pan,
@@ -3010,12 +3026,12 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
           {!readOnly && (
             <>
               <div className="h-4 w-px bg-gray-200 dark:bg-zinc-700" />
-              <input type="text" value={systemName} onChange={e => setSystemName(e.target.value.slice(0, MAX_LABEL_LENGTH))} placeholder={t('toolbar.systemName')} className="bg-transparent text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-600 focus:outline-none w-40" maxLength={MAX_LABEL_LENGTH} aria-label={t('toolbar.systemNameLabel')} />
+              <input type="text" value={systemName} onChange={e => setSystemName(e.target.value.slice(0, MAX_LABEL_LENGTH))} placeholder={t('toolbar.systemName')} className="bg-transparent text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-zinc-600 focus:outline-none min-w-[120px] max-w-[300px] flex-shrink" maxLength={MAX_LABEL_LENGTH} aria-label={t('toolbar.systemNameLabel')} />
             </>
           )}
 
           {readOnly && initialSystem && (
-            <span className="text-sm font-medium text-gray-900 dark:text-white">{initialSystem.name}</span>
+            <span className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-[300px]">{initialSystem.name}</span>
           )}
 
           <div className="flex-1 min-w-[8px]" />
@@ -3544,6 +3560,16 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
             </>
           )}
 
+          {onReset && (
+            <button
+              onClick={() => { onReset(); setExecutionDone(false); setIsExecuting(false); setExecutingNodes(new Map()); setShowExecKpis(false); setExecDuration(0); execStartRef.current = 0; setExecutionDataMap(new Map()); executionTimeoutsRef.current.forEach(clearTimeout); executionTimeoutsRef.current = []; }}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-200 shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-500 dark:text-zinc-400"
+              title={lang === 'en' ? 'Reset' : 'Zurücksetzen'}
+            >
+              <RotateCcw size={11} />
+            </button>
+          )}
+
           {!readOnly && (
             <>
               <div className="h-4 w-px bg-gray-200 dark:bg-zinc-700" />
@@ -3702,7 +3728,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
             }}
           >
             {/* SVG Connections */}
-            <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible' }}>
+            <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 1 }}>
               {/* SVG Marker defs for arrowheads */}
               {(() => {
                 const cc = CONN_COLORS[connColorTheme];
@@ -4517,7 +4543,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                 return (
                   <div key={sub.id}>
                     {/* Dotted connector line */}
-                    <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible' }}>
+                    <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 1 }}>
                       <line
                         x1={parentCX} y1={parentBottom}
                         x2={subCX} y2={subTopY}
@@ -5130,7 +5156,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                   className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/90 dark:bg-zinc-900/90 border border-gray-200 dark:border-zinc-700 text-sm font-medium text-gray-800 dark:text-zinc-200 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors backdrop-blur-sm shadow-lg min-w-[140px] justify-between"
                 >
                   <span className="truncate max-w-[200px]">
-                    {sortedGroups[currentPhaseIndex]?.label || t('phaseNav.noPhase')}
+                    {sortedGroups[currentPhaseIndex] ? `${currentPhaseIndex + 1}. ${sortedGroups[currentPhaseIndex].label}` : t('phaseNav.noPhase')}
                   </span>
                   <ChevronUp size={14} className={`shrink-0 text-gray-400 dark:text-zinc-500 transition-transform ${phaseDropdownOpen ? '' : 'rotate-180'}`} />
                 </button>
@@ -5150,7 +5176,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                             className={`w-full flex items-center gap-2.5 px-3 py-2 text-left text-xs hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors ${idx === currentPhaseIndex ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 font-semibold' : 'text-gray-700 dark:text-zinc-300'}`}
                           >
                             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colors.border }} />
-                            <span className="truncate">{group.label}</span>
+                            <span className="truncate">{idx + 1}. {group.label}</span>
                           </button>
                         );
                       })}
@@ -5372,14 +5398,15 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                   )}
 
                   {/* Documents Panel */}
-                  {showPresDocuments && initialSystem?.outputs && initialSystem.outputs.length > 0 && (
+                  {showPresDocuments && (
                     <div className="w-60 bg-zinc-900/95 rounded-2xl border border-white/10 overflow-hidden">
                       <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                         <span className="text-[11px] text-white/80 font-semibold">{lang === 'en' ? 'Documents' : 'Dokumente'}</span>
                         <button onClick={() => setShowPresDocuments(false)} className="p-0.5 rounded hover:bg-white/10"><X size={12} className="text-white/50" /></button>
                       </div>
+                      {(liveOutputs || initialSystem?.outputs || []).length > 0 ? (
                       <div className="max-h-[50vh] overflow-y-auto p-2 space-y-0.5">
-                        {initialSystem.outputs.map(out => (
+                        {(liveOutputs || initialSystem?.outputs || []).map(out => (
                           <a
                             key={out.id}
                             href={out.link || '#'}
@@ -5410,6 +5437,12 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                           </a>
                         ))}
                       </div>
+                      ) : (
+                      <div className="px-4 py-6 text-center">
+                        <FileOutput size={20} className="text-white/20 mx-auto mb-2" />
+                        <p className="text-[11px] text-white/40">{lang === 'en' ? 'Documents will appear here after execution' : 'Dokumente erscheinen hier nach der Ausführung'}</p>
+                      </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -5464,15 +5497,13 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                     <Layers size={14} />
                   </button>
                   <div className="w-px h-4 bg-white/20" />
-                  {initialSystem?.outputs && initialSystem.outputs.length > 0 && (
-                    <button
-                      onClick={() => setShowPresDocuments(d => !d)}
-                      className={`p-1.5 rounded-full transition-colors ${showPresDocuments ? 'text-white bg-white/15' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
-                      title={lang === 'en' ? 'Documents' : 'Dokumente'}
-                    >
-                      <FileOutput size={14} />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => setShowPresDocuments(d => !d)}
+                    className={`p-1.5 rounded-full transition-colors ${showPresDocuments ? 'text-white bg-white/15' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
+                    title={lang === 'en' ? 'Documents' : 'Dokumente'}
+                  >
+                    <FileOutput size={14} />
+                  </button>
                   <button
                     onClick={() => { closeAllPanels(); setShowFeatureLog(f => !f); }}
                     className={`p-1.5 rounded-full transition-colors ${showFeatureLog ? 'text-white bg-white/15' : 'text-white/40 hover:text-white hover:bg-white/10'}`}
@@ -5503,6 +5534,15 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, initialSystem, readO
                     >
                       {effectiveIsExecuting && !effectiveExecutionDone ? <Square size={11} className="fill-current" /> : effectiveExecutionDone ? <Check size={13} /> : <Play size={13} />}
                       <span>{effectiveIsExecuting && !effectiveExecutionDone ? (lang === 'en' ? 'Stop' : 'Stopp') : effectiveExecutionDone ? (lang === 'en' ? 'Done' : 'Fertig') : (lang === 'en' ? 'Run' : 'Starten')}</span>
+                    </button>
+                  )}
+                  {onReset && (
+                    <button
+                      onClick={() => { onReset(); setExecutionDone(false); setIsExecuting(false); setExecutingNodes(new Map()); setShowExecKpis(false); setExecDuration(0); execStartRef.current = 0; setExecutionDataMap(new Map()); executionTimeoutsRef.current.forEach(clearTimeout); executionTimeoutsRef.current = []; }}
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white/70"
+                      title={lang === 'en' ? 'Reset' : 'Zurücksetzen'}
+                    >
+                      <RotateCcw size={11} />
                     </button>
                   )}
                   <button

@@ -258,11 +258,11 @@ function CanvasNodeInner({
 
     if (nodeLayout === 'compact') {
       return (
-        <div className="h-full flex items-center px-4 gap-2.5">
+        <div className="h-full flex items-center px-4 gap-2.5 min-w-0">
           <div className="rounded-md flex items-center justify-center shrink-0" style={{ background: iconBg, width: dims.iconBoxSize * 0.8, height: dims.iconBoxSize * 0.8 }}>
             <NodeIcon node={node} size={dims.iconSize * 0.8} accent={style.accent} />
           </div>
-          <div className="font-medium truncate" style={{ fontSize: dims.fontSize, ...labelColor }}>
+          <div className="font-medium truncate min-w-0 flex-1" style={{ fontSize: dims.fontSize, ...labelColor }}>
             <span className={isDark ? 'text-white' : 'text-gray-900'}>{node.label}</span>
           </div>
         </div>
@@ -354,7 +354,7 @@ function CanvasNodeInner({
             <div className={cn('font-medium truncate', isDark ? 'text-white' : 'text-gray-900')} style={{ fontSize: dims.fontSize, ...labelColor }}>
               {node.label}
             </div>
-            <div className={cn('mt-0.5 truncate', isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize, ...descColor }}>
+            <div className={cn('mt-0.5 line-clamp-2 leading-tight', isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize, ...descColor }}>
               {node.description}
             </div>
           </div>
@@ -373,7 +373,7 @@ function CanvasNodeInner({
             <div className={cn('font-bold truncate', isDark ? 'text-white' : 'text-gray-900')} style={{ fontSize: dims.fontSize, ...labelColor }}>
               {node.label}
             </div>
-            <div className={cn('mt-0.5 truncate', isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize, ...descColor }}>
+            <div className={cn('mt-0.5 line-clamp-2 leading-tight', isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize, ...descColor }}>
               {node.description}
             </div>
           </div>
@@ -443,7 +443,7 @@ function CanvasNodeInner({
           <div className={cn('font-medium truncate', isLightText ? 'text-white' : isDark ? 'text-white' : 'text-gray-900')} style={{ fontSize: dims.fontSize }}>
             {node.label}
           </div>
-          <div className={cn('mt-0.5 truncate', isLightText ? 'text-white/70' : isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize }}>
+          <div className={cn('mt-0.5 line-clamp-2 leading-tight', isLightText ? 'text-white/70' : isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize }}>
             {node.description}
           </div>
         </div>
