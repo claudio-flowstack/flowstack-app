@@ -72,6 +72,11 @@ CLOSE_STAGES: dict[str, str] = {}
 CLICKUP_CLAUDIO = 306633165  # Marketer
 CLICKUP_ANAK = 107605639     # Developer
 
+# Slack Member IDs (Flowstack Systems Workspace)
+SLACK_CLAUDIO = "U0AA1KHD0G2"
+SLACK_ANAK = "U0A9L6KUT5M"
+SLACK_TEAM_MEMBERS = [SLACK_CLAUDIO, SLACK_ANAK]  # Werden automatisch in neue Client-Channels eingeladen
+
 # Vorbereitete Dokument-Links (Google Docs)
 STRATEGY_DOCS = {
     "Zielgruppen-Avatar": "https://docs.google.com/document/d/1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY/edit",
@@ -911,17 +916,39 @@ async def execute_node(body: dict):
             if ch.get("ok"):
                 channel_id = ch["channel"]["id"]
                 log.info(f"Slack Channel erstellt: #{channel_name} ({channel_id})")
-                # Willkommensnachricht im Kunden-Channel
+                # Team-Mitglieder zum Channel einladen
+                if SLACK_TEAM_MEMBERS:
+                    invite_resp = await slack_bot_api("conversations.invite", {
+                        "channel": channel_id,
+                        "users": ",".join(SLACK_TEAM_MEMBERS),
+                    })
+                    if invite_resp.get("ok"):
+                        log.info(f"Slack: {len(SLACK_TEAM_MEMBERS)} Team-Mitglieder eingeladen")
+                    else:
+                        log.warning(f"Slack Invite: {invite_resp.get('error')}")
+                # Channel-Beschreibung setzen
+                await slack_bot_api("conversations.setTopic", {
+                    "channel": channel_id,
+                    "topic": f"Recruiting Automation — {company}",
+                })
+                # Willkommensnachricht im Kunden-Channel (Block Kit)
+                welcome_blocks = _slack_blocks_message(
+                    f"Willkommen, {company}!",
+                    [
+                        {"title": ":wave: Projekt-Channel", "items": [
+                            "Hier koordinieren wir alles rund um euer Recruiting-Projekt.",
+                        ]},
+                        {"title": ":busts_in_silhouette: Euer Team", "items": [
+                            ("Claudio Di Franco", "Account Manager & Strategie"),
+                            ("Anak", "Development & Technik"),
+                        ]},
+                    ],
+                    footer="Bei Fragen einfach hier schreiben — wir sind für euch da!",
+                )
                 await slack_bot_api("chat.postMessage", {
                     "channel": channel_id,
-                    "text": (
-                        f"👋 *Willkommen im Projekt-Channel, {company}!*\n\n"
-                        f"Hier koordinieren wir alles rund um euer Recruiting-Projekt.\n\n"
-                        f"*Euer Team:*\n"
-                        f"• Claudio Di Franco — Account Manager & Strategie\n"
-                        f"• Anak — Development & Technik\n\n"
-                        f"Bei Fragen einfach hier schreiben — wir sind für euch da! 🚀"
-                    ),
+                    "text": f"Willkommen im Projekt-Channel, {company}!",
+                    "blocks": welcome_blocks,
                 })
             elif ch.get("error") == "name_taken":
                 # Channel existiert schon — wiederverwenden
@@ -935,6 +962,12 @@ async def execute_node(body: dict):
                         # Falls archiviert, wieder öffnen
                         if c.get("is_archived"):
                             await slack_bot_api("conversations.unarchive", {"channel": channel_id})
+                        # Sicherstellen dass Team-Mitglieder drin sind
+                        if SLACK_TEAM_MEMBERS:
+                            await slack_bot_api("conversations.invite", {
+                                "channel": channel_id,
+                                "users": ",".join(SLACK_TEAM_MEMBERS),
+                            })
                         break
                 log.info(f"Slack Channel existiert bereits: #{channel_name} ({channel_id})")
             result = {"sent": True, "channel_id": channel_id, "channel_name": channel_name, "url": "https://app.slack.com/"}
