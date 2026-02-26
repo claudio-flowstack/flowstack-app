@@ -30,10 +30,10 @@ app.add_middleware(
 
 # ── Credentials aus Environment (Doppler) ─────────────────────────────────────
 
-CLOSE_API_KEY = os.environ.get("CLOSE_API")
+CLOSE_API_KEY = os.environ.get("CLOSE_API", os.environ.get("CLOSE_API_KEY", ""))
 CLICKUP_TOKEN = os.environ.get("CLICKUP_API_TOKEN")
-SLACK_WEBHOOK = os.environ.get("SLACK_CLAUDIO_WEBHOOK", os.environ.get("SLACK_CLAUDIO_WEBHOOK_URL", os.environ.get("SLACK_WEBHOOK")))
-SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+SLACK_WEBHOOK = os.environ.get("SLACK_CLAUDIO_WEBHOOK", os.environ.get("SLACK_CLAUDIO_WEBHOOK_URL", os.environ.get("SLACK_WEBHOOK", os.environ.get("SLACK_WEBHOOK_URL"))))
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN", os.environ.get("SLACK_API_TOKEN"))
 META_ACCESS_TOKEN = os.environ.get("META_ACCESS_TOKEN")
 META_AD_ACCOUNT = os.environ.get("META_AD_ACCOUNT_ID")
 META_PIXEL_ID = os.environ.get("META_PIXEL_ID", "1496553014661154")  # Leadflow-Marketing Pixel 1
@@ -1449,18 +1449,18 @@ async def execute_node(body: dict):
                     image_hashes = context.get("image_hashes", [])
                     destination_url = "https://demo-recruiting.vercel.app/demo-landing/"
 
-                    # Video-freundliche Placements (Employment: Country-Level)
+                    # Reach-optimierte Placements (Employment: Country-Level)
                     targeting = {
                         "geo_locations": {"countries": ["DE"]},
                         "publisher_platforms": ["facebook", "instagram"],
-                        "facebook_positions": ["feed", "story", "reel"],
-                        "instagram_positions": ["stream", "story", "reels"],
+                        "facebook_positions": ["feed"],
+                        "instagram_positions": ["stream", "story"],
                     }
                     resp_data = await meta_api("POST", f"{acct}/adsets", {
-                        "name": f"DE_Warmup_Views_30d_{company.replace(' ', '_')}",
+                        "name": f"DE_Warmup_Reach_30d_{company.replace(' ', '_')}",
                         "campaign_id": campaign_id,
                         "billing_event": "IMPRESSIONS",
-                        "optimization_goal": "THRUPLAY",
+                        "optimization_goal": "REACH",
                         "bid_strategy": "LOWEST_COST_WITHOUT_CAP",
                         "daily_budget": 1000,  # 10€/Tag
                         "targeting": targeting,
