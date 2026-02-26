@@ -168,6 +168,45 @@ async def google_api(method: str, url: str, data: Optional[dict] = None) -> dict
     return resp.json()
 
 
+def _slack_link(url: str, label: str) -> str:
+    """Slack mrkdwn Link-Alias: <url|Label>."""
+    return f"<{url}|{label}>"
+
+
+def _slack_blocks_message(header: str, sections: list[dict[str, Any]], footer: str = "") -> list[dict]:
+    """Block Kit Nachricht mit Header, kategorisierten Sections und optionalem Footer.
+
+    sections: [{"title": "Kategorie", "items": [("Label", "url_or_text"), ...]}]
+    """
+    blocks: list[dict] = [
+        {"type": "header", "text": {"type": "plain_text", "text": header}},
+        {"type": "divider"},
+    ]
+    for sec in sections:
+        title = sec.get("title", "")
+        items = sec.get("items", [])
+        if title:
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*"}})
+        # Items als 2-Spalten Fields (Label | Link)
+        if items and all(isinstance(i, tuple) and len(i) == 2 for i in items):
+            fields: list[dict] = []
+            for label, value in items:
+                if value.startswith("http"):
+                    fields.append({"type": "mrkdwn", "text": f"{_slack_link(value, label)}"})
+                else:
+                    fields.append({"type": "mrkdwn", "text": f"*{label}:* {value}"})
+            # Section fields max 10, batch if needed
+            for i in range(0, len(fields), 10):
+                blocks.append({"type": "section", "fields": fields[i:i+10]})
+        elif items:
+            text = "\n".join(str(i) for i in items)
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": text}})
+        blocks.append({"type": "divider"})
+    if footer:
+        blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]})
+    return blocks
+
+
 async def slack_message(text: str, blocks: Optional[list] = None) -> bool:
     """Slack Incoming Webhook nachricht senden (Ops-Channel)."""
     if not SLACK_WEBHOOK:
@@ -845,14 +884,22 @@ async def execute_node(body: dict):
             company = context.get("company", "Novacode GmbH")
             lead_id = context.get("lead_id", "")
             lead_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else "https://app.close.com/"
-            # Ops-Channel Benachrichtigung
-            await slack_message(
-                f":rocket: *Neuer Client: {company}*\n"
-                f"Service: Recruiting\n"
-                f"Account Manager: Claudio Di Franco\n"
-                f"Automation gestartet.\n\n"
-                f"• Close CRM: {lead_url}"
+            # Ops-Channel Benachrichtigung (Block Kit)
+            blocks = _slack_blocks_message(
+                f"Neuer Client: {company}",
+                [
+                    {"title": ":clipboard: Projekt-Details", "items": [
+                        ("Service", "Recruiting Automation"),
+                        ("Account Manager", "Claudio Di Franco"),
+                        ("Status", "Automation gestartet"),
+                    ]},
+                    {"title": ":link: Verknüpfungen", "items": [
+                        ("Lead in Close CRM", lead_url),
+                    ]},
+                ],
+                footer=f"Flowstack Automation | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             )
+            await slack_message(f"Neuer Client: {company}", blocks=blocks)
             # Kunden-Channel erstellen
             channel_name = company.lower().replace(" ", "-").replace("ü", "ue").replace("ä", "ae").replace("ö", "oe")
             channel_name = f"client-{channel_name}"[:80]
@@ -901,12 +948,14 @@ async def execute_node(body: dict):
             company = context.get("company", "Novacode GmbH")
             event_link = result.get("link", "")
             meet_link = result.get("meet_link", "")
-            await slack_message(
-                f"📅 *Kickoff-Termin erstellt — {company}*\n"
-                f"• Kalender: {event_link}\n"
-                + (f"• Google Meet: {meet_link}\n" if meet_link else "")
-                + "Einladung an Client gesendet."
+            blocks = _slack_blocks_message(
+                f"Kickoff-Termin erstellt — {company}",
+                [{"title": ":calendar: Termin", "items": [
+                    ("Kalender-Event öffnen", event_link),
+                ] + ([("Google Meet beitreten", meet_link)] if meet_link else [])}],
+                footer="Einladung an Client gesendet",
             )
+            await slack_message(f"Kickoff-Termin erstellt — {company}", blocks=blocks)
 
         elif node_id == "is06":
             result = await create_drive_folders(context)
@@ -914,11 +963,14 @@ async def execute_node(body: dict):
             folder_url = result.get("url", "")
             if folder_url:
                 company = context.get("company", "Novacode GmbH")
-                await slack_message(
-                    f"📁 *Google Drive Ordner erstellt — {company}*\n"
-                    f"• Ordnerstruktur: {folder_url}\n"
-                    f"8 Hauptordner + Unterordner angelegt und geteilt."
+                blocks = _slack_blocks_message(
+                    f"Google Drive — {company}",
+                    [{"title": ":file_folder: Ordnerstruktur", "items": [
+                        ("Projektordner öffnen", folder_url),
+                    ]}],
+                    footer="8 Hauptordner + Unterordner angelegt und geteilt",
                 )
+                await slack_message(f"Google Drive Ordner erstellt — {company}", blocks=blocks)
 
         elif node_id == "is08":
             result = await create_clickup_project(context)
@@ -930,11 +982,18 @@ async def execute_node(body: dict):
                 # Slack: ClickUp Tasks erstellt
                 company = context.get("company", "Novacode GmbH")
                 clickup_url = f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"
-                await slack_message(
-                    f"✅ *ClickUp Projekt & Tasks erstellt — {company}*\n"
-                    f"• Projekt: {clickup_url}\n"
-                    f"Tasks: Zugänge verifizieren, Kickoff vorbereiten"
+                blocks = _slack_blocks_message(
+                    f"ClickUp Projekt — {company}",
+                    [{"title": ":white_check_mark: Projektmanagement", "items": [
+                        ("Projekt in ClickUp öffnen", clickup_url),
+                    ]},
+                    {"title": ":memo: Erstellte Tasks", "items": [
+                        ("Zugänge verifizieren", "Offen"),
+                        ("Kickoff vorbereiten", "Offen"),
+                    ]}],
+                    footer="Automatisch erstellt via Flowstack Automation",
                 )
+                await slack_message(f"ClickUp Projekt erstellt — {company}", blocks=blocks)
 
         elif node_id == "is10":
             result = await update_close_stage({
@@ -977,11 +1036,16 @@ async def execute_node(body: dict):
 
         elif node_id == "kc06":
             company = context.get("company", "Novacode GmbH")
-            await slack_message(
-                f"✅ *Kickoff abgeschlossen — {company}*\n"
-                f"Transkript verfügbar: {TRANSCRIPT_DOC}\n"
-                "Strategie-Erstellung startet."
+            blocks = _slack_blocks_message(
+                f"Kickoff abgeschlossen — {company}",
+                [{"title": ":phone: Kickoff", "items": [
+                    ("Transkript ansehen", TRANSCRIPT_DOC),
+                ]},
+                {"title": ":arrow_forward: Nächster Schritt", "items": [
+                    "Strategie-Erstellung startet automatisch",
+                ]}],
             )
+            await slack_message(f"Kickoff abgeschlossen — {company}", blocks=blocks)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         # ── Strategy & Brand ──
@@ -1018,10 +1082,14 @@ async def execute_node(body: dict):
                 result["task_ids"] = task_ids
             # Slack: Strategie fertig
             company = context.get("company", "Novacode GmbH")
-            await slack_message(
-                f"📋 *Strategie & Brand fertiggestellt — {company}*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in STRATEGY_DOCS.items())
+            blocks = _slack_blocks_message(
+                f"Strategie & Brand — {company}",
+                [{"title": ":dart: Strategie-Dokumente", "items": [
+                    (name, url) for name, url in STRATEGY_DOCS.items()
+                ]}],
+                footer="Alle Dokumente erstellt und freigegeben",
             )
+            await slack_message(f"Strategie & Brand fertiggestellt — {company}", blocks=blocks)
 
         # ── Copy Creation ──
         elif node_id == "cc05":
@@ -1084,27 +1152,40 @@ async def execute_node(body: dict):
                 result["task_ids"] = task_ids
             # Slack: Copy fertig
             company = context.get("company", "Novacode GmbH")
-            await slack_message(
-                f"✏️ *Copy Assets fertiggestellt — {company}*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in COPY_DOCS.items())
+            blocks = _slack_blocks_message(
+                f"Copy & Texte — {company}",
+                [{"title": ":pencil2: Erstellte Texte", "items": [
+                    (name, url) for name, url in COPY_DOCS.items()
+                ]}],
+                footer="Alle Texte auf Basis der Strategie erstellt",
             )
+            await slack_message(f"Copy Assets fertiggestellt — {company}", blocks=blocks)
 
         # ── Review & Launch ──
         elif node_id == "rl06":
             company = context.get("company", "Novacode GmbH")
-            await slack_message(
-                f"📦 *Gesamtes Asset-Paket bereit — {company}*\n\n"
-                "*Strategie-Dokumente:*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in STRATEGY_DOCS.items())
-                + f"\n• Pain-Point-Matrix: https://docs.google.com/document/d/1RfNMSovKZx43uHrKDNa8G6iBCi_ouRTfShVuoLcuUac/edit"
-                + f"\n\n*Transkript:*\n• Kickoff-Transkript: {TRANSCRIPT_DOC}"
-                + "\n\n*Copy & Texte:*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in COPY_DOCS.items())
-                + "\n\n*Funnel:*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in FUNNEL_LINKS.items())
-                + "\n\n*Tracking:*\n• Tracking Dashboard: https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"
-                + "\n\n⏳ Finale Freigabe steht aus."
+            blocks = _slack_blocks_message(
+                f"Asset-Paket bereit zur Freigabe — {company}",
+                [
+                    {"title": ":dart: Strategie-Dokumente", "items": [
+                        (name, url) for name, url in STRATEGY_DOCS.items()
+                    ] + [("Pain-Point-Matrix", "https://docs.google.com/document/d/1RfNMSovKZx43uHrKDNa8G6iBCi_ouRTfShVuoLcuUac/edit")]},
+                    {"title": ":phone: Kickoff", "items": [
+                        ("Kickoff-Transkript", TRANSCRIPT_DOC),
+                    ]},
+                    {"title": ":pencil2: Copy & Texte", "items": [
+                        (name, url) for name, url in COPY_DOCS.items()
+                    ]},
+                    {"title": ":globe_with_meridians: Funnel", "items": [
+                        (name, url) for name, url in FUNNEL_LINKS.items()
+                    ]},
+                    {"title": ":bar_chart: Tracking", "items": [
+                        ("Tracking Dashboard", "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"),
+                    ]},
+                ],
+                footer=":hourglass_flowing_sand: Finale Freigabe steht aus",
             )
+            await slack_message(f"Asset-Paket bereit — {company}", blocks=blocks)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         elif node_id == "rl07":
@@ -1175,23 +1256,34 @@ async def execute_node(body: dict):
             launch_date = datetime.now().strftime('%d.%m.%Y %H:%M')
             acct = _meta_acct()
             ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}"
-            await slack_message(
-                f"🚀 *{company} Recruiting ist LIVE!*\n"
-                f"Launch: {launch_date}\n\n"
-                f"*Kampagnen:*\n"
-                f"• Initial_{company}_Recruiting_Leads\n"
-                f"• Retargeting_{company}_Recruiting_Leads\n"
-                f"• Warmup_{company}_Recruiting_Views\n\n"
-                "*Funnel:*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in FUNNEL_LINKS.items())
-                + "\n\n*Ads & Tracking:*"
-                + f"\n• Meta Ads Manager: {ads_url}"
-                + "\n• Tracking Dashboard: https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"
-                + "\n\n*Alle Dokumente:*\n"
-                + "\n".join(f"• {n}: {u}" for n, u in {**STRATEGY_DOCS, **COPY_DOCS}.items())
-                + f"\n• Kickoff-Transkript: {TRANSCRIPT_DOC}"
-                + "\n\nDashboard: https://demo-recruiting.vercel.app/recruiting"
+            cname = company.replace(" ", "_")
+            blocks = _slack_blocks_message(
+                f":rocket: {company} Recruiting ist LIVE!",
+                [
+                    {"title": ":clipboard: Launch-Details", "items": [
+                        ("Datum", launch_date),
+                        ("Status", "Alle Kampagnen aktiviert"),
+                    ]},
+                    {"title": ":mega: Meta Kampagnen", "items": [
+                        (f"TOF | Leads | DE | {cname}", ads_url),
+                        (f"RT | Leads | DE | {cname}", ads_url),
+                        (f"WU | Awareness | DE | {cname}", ads_url),
+                    ]},
+                    {"title": ":globe_with_meridians: Funnel", "items": [
+                        (name, url) for name, url in FUNNEL_LINKS.items()
+                    ]},
+                    {"title": ":bar_chart: Ads & Tracking", "items": [
+                        ("Meta Ads Manager", ads_url),
+                        ("Tracking Dashboard", "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"),
+                        ("Performance Dashboard", "https://demo-recruiting.vercel.app/recruiting"),
+                    ]},
+                    {"title": ":open_file_folder: Alle Dokumente", "items": [
+                        (name, url) for name, url in {**STRATEGY_DOCS, **COPY_DOCS}.items()
+                    ] + [("Kickoff-Transkript", TRANSCRIPT_DOC)]},
+                ],
+                footer=f"Flowstack Automation | Launch {launch_date}",
             )
+            await slack_message(f"{company} Recruiting ist LIVE!", blocks=blocks)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         # ── Meta Zielgruppen & Kampagnen ──────────────────────────────────────
@@ -1267,7 +1359,7 @@ async def execute_node(body: dict):
                 image_hashes = await upload_meta_images()
                 log.info(f"Meta Bilder hochgeladen: {len(image_hashes)} Hashes")
                 campaign = await meta_api("POST", f"{acct}/campaigns", {
-                    "name": f"Initial_{company}_Recruiting_Leads",
+                    "name": f"TOF | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting",
                     "objective": "OUTCOME_LEADS",
                     "status": "PAUSED",
                     "special_ad_categories": ["EMPLOYMENT"],
@@ -1308,15 +1400,16 @@ async def execute_node(body: dict):
                         "facebook_positions": ["feed"],
                         "instagram_positions": ["stream"],
                     }
+                    month = datetime.now().strftime('%Y-%m')
                     adset_names = [
-                        "DE_Broad",
-                        "DE_Interest_Recruiting",
-                        "DE_Interest_Management",
+                        f"Broad | Alle | 25-55 | DE | Feed | LEAD | {month}",
+                        f"Interest_Recruiting | Alle | 25-55 | DE | Feed | LEAD | {month}",
+                        f"Interest_Management | Alle | 25-55 | DE | Feed | LEAD | {month}",
                     ]
                     adset_ids = []
                     for adset_name in adset_names:
                         resp_data = await meta_api("POST", f"{acct}/adsets", {
-                            "name": f"{adset_name}_{company.replace(' ', '_')}",
+                            "name": adset_name,
                             "campaign_id": campaign_id,
                             "billing_event": "IMPRESSIONS",
                             "optimization_goal": "OFFSITE_CONVERSIONS",
@@ -1348,7 +1441,7 @@ async def execute_node(body: dict):
             acct = _meta_acct()
             try:
                 campaign = await meta_api("POST", f"{acct}/campaigns", {
-                    "name": f"Retargeting_{company}_Recruiting_Leads",
+                    "name": f"RT | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting",
                     "objective": "OUTCOME_LEADS",
                     "status": "PAUSED",
                     "special_ad_categories": ["EMPLOYMENT"],
@@ -1381,15 +1474,16 @@ async def execute_node(body: dict):
                     base_targeting = {
                         "geo_locations": {"countries": ["DE"]},
                     }
+                    month = datetime.now().strftime('%Y-%m')
                     adset_names = [
-                        "DE_RT_AllVisitors_30d",
-                        "DE_RT_LP_NoApplication_7d",
-                        "DE_RT_Application_NoLead_7d",
+                        f"WV-30d-AllPages | Alle | 25-55 | DE | Auto | LEAD | {month}",
+                        f"WV-7d-LP_NoBewerbung | Alle | 25-55 | DE | Auto | LEAD | {month}",
+                        f"WV-7d-Bewerbung_NoLead | Alle | 25-55 | DE | Auto | LEAD | {month}",
                     ]
                     adset_ids = []
                     for adset_name in adset_names:
                         resp_data = await meta_api("POST", f"{acct}/adsets", {
-                            "name": f"{adset_name}_{company.replace(' ', '_')}",
+                            "name": adset_name,
                             "campaign_id": campaign_id,
                             "billing_event": "IMPRESSIONS",
                             "optimization_goal": "OFFSITE_CONVERSIONS",
@@ -1420,7 +1514,7 @@ async def execute_node(body: dict):
             acct = _meta_acct()
             try:
                 campaign = await meta_api("POST", f"{acct}/campaigns", {
-                    "name": f"Warmup_{company}_Recruiting_Views",
+                    "name": f"WU | {datetime.now().strftime('%Y-%m')} | Awareness | DE | {company} Recruiting",
                     "objective": "OUTCOME_AWARENESS",
                     "status": "PAUSED",
                     "special_ad_categories": ["EMPLOYMENT"],
@@ -1457,7 +1551,7 @@ async def execute_node(body: dict):
                         "instagram_positions": ["stream", "story"],
                     }
                     resp_data = await meta_api("POST", f"{acct}/adsets", {
-                        "name": f"DE_Warmup_Reach_30d_{company.replace(' ', '_')}",
+                        "name": f"WV-30d-Warmup | Alle | 25-55 | DE | Feed | REACH | {datetime.now().strftime('%Y-%m')}",
                         "campaign_id": campaign_id,
                         "billing_event": "IMPRESSIONS",
                         "optimization_goal": "REACH",
