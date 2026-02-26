@@ -775,14 +775,27 @@ async def send_welcome_email(body: Optional[dict] = None):
 async def create_clickup_project(body: Optional[dict] = None):
     """is08: ClickUp Projekt (List) erstellen."""
     company = (body or {}).get("company", "Novacode GmbH")
+    list_name = f"{company} - Recruiting"
 
     # List direkt im Space erstellen (folderless)
-    result = await clickup_api("POST", f"/space/{CLICKUP_SPACE_ID}/list", {
-        "name": f"{company} - Recruiting",
-        "content": f"Fulfillment-Projekt für {company}. Automatisch erstellt.",
-    })
-    list_id = result["id"]
-    log.info(f"ClickUp List erstellt: {list_id}")
+    try:
+        result = await clickup_api("POST", f"/space/{CLICKUP_SPACE_ID}/list", {
+            "name": list_name,
+            "content": f"Fulfillment-Projekt für {company}. Automatisch erstellt.",
+        })
+        list_id = result["id"]
+        log.info(f"ClickUp List erstellt: {list_id}")
+    except HTTPException as e:
+        if "name taken" in str(e.detail).lower():
+            # Liste existiert — wiederverwenden
+            lists = await clickup_api("GET", f"/space/{CLICKUP_SPACE_ID}/list")
+            for lst in lists.get("lists", []):
+                if lst["name"] == list_name:
+                    list_id = lst["id"]
+                    log.info(f"ClickUp List existiert bereits: {list_id}")
+                    return {"list_id": list_id, "name": lst["name"], "url": f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"}
+            raise
+        raise
     return {"list_id": list_id, "name": result["name"], "url": f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"}
 
 
