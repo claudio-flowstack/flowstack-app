@@ -23,7 +23,7 @@ log = logging.getLogger("demo-backend")
 app = FastAPI(title="Flowstack Demo Backend", version="1.0")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:4173"],
+    allow_origins=["http://localhost:5173", "http://localhost:4173", "http://localhost:5180"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -100,6 +100,8 @@ FUNNEL_LINKS = {
     "Bewerbungsseite": "https://demo-recruiting.vercel.app/demo-formular",
     "Dankeseite": "https://demo-recruiting.vercel.app/demo-danke",
 }
+TRACKING_SHEET = "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"
+TRACKING_DASHBOARD = "https://demo-recruiting.vercel.app/recruiting"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -181,52 +183,116 @@ def _slack_link(url: str, label: str) -> str:
     return f"<{url}|{label}>"
 
 
-def _slack_blocks_message(header: str, sections: list[dict[str, Any]], footer: str = "") -> list[dict]:
-    """Block Kit Nachricht mit Header, kategorisierten Sections und optionalem Footer.
+def _slack_blocks_message(
+    header: str,
+    sections: list[dict[str, Any]],
+    buttons: list[tuple] | None = None,
+    footer: str = "",
+) -> list[dict]:
+    """Block Kit Message — V5 Design (Color Bar, Fields mit Spacing, ein Divider).
 
-    sections: [{"title": "Kategorie", "items": [("Label", "url_or_text"), ...]}]
+    sections: Flexibel — jede Section kann enthalten:
+      - "text": str → einfacher mrkdwn Text
+      - "fields": [("Label", "Value"), ...] → 2-Spalten mit *Label:*\\nValue (Newline!)
+      - "title": str → fetter Titel vor Items
+      - "items": [...] → Link-Tuples → rich_text Bullet-Liste, Strings → Bullet-Liste
+    buttons: [("Label", "url"), ("Label", "url", "primary"), ...]
+    footer: Context-Zeile ganz unten (klein, grau)
     """
     blocks: list[dict] = [
-        {"type": "header", "text": {"type": "plain_text", "text": header}},
-        {"type": "divider"},
+        {"type": "header", "text": {"type": "plain_text", "text": header, "emoji": True}},
     ]
+    btn_idx = 0
     for sec in sections:
+        # Einfacher Text-Block
+        text = sec.get("text")
+        if text and not sec.get("items") and not sec.get("fields"):
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": text}})
+            continue
+        # Titel
         title = sec.get("title", "")
-        items = sec.get("items", [])
         if title:
             blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*{title}*"}})
-        # Items als 2-Spalten Fields (Label | Link)
-        if items and all(isinstance(i, tuple) and len(i) == 2 for i in items):
-            fields: list[dict] = []
-            for label, value in items:
-                if value.startswith("http"):
-                    fields.append({"type": "mrkdwn", "text": f"{_slack_link(value, label)}"})
-                else:
-                    fields.append({"type": "mrkdwn", "text": f"*{label}:* {value}"})
-            # Section fields max 10, batch if needed
-            for i in range(0, len(fields), 10):
-                blocks.append({"type": "section", "fields": fields[i:i+10]})
-        elif items:
-            text = "\n".join(str(i) for i in items)
-            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": text}})
+        # Fields (2-Spalten mit Newline-Spacing)
+        field_items = sec.get("fields")
+        if field_items:
+            field_blocks: list[dict] = []
+            for label, value in field_items:
+                field_blocks.append({"type": "mrkdwn", "text": f"*{label}:*\n{value}"})
+            for i in range(0, len(field_blocks), 10):
+                blocks.append({"type": "section", "fields": field_blocks[i:i+10]})
+            continue
+        # Items
+        items = sec.get("items", [])
+        if not items:
+            continue
+        # Link-Tuples → Rich Text Bullet-Liste (klickbar)
+        all_links = all(isinstance(i, tuple) and len(i) == 2 and str(i[1]).startswith("http") for i in items)
+        if all_links:
+            link_emoji = sec.get("emoji", "")
+            prefix = f"{link_emoji}  " if link_emoji else ""
+            link_fields = []
+            for label, url in items:
+                link_fields.append({"type": "mrkdwn", "text": f"{prefix}<{url}|{label}>"})
+            for i in range(0, len(link_fields), 10):
+                blocks.append({"type": "section", "fields": link_fields[i:i+10]})
+        # Plain-Text → Bullet-Liste
+        else:
+            bullet_text = "\n".join(f"• {i}" for i in items)
+            blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": bullet_text}})
+    # Divider + Buttons (ein Divider, nur vor Buttons)
+    if buttons:
         blocks.append({"type": "divider"})
+        elements = []
+        for btn in buttons:
+            label, url = btn[0], btn[1]
+            style = btn[2] if len(btn) > 2 else None
+            el: dict[str, Any] = {
+                "type": "button",
+                "text": {"type": "plain_text", "text": label, "emoji": True},
+                "url": url,
+                "action_id": f"btn_{btn_idx}",
+            }
+            if style:
+                el["style"] = style
+            elements.append(el)
+            btn_idx += 1
+        blocks.append({"type": "actions", "elements": elements[:5]})
+    # Context-Footer (klein, grau)
     if footer:
         blocks.append({"type": "context", "elements": [{"type": "mrkdwn", "text": footer}]})
     return blocks
 
 
-async def slack_message(text: str, blocks: Optional[list] = None) -> bool:
-    """Slack Incoming Webhook nachricht senden (Ops-Channel)."""
-    if not SLACK_WEBHOOK:
-        log.warning("Kein Slack Webhook konfiguriert")
-        return False
-    payload: dict[str, Any] = {"text": text}
-    if blocks:
-        payload["blocks"] = blocks
-    resp = await _http.post(SLACK_WEBHOOK, json=payload)
-    if resp.status_code != 200:
-        log.error(f"Slack Webhook fehlgeschlagen: {resp.status_code} {resp.text}")
-    return resp.status_code == 200
+SLACK_OPS_CHANNEL = "C0AAEHG30NM"  # #alle-in-flowstack-system
+
+# Farben für Color-Bar (links am Message-Rand)
+SLACK_COLOR_SUCCESS = "#36a64f"   # Grün — abgeschlossen
+SLACK_COLOR_INFO = "#1264a3"      # Blau — informational
+SLACK_COLOR_WARNING = "#ff9900"   # Gelb — warte auf Aktion
+
+async def slack_message(text: str, blocks: Optional[list] = None, color: Optional[str] = None) -> bool:
+    """Slack Nachricht im Ops-Channel senden (via Bot API, damit löschbar).
+    color: Hex-Farbe für Color-Bar links (via attachments wrapper).
+    """
+    if not SLACK_BOT_TOKEN:
+        if not SLACK_WEBHOOK:
+            log.warning("Kein Slack Token/Webhook konfiguriert")
+            return False
+        payload: dict[str, Any] = {"text": text}
+        if color and blocks:
+            payload["attachments"] = [{"color": color, "blocks": blocks}]
+        elif blocks:
+            payload["blocks"] = blocks
+        resp = await _http.post(SLACK_WEBHOOK, json=payload)
+        return resp.status_code == 200
+    msg_payload: dict[str, Any] = {"channel": SLACK_OPS_CHANNEL, "text": text}
+    if color and blocks:
+        msg_payload["attachments"] = [{"color": color, "blocks": blocks}]
+    elif blocks:
+        msg_payload["blocks"] = blocks
+    result = await slack_bot_api("chat.postMessage", msg_payload)
+    return result.get("ok", False)
 
 
 async def slack_bot_api(method: str, payload: dict) -> dict:
@@ -454,8 +520,10 @@ async def create_close_lead(body: Optional[dict] = None):
 @app.post("/api/close/update-stage")
 async def update_close_stage(body: dict):
     """Close Opportunity Stage updaten."""
-    opp_id = body["opportunity_id"]
-    stage = body["stage"]
+    opp_id = body.get("opportunity_id")
+    if not opp_id:
+        raise HTTPException(400, "opportunity_id fehlt im Context")
+    stage = body.get("stage", "")
     automation_status = body.get("automation_status", stage)
 
     status_id = CLOSE_STAGES.get(stage)
@@ -852,44 +920,88 @@ async def _complete_task(task_id: str, comment: str | None = None) -> None:
 
 @app.post("/api/clickup/create-tasks")
 async def create_clickup_tasks(body: dict):
-    """is09: Erste ClickUp Tasks erstellen (Zugänge + Kickoff)."""
+    """is09: Initiale ClickUp Tasks erstellen (Zugänge + Zugänge beschaffen + Kickoff)."""
     list_id = body["list_id"]
     task_ids: dict[str, str] = {}
+    company = body.get("company", "Novacode GmbH")
 
+    # URLs aus Context aufbauen
+    lead_id = body.get("lead_id", "")
+    folder_root_id = body.get("folder_root_id", "")
+    close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+    drive_url = f"https://drive.google.com/drive/folders/{folder_root_id}" if folder_root_id else ""
+    ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}" if META_AD_ACCOUNT else ""
+    events_url = f"https://business.facebook.com/events_manager2/list/pixel/{META_PIXEL_ID}/overview" if META_PIXEL_ID else ""
+    clickup_url = f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"
+
+    # Task 1: Zugriff prüfen
+    desc = f"Alle technischen Zugänge für das Recruiting-Projekt prüfen und dokumentieren.\n\n"
+    desc += f"Ressourcen:\n"
+    if close_url: desc += f"- Close Deal: {close_url}\n"
+    if drive_url: desc += f"- Google Drive: {drive_url}\n"
+    if ads_url: desc += f"- Meta Ads Manager: {ads_url}\n"
+    if events_url: desc += f"- Meta Events Manager: {events_url}\n"
+    desc += f"- ClickUp Projekt: {clickup_url}\n"
     t = await _create_task(
-        list_id,
-        "Zugänge verifizieren",
-        "Alle technischen Zugänge für das Recruiting-Projekt prüfen und dokumentieren.",
+        list_id, "Zugriff prüfen", desc,
         [CLICKUP_ANAK], 1, 2,  # Urgent, +2 Tage
         [
-            "Meta Business Manager Zugang bestätigen",
-            "Meta Ad Account Zugang bestätigen",
-            "Meta Pixel vorhanden bestätigen",
-            "Website/CMS Zugang bestätigen",
-            "Domain/DNS Zugang (falls nötig)",
-            "Technischer Ansprechpartner bekannt",
-            "Fehlende Zugänge dokumentieren",
+            "Meta Business Manager: Admin-Zugang vorhanden",
+            "Meta Ad Account: Zugang und Werberechte bestätigt",
+            f"Meta Pixel: ID {META_PIXEL_ID} vorhanden und aktiv" if META_PIXEL_ID else "Meta Pixel: Vorhanden und aktiv",
+            "Facebook Seite: Vorhanden und mit Ad Account verknüpft",
+            "Website/CMS: Login-Daten erhalten und Zugang getestet",
+            "Domain/DNS: Zugang vorhanden (falls Pixel/CNAME nötig)",
+            "Technischer Ansprechpartner beim Kunden identifiziert",
+            "Alle Zugänge im Close Deal dokumentiert",
+            "Ergebnis: Fehlende Zugänge identifiziert und als Aufgabe erfasst",
         ],
     )
     task_ids["zugaenge"] = t["id"]
 
+    # Task 2: Fehlende Zugänge beschaffen (bedingt — in Demo immer erstellt)
+    desc2 = f"Falls Zugänge fehlen: Beim Kunden anfordern und einrichten.\n\n"
+    desc2 += f"Ressourcen:\n"
+    if close_url: desc2 += f"- Close Deal: {close_url}\n"
+    desc2 += f"- ClickUp Projekt: {clickup_url}\n"
     t = await _create_task(
-        list_id,
-        "Kickoff vorbereiten",
-        "Internes Briefing und Kickoff-Leitfaden für den Kundencall vorbereiten.",
+        list_id, "Fehlende Zugänge beschaffen", desc2,
+        [CLICKUP_ANAK], 2, 3,  # High, +3 Tage
+        [
+            "Fehlende Zugänge aus 'Zugriff prüfen' identifiziert",
+            "Kunden per Slack oder E-Mail kontaktiert",
+            "Business Manager Einladung versendet (falls nötig)",
+            "Ad Account Zugriff bestätigt (mind. Werbekonto-Admin)",
+            "Pixel-Zugang gesichert (Events Manager Zugriff)",
+            "Website-Zugang getestet (Login funktioniert)",
+            "Alle Zugänge erneut verifiziert und dokumentiert",
+        ],
+    )
+    task_ids["zugaenge_beschaffen"] = t["id"]
+
+    # Task 3: Kickoff vorbereiten
+    desc3 = f"Internes Briefing und Kickoff-Leitfaden für den Kundencall vorbereiten.\n\n"
+    desc3 += f"Ressourcen:\n"
+    if close_url: desc3 += f"- Close Deal: {close_url}\n"
+    if drive_url: desc3 += f"- Google Drive: {drive_url}\n"
+    desc3 += f"- Kalendereinladung mit Google Meet-Link liegt bereit\n"
+    t = await _create_task(
+        list_id, "Kickoff vorbereiten", desc3,
         [CLICKUP_CLAUDIO], 2, 3,  # High, +3 Tage
         [
-            "Close Deal-Notizen lesen",
-            "Onboarding-Formular prüfen",
-            "Recruiting Kickoff-Leitfaden öffnen",
-            "Schlüsselfragen an Client anpassen",
-            "Brand & Design Fragen vorbereiten",
+            "Close Deal-Notizen und Opportunity-Details gelesen",
+            "Onboarding-Formular Antworten geprüft",
+            "Branche und Wettbewerber kurz recherchiert",
+            "Recruiting Kickoff-Leitfaden geöffnet und angepasst",
+            "Schlüsselfragen an Client-Situation angepasst",
+            "Brand & Design Fragen vorbereitet (Logo, Farben, Bilder)",
+            "Kalendereinladung und Google Meet-Link verifiziert",
         ],
     )
     task_ids["kickoff"] = t["id"]
 
     log.info(f"ClickUp Tasks erstellt: {task_ids}")
-    return {"tasks": [{"id": v, "name": k} for k, v in task_ids.items()], "task_ids": task_ids, "url": f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"}
+    return {"tasks": [{"id": v, "name": k} for k, v in task_ids.items()], "task_ids": task_ids, "url": clickup_url}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -918,20 +1030,18 @@ async def execute_node(body: dict):
             lead_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else "https://app.close.com/"
             # Ops-Channel Benachrichtigung (Block Kit)
             blocks = _slack_blocks_message(
-                f"Neuer Client: {company}",
+                f":white_check_mark: Neuer Client: {company}",
                 [
-                    {"title": ":clipboard: Projekt-Details", "items": [
-                        ("Service", "Recruiting Automation"),
+                    {"text": "*Recruiting Automation*\nLead erstellt und Pipeline gestartet."},
+                    {"fields": [
+                        ("Service", "Recruiting"),
                         ("Account Manager", "Claudio Di Franco"),
-                        ("Status", "Automation gestartet"),
-                    ]},
-                    {"title": ":link: Verknüpfungen", "items": [
-                        ("Lead in Close CRM", lead_url),
                     ]},
                 ],
-                footer=f"Flowstack Automation | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+                buttons=[("Close CRM öffnen", lead_url, "primary")],
+                footer=f":zap: Flowstack Automation | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             )
-            await slack_message(f"Neuer Client: {company}", blocks=blocks)
+            await slack_message(f"Neuer Client: {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
             # Kunden-Channel erstellen
             channel_name = company.lower().replace(" ", "-").replace("ü", "ue").replace("ä", "ae").replace("ö", "oe")
             channel_name = f"client-{channel_name}"[:80]
@@ -960,17 +1070,15 @@ async def execute_node(body: dict):
                 })
                 # Willkommensnachricht im Kunden-Channel (Block Kit)
                 welcome_blocks = _slack_blocks_message(
-                    f"Willkommen, {company}!",
+                    f":wave: Willkommen, {company}!",
                     [
-                        {"title": ":wave: Projekt-Channel", "items": [
-                            "Hier koordinieren wir alles rund um euer Recruiting-Projekt.",
-                        ]},
-                        {"title": ":busts_in_silhouette: Euer Team", "items": [
+                        {"text": "Hier koordinieren wir alles rund um euer Recruiting-Projekt."},
+                        {"fields": [
                             ("Claudio Di Franco", "Account Manager & Strategie"),
                             ("Anak", "Development & Technik"),
                         ]},
                     ],
-                    footer="Bei Fragen einfach hier schreiben — wir sind für euch da!",
+                    footer="Bei Fragen einfach hier schreiben - wir sind fuer euch da!",
                 )
                 await slack_bot_api("chat.postMessage", {
                     "channel": channel_id,
@@ -1009,13 +1117,12 @@ async def execute_node(body: dict):
             event_link = result.get("link", "")
             meet_link = result.get("meet_link", "")
             blocks = _slack_blocks_message(
-                f"Kickoff-Termin erstellt — {company}",
-                [{"title": ":calendar: Termin", "items": [
-                    ("Kalender-Event öffnen", event_link),
-                ] + ([("Google Meet beitreten", meet_link)] if meet_link else [])}],
-                footer="Einladung an Client gesendet",
+                f":calendar: Kickoff-Termin — {company}",
+                [{"text": "Einladung an Client gesendet."}],
+                buttons=[("Kalender öffnen", event_link, "primary")] + ([("Google Meet", meet_link)] if meet_link else []),
+                footer=f":zap: Flowstack Automation | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
             )
-            await slack_message(f"Kickoff-Termin erstellt — {company}", blocks=blocks)
+            await slack_message(f"Kickoff-Termin erstellt — {company}", blocks=blocks, color=SLACK_COLOR_INFO)
 
         elif node_id == "is06":
             result = await create_drive_folders(context)
@@ -1024,13 +1131,15 @@ async def execute_node(body: dict):
             if folder_url:
                 company = context.get("company", "Novacode GmbH")
                 blocks = _slack_blocks_message(
-                    f"Google Drive — {company}",
-                    [{"title": ":file_folder: Ordnerstruktur", "items": [
-                        ("Projektordner öffnen", folder_url),
-                    ]}],
-                    footer="8 Hauptordner + Unterordner angelegt und geteilt",
+                    f":file_folder: Google Drive — {company}",
+                    [
+                        {"text": "8 Hauptordner + Unterordner angelegt und geteilt."},
+                        {"fields": [("Geteilt mit", context.get("email", "Kunde"))]},
+                    ],
+                    buttons=[("Drive öffnen", folder_url, "primary")],
+                    footer=f":zap: Flowstack Automation | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
                 )
-                await slack_message(f"Google Drive Ordner erstellt — {company}", blocks=blocks)
+                await slack_message(f"Google Drive Ordner erstellt — {company}", blocks=blocks, color=SLACK_COLOR_INFO)
 
         elif node_id == "is08":
             result = await create_clickup_project(context)
@@ -1038,22 +1147,24 @@ async def execute_node(body: dict):
         elif node_id == "is09":
             list_id = context.get("list_id")
             if list_id:
-                result = await create_clickup_tasks({"list_id": list_id})
+                result = await create_clickup_tasks(context)
                 # Slack: ClickUp Tasks erstellt
                 company = context.get("company", "Novacode GmbH")
                 clickup_url = f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id}"
                 blocks = _slack_blocks_message(
-                    f"ClickUp Projekt — {company}",
-                    [{"title": ":white_check_mark: Projektmanagement", "items": [
-                        ("Projekt in ClickUp öffnen", clickup_url),
-                    ]},
-                    {"title": ":memo: Erstellte Tasks", "items": [
-                        ("Zugänge verifizieren", "Offen"),
-                        ("Kickoff vorbereiten", "Offen"),
-                    ]}],
-                    footer="Automatisch erstellt via Flowstack Automation",
+                    f":memo: ClickUp — {company}",
+                    [
+                        {"text": "3 Tasks erstellt:"},
+                        {"items": [
+                            ":red_circle: Zugriff prüfen — Urgent",
+                            ":large_orange_circle: Fehlende Zugänge beschaffen",
+                            ":large_orange_circle: Kickoff vorbereiten",
+                        ]},
+                    ],
+                    buttons=[("ClickUp öffnen", clickup_url, "primary")],
+                    footer=":zap: Flowstack Automation | Projekt angelegt",
                 )
-                await slack_message(f"ClickUp Projekt erstellt — {company}", blocks=blocks)
+                await slack_message(f"ClickUp Projekt erstellt — {company}", blocks=blocks, color=SLACK_COLOR_INFO)
 
         elif node_id == "is10":
             result = await update_close_stage({
@@ -1069,43 +1180,58 @@ async def execute_node(body: dict):
                 "stage": "Kickoff abgeschlossen",
                 "automation_status": "Strategie in Arbeit",
             })
-            # ClickUp: Kickoff-Task abschließen + Strategie-Task erstellen
+            # ClickUp: Infra-Tasks abschließen + Strategie-Review erstellen
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             if list_id:
+                if task_ids.get("zugaenge"):
+                    await _complete_task(task_ids["zugaenge"], "✅ Alle Zugänge geprüft und dokumentiert.")
+                if task_ids.get("zugaenge_beschaffen"):
+                    await _complete_task(task_ids["zugaenge_beschaffen"], "✅ Alle fehlenden Zugänge beschafft.")
                 if task_ids.get("kickoff"):
                     await _complete_task(
                         task_ids["kickoff"],
-                        f"✅ Kickoff abgeschlossen.\nTranskript: {TRANSCRIPT_DOC}",
+                        f"✅ Kickoff abgeschlossen.\n\nTranskript: {TRANSCRIPT_DOC}",
                     )
+                # Task 4: Strategie- & Marken-Review
+                lead_id = context.get("lead_id", "")
+                folder_root_id = context.get("folder_root_id", "")
+                close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+                drive_url = f"https://drive.google.com/drive/folders/{folder_root_id}" if folder_root_id else ""
+                desc = "Strategie-Dokumente auf Basis des Kickoff-Transkripts erstellen und reviewen.\n\n"
+                desc += "Ressourcen:\n"
+                desc += f"- Kickoff-Transkript: {TRANSCRIPT_DOC}\n"
+                if drive_url: desc += f"- Google Drive (Strategie): {drive_url}\n"
+                if close_url: desc += f"- Close Deal: {close_url}\n"
                 t = await _create_task(
-                    list_id,
-                    "Strategie & Brand erstellen",
-                    "Zielgruppen-Analyse, Arbeitgeber-Positionierung, Messaging, Creative Brief und Brand Guidelines erstellen.",
+                    list_id, "Strategie- & Marken-Review", desc,
                     [CLICKUP_CLAUDIO], 2, 5,  # High, +5 Tage
                     [
-                        "Zielgruppen-Avatar erstellen",
-                        "Arbeitgeber-Avatar erstellen",
-                        "Messaging-Matrix erstellen",
-                        "Creative Briefing erstellen",
-                        "Marken-Richtlinien erstellen",
+                        "Zielgruppen-Avatar: Alter, Region, Branche vollständig",
+                        "Zielgruppen-Avatar: Mind. 5 Pain Points branchenspezifisch",
+                        "Zielgruppen-Avatar: Jobs-to-be-Done und Medienkonsum definiert",
+                        "Arbeitgeber-Avatar: EVP klar formuliert",
+                        "Arbeitgeber-Avatar: 4 P's ausgefüllt (People, Purpose, Place, Product)",
+                        "Messaging-Matrix: USPs mit Pain Points verknüpft",
+                        "Messaging-Matrix: Tone of Voice definiert",
+                        "Creative Briefing: Farbpalette und Typografie festgelegt",
+                        "Creative Briefing: Bildsprache und Format-Specs (1080x1080, 1080x1920)",
+                        "Marken-Richtlinien: Kommunikations-Dos/Don'ts vollständig",
+                        "Alle 5 Strategie-Dokumente intern freigegeben",
                     ],
                 )
-                task_ids["strategy"] = t["id"]
+                task_ids["strategy_review"] = t["id"]
                 result["task_ids"] = task_ids
 
         elif node_id == "kc06":
             company = context.get("company", "Novacode GmbH")
             blocks = _slack_blocks_message(
-                f"Kickoff abgeschlossen — {company}",
-                [{"title": ":phone: Kickoff", "items": [
-                    ("Transkript ansehen", TRANSCRIPT_DOC),
-                ]},
-                {"title": ":arrow_forward: Nächster Schritt", "items": [
-                    "Strategie-Erstellung startet automatisch",
-                ]}],
+                f":white_check_mark: Kickoff abgeschlossen — {company}",
+                [{"text": "Strategie-Erstellung startet automatisch."}],
+                buttons=[("Transkript lesen", TRANSCRIPT_DOC, "primary")],
+                footer=f":zap: Flowstack Automation | Nächster Schritt: Strategie & Brand",
             )
-            await slack_message(f"Kickoff abgeschlossen — {company}", blocks=blocks)
+            await slack_message(f"Kickoff abgeschlossen — {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         # ── Strategy & Brand ──
@@ -1115,41 +1241,59 @@ async def execute_node(body: dict):
                 "stage": "Strategie erstellt",
                 "automation_status": "Strategie erstellt",
             })
-            # ClickUp: Strategie-Task abschließen + Docs verlinken + Copy-Task erstellen
+            # ClickUp: Strategie-Review abschließen + Docs verlinken + Copy-Review erstellen
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             if list_id:
-                if task_ids.get("strategy"):
-                    comment = "✅ Strategie & Brand fertiggestellt:\n"
+                if task_ids.get("strategy_review"):
+                    comment = "✅ Strategie & Brand fertiggestellt:\n\n"
                     for name, url in STRATEGY_DOCS.items():
                         comment += f"• {name}: {url}\n"
-                    await _complete_task(task_ids["strategy"], comment)
+                    await _complete_task(task_ids["strategy_review"], comment)
+                # Task 5: Copy-Review
+                lead_id = context.get("lead_id", "")
+                folder_root_id = context.get("folder_root_id", "")
+                close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+                drive_url = f"https://drive.google.com/drive/folders/{folder_root_id}" if folder_root_id else ""
+                desc = "Alle Texte (Landingpage, Anzeigen, Videoskript) auf Basis der Strategie reviewen.\n\n"
+                desc += "Ressourcen:\n"
+                for name, url in STRATEGY_DOCS.items():
+                    desc += f"- {name}: {url}\n"
+                if drive_url: desc += f"- Google Drive (Texte): {drive_url}\n"
+                if close_url: desc += f"- Close Deal: {close_url}\n"
                 t = await _create_task(
-                    list_id,
-                    "Texte erstellen",
-                    "Landingpage-Texte, Anzeigentexte, Videoskript und Variationen auf Basis der Strategie erstellen.",
+                    list_id, "Copy-Review", desc,
                     [CLICKUP_CLAUDIO], 2, 4,  # High, +4 Tage
                     [
-                        "Landingpage-Texte (Hero, Benefits, Team, FAQ)",
-                        "Formularseite-Texte",
-                        "Dankeseite-Texte",
-                        "Anzeigentexte (5 Varianten)",
-                        "Videoskript (60s)",
-                        "Retargeting-Variationen",
+                        "Landingpage Hero: Mind. 3 Headline-Varianten vorhanden",
+                        "Landingpage: Benefits-Section mit konkreten Arbeitgeber-Vorteilen",
+                        "Landingpage: Team-Section und Testimonials vorhanden",
+                        "Landingpage: FAQ vollständig und relevant",
+                        "Formularseite: Felder, Labels, Placeholders korrekt",
+                        "Formularseite: Datenschutz-Hinweis vorhanden",
+                        "Dankeseite: Bestätigung und nächste Schritte klar",
+                        "Anzeigentexte: 5 Varianten (PAS, AIDA, Social Proof, Frage, Statistik)",
+                        "Videoskript: Hook-Problem-Lösung-CTA Struktur (60s)",
+                        "Retargeting-Variationen: Reminder, Objection-Handling, Urgency, FOMO",
+                        "Alle Texte konsistent mit Messaging-Matrix und Tone of Voice",
                     ],
                 )
-                task_ids["copy"] = t["id"]
+                task_ids["copy_review"] = t["id"]
                 result["task_ids"] = task_ids
             # Slack: Strategie fertig
             company = context.get("company", "Novacode GmbH")
+            folder_root_id_slack = context.get("folder_root_id", "")
+            drive_url_slack = f"https://drive.google.com/drive/folders/{folder_root_id_slack}" if folder_root_id_slack else ""
             blocks = _slack_blocks_message(
-                f"Strategie & Brand — {company}",
-                [{"title": ":dart: Strategie-Dokumente", "items": [
-                    (name, url) for name, url in STRATEGY_DOCS.items()
-                ]}],
-                footer="Alle Dokumente erstellt und freigegeben",
+                f":dart: Strategie & Brand — {company}",
+                [
+                    {"text": "5 Dokumente erstellt und freigegeben:"},
+                    {"items": [(name, url) for name, url in STRATEGY_DOCS.items()], "emoji": ":blue_book:"},
+                ],
+                buttons=([("Drive öffnen", drive_url_slack, "primary")] if drive_url_slack else []),
+                footer=":zap: Flowstack Automation | Strategie abgeschlossen",
             )
-            await slack_message(f"Strategie & Brand fertiggestellt — {company}", blocks=blocks)
+            await slack_message(f"Strategie & Brand fertiggestellt — {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
 
         # ── Copy Creation ──
         elif node_id == "cc05":
@@ -1158,94 +1302,110 @@ async def execute_node(body: dict):
                 "stage": "Assets erstellt",
                 "automation_status": "Assets erstellt",
             })
-            # ClickUp: Copy-Task abschließen + Docs verlinken + Funnel/Tracking/Kampagnen-Tasks erstellen
+            # ClickUp: Copy-Review abschließen + Pixel/Funnel-Tasks erstellen
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             if list_id:
-                if task_ids.get("copy"):
-                    comment = "✅ Texte fertiggestellt:\n"
+                if task_ids.get("copy_review"):
+                    comment = "✅ Texte fertiggestellt und freigegeben:\n\n"
                     for name, url in COPY_DOCS.items():
                         comment += f"• {name}: {url}\n"
-                    await _complete_task(task_ids["copy"], comment)
+                    await _complete_task(task_ids["copy_review"], comment)
+                # URLs
+                ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}" if META_AD_ACCOUNT else ""
+                events_url = f"https://business.facebook.com/events_manager2/list/pixel/{META_PIXEL_ID}/overview" if META_PIXEL_ID else ""
+                # Task 6: Meta-Pixel & Domain einrichten
+                desc = "Meta Pixel auf dem Recruiting-Funnel installieren und Conversion-Events konfigurieren.\n\n"
+                desc += "Ressourcen:\n"
+                for name, url in FUNNEL_LINKS.items():
+                    desc += f"- {name}: {url}\n"
+                if events_url: desc += f"- Meta Events Manager: {events_url}\n"
+                if ads_url: desc += f"- Meta Ads Manager: {ads_url}\n"
                 t = await _create_task(
-                    list_id,
-                    "Funnel bauen & deployen",
-                    "Recruiting-Funnel mit Landingpage, Bewerbungsformular und Dankeseite auf Vercel deployen.",
+                    list_id, "Meta-Pixel & Domain einrichten", desc,
                     [CLICKUP_ANAK], 2, 4,  # High, +4 Tage
                     [
-                        "Template auswählen & konfigurieren",
-                        "Copy einsetzen",
-                        "Design an Brand anpassen",
-                        "Website bauen & deployen",
-                        "Alle Seiten testen",
+                        f"Meta Pixel ID korrekt: {META_PIXEL_ID}" if META_PIXEL_ID else "Meta Pixel ID korrekt",
+                        "Pixel Base Code im <head> aller Funnel-Seiten installiert",
+                        "ViewContent Event feuert auf Landingpage",
+                        "AddToCart Event feuert auf Bewerbungsseite",
+                        "Lead Event feuert auf Dankeseite",
+                        "Alle 3 Events im Meta Events Manager sichtbar (Test-Events senden)",
+                        "Domain im Business Manager verifiziert",
+                        "Aggregated Event Measurement: Lead-Event auf Priorität 1",
+                        "Tracking Sheet vorbereitet (Google Spreadsheet)",
                     ],
                 )
-                task_ids["funnel"] = t["id"]
+                task_ids["pixel_setup"] = t["id"]
+                # Task 7: Funnel- & Pixel-Review
+                desc2 = "Recruiting-Funnel und Pixel-Setup auf Qualität und Funktionalität prüfen.\n\n"
+                desc2 += "Ressourcen:\n"
+                for name, url in FUNNEL_LINKS.items():
+                    desc2 += f"- {name}: {url}\n"
+                if events_url: desc2 += f"- Meta Events Manager: {events_url}\n"
+                desc2 += f"- Tracking Sheet: {TRACKING_SHEET}\n"
+                desc2 += f"- Tracking Dashboard: {TRACKING_DASHBOARD}\n"
                 t = await _create_task(
-                    list_id,
-                    "Pixel & Tracking einrichten",
-                    "Meta Pixel installieren, Conversion-Events konfigurieren, Tracking-Dashboard einrichten.",
-                    [CLICKUP_ANAK], 3, 4,  # Normal, +4 Tage
+                    list_id, "Funnel- & Pixel-Review", desc2,
+                    [CLICKUP_CLAUDIO, CLICKUP_ANAK], 2, 4,  # High, +4 Tage
                     [
-                        "Meta Pixel installieren",
-                        "ViewContent Event (Landingpage)",
-                        "AddToCart Event (Formular)",
-                        "Lead Event (Dankeseite)",
-                        "Tracking Dashboard prüfen",
+                        "Landingpage: Desktop-Layout korrekt (Hero, Benefits, Team, FAQ, CTA)",
+                        "Landingpage: Mobile-Layout korrekt (responsive)",
+                        "Landingpage: Alle Links und CTAs funktionieren",
+                        "Landingpage: Ladezeit unter 3 Sekunden",
+                        "Bewerbungsseite: Formular-Validierung getestet",
+                        "Bewerbungsseite: Datenschutz-Checkbox vorhanden",
+                        "Bewerbungsseite: Submit leitet korrekt auf Dankeseite weiter",
+                        "Dankeseite: Bestätigungstext und nächste Schritte sichtbar",
+                        "OG-Image und Meta-Tags korrekt gesetzt",
+                        "Pixel: ViewContent, AddToCart, Lead im Events Manager verifiziert",
+                        "Tracking Sheet: Test-Eintrag im Spreadsheet vorhanden",
                     ],
                 )
-                task_ids["tracking"] = t["id"]
-                t = await _create_task(
-                    list_id,
-                    "Kampagnen-Setup",
-                    "Zielgruppen erstellen, 3 Meta-Kampagnen (Kaltakquise, Retargeting, Warmup) konfigurieren.",
-                    [CLICKUP_CLAUDIO], 2, 6,  # High, +6 Tage
-                    [
-                        "Custom Audiences erstellen",
-                        "Kaltakquise-Kampagne konfigurieren",
-                        "Retargeting-Kampagne konfigurieren",
-                        "Warmup-Kampagne konfigurieren",
-                        "Anzeigengruppen & Budgets prüfen",
-                    ],
-                )
-                task_ids["campaigns"] = t["id"]
+                task_ids["funnel_review"] = t["id"]
                 result["task_ids"] = task_ids
             # Slack: Copy fertig
             company = context.get("company", "Novacode GmbH")
+            folder_root_id_slack = context.get("folder_root_id", "")
+            drive_url_slack = f"https://drive.google.com/drive/folders/{folder_root_id_slack}" if folder_root_id_slack else ""
             blocks = _slack_blocks_message(
-                f"Copy & Texte — {company}",
-                [{"title": ":pencil2: Erstellte Texte", "items": [
-                    (name, url) for name, url in COPY_DOCS.items()
-                ]}],
-                footer="Alle Texte auf Basis der Strategie erstellt",
+                f":pencil2: Copy & Texte — {company}",
+                [
+                    {"text": "6 Dokumente erstellt:"},
+                    {"items": [(name, url) for name, url in COPY_DOCS.items()], "emoji": ":ledger:"},
+                ],
+                buttons=([("Drive öffnen", drive_url_slack, "primary")] if drive_url_slack else []),
+                footer=":zap: Flowstack Automation | Copy abgeschlossen",
             )
-            await slack_message(f"Copy Assets fertiggestellt — {company}", blocks=blocks)
+            await slack_message(f"Copy Assets fertiggestellt — {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
 
         # ── Review & Launch ──
         elif node_id == "rl06":
             company = context.get("company", "Novacode GmbH")
+            lead_id_rl = context.get("lead_id", "")
+            close_url_rl = f"https://app.close.com/lead/{lead_id_rl}/" if lead_id_rl else ""
+            list_id_rl = context.get("list_id", "")
+            clickup_url_rl = f"https://app.clickup.com/{CLICKUP_SPACE_ID}/l/{list_id_rl}" if list_id_rl else ""
             blocks = _slack_blocks_message(
-                f"Asset-Paket bereit zur Freigabe — {company}",
+                f":package: Asset-Paket bereit — {company}",
                 [
-                    {"title": ":dart: Strategie-Dokumente", "items": [
+                    {"title": ":dart: Strategie", "items": [
                         (name, url) for name, url in STRATEGY_DOCS.items()
-                    ] + [("Pain-Point-Matrix", "https://docs.google.com/document/d/1RfNMSovKZx43uHrKDNa8G6iBCi_ouRTfShVuoLcuUac/edit")]},
-                    {"title": ":phone: Kickoff", "items": [
-                        ("Kickoff-Transkript", TRANSCRIPT_DOC),
-                    ]},
-                    {"title": ":pencil2: Copy & Texte", "items": [
+                    ], "emoji": ":blue_book:"},
+                    {"title": ":pencil2: Texte", "items": [
                         (name, url) for name, url in COPY_DOCS.items()
-                    ]},
-                    {"title": ":globe_with_meridians: Funnel", "items": [
+                    ], "emoji": ":ledger:"},
+                    {"title": ":globe_with_meridians: Funnel & Tracking", "items": [
                         (name, url) for name, url in FUNNEL_LINKS.items()
-                    ]},
-                    {"title": ":bar_chart: Tracking", "items": [
-                        ("Tracking Dashboard", "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"),
-                    ]},
+                    ] + [("Tracking Sheet", TRACKING_SHEET), ("Tracking Dashboard", TRACKING_DASHBOARD)], "emoji": ":link:"},
                 ],
-                footer=":hourglass_flowing_sand: Finale Freigabe steht aus",
+                buttons=[
+                    ("Funnel ansehen", FUNNEL_LINKS.get("Landingpage", ""), "primary"),
+                ] + ([("ClickUp", clickup_url_rl)] if clickup_url_rl else [])
+                  + ([("Close CRM", close_url_rl)] if close_url_rl else []),
+                footer=":zap: Flowstack Automation | Finale Freigabe steht aus",
             )
-            await slack_message(f"Asset-Paket bereit — {company}", blocks=blocks)
+            await slack_message(f"Asset-Paket bereit — {company}", blocks=blocks, color=SLACK_COLOR_WARNING)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         elif node_id == "rl07":
@@ -1254,26 +1414,63 @@ async def execute_node(body: dict):
                 "stage": "Warte auf Freigabe",
                 "automation_status": "Warte auf Freigabe",
             })
-            # ClickUp: Finale Prüfung & Go-Live Task erstellen
+            # ClickUp: Zielgruppen-QA + Kampagnen-Review erstellen
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             if list_id:
+                ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}" if META_AD_ACCOUNT else ""
+                events_url = f"https://business.facebook.com/events_manager2/list/pixel/{META_PIXEL_ID}/overview" if META_PIXEL_ID else ""
+                # Task 8: Zielgruppen- & Pixel-QA
+                desc = "Custom Audiences und Pixel-Events final prüfen vor Kampagnen-Launch.\n\n"
+                desc += "Ressourcen:\n"
+                if ads_url: desc += f"- Meta Ads Manager: {ads_url}\n"
+                if events_url: desc += f"- Meta Events Manager: {events_url}\n"
+                desc += f"- Tracking Sheet: {TRACKING_SHEET}\n"
+                desc += f"- Tracking Dashboard: {TRACKING_DASHBOARD}\n"
                 t = await _create_task(
-                    list_id,
-                    "Finale Prüfung & Go-Live",
-                    "Alle Reviews bestätigen, finale Freigabe erteilen, Kampagnen aktivieren und Go-Live durchführen.",
-                    [CLICKUP_CLAUDIO, CLICKUP_ANAK], 1, 2,  # Urgent, +2 Tage
+                    list_id, "Zielgruppen- & Pixel-QA", desc,
+                    [CLICKUP_CLAUDIO], 1, 2,  # Urgent, +2 Tage
                     [
-                        "Strategie-Review bestätigen",
-                        "Text-Review bestätigen",
-                        "Funnel-Review bestätigen",
-                        "Zielgruppen-QA bestätigen",
-                        "Kampagnen-Review bestätigen",
-                        "Finale Freigabe erteilen",
-                        "Kampagnen aktivieren",
+                        "Custom Audience 'AllVisitors_30d': Erstellt und Status aktiv",
+                        "Custom Audience 'LP_Visitors_NoApplication_7d': Erstellt und Status aktiv",
+                        "Custom Audience 'Application_Visitors_NoLead_7d': Erstellt und Status aktiv",
+                        "Pixel-Events der letzten 24h im Events Manager sichtbar",
+                        "Event-Matching-Qualität: Gut oder Sehr gut",
+                        "Aggregated Event Measurement: Lead auf Priorität 1",
+                        "Alle Audiences korrekt in Anzeigengruppen zugewiesen",
                     ],
                 )
-                task_ids["golive"] = t["id"]
+                task_ids["audience_qa"] = t["id"]
+                # Task 9: Kampagnen-Review
+                desc2 = "Alle 3 Meta-Kampagnen (Kaltakquise, Retargeting, Warmup) vor Launch prüfen.\n\n"
+                desc2 += "Ressourcen:\n"
+                if ads_url: desc2 += f"- Meta Ads Manager: {ads_url}\n"
+                desc2 += f"- Anzeigentexte: {COPY_DOCS.get('Anzeigentexte', '')}\n"
+                desc2 += f"- Anzeigen-Variationen: {COPY_DOCS.get('Anzeigen-Variationen', '')}\n"
+                desc2 += f"- Funnel: {FUNNEL_LINKS.get('Landingpage', '')}\n"
+                t = await _create_task(
+                    list_id, "Kampagnen-Review", desc2,
+                    [CLICKUP_CLAUDIO], 1, 2,  # Urgent, +2 Tage
+                    [
+                        "TOF: Objective = Leads, Special Ad Category = Employment",
+                        "TOF: 3 Ad Sets (Broad, Interest Recruiting, Interest Management)",
+                        "TOF: Budget 30 EUR/Tag pro Ad Set",
+                        "TOF: Placement Facebook Feed + Instagram Feed (NICHT Advantage+)",
+                        "TOF: Region NRW/DE, Alter 20-55",
+                        "TOF: Je 3 Creatives pro Ad Set mit korrekten Bildern",
+                        "TOF: CTA 'Jetzt bewerben', Ziel-URL = Bewerbungsseite",
+                        "RT: 3 Ad Sets mit je einer Custom Audience verknüpft",
+                        "RT: Budget 5-10 EUR/Tag pro Ad Set",
+                        "RT: Placement Auto",
+                        "RT: Creatives = Reminder, Objection-Handling, Urgency",
+                        "WU: Objective = Video Views (Awareness)",
+                        "WU: Budget 5-10 EUR/Tag",
+                        "Alle Anzeigentexte korrekt (keine Tippfehler)",
+                        "Alle Bilder/Videos hochgeladen und zugewiesen",
+                        "Ziel-URLs korrekt (Landingpage für TOF, Formular für RT)",
+                    ],
+                )
+                task_ids["campaign_review"] = t["id"]
                 result["task_ids"] = task_ids
 
         elif node_id == "rl09":
@@ -1289,27 +1486,55 @@ async def execute_node(body: dict):
                 "stage": "Live",
                 "automation_status": "Live",
             })
-            # ClickUp: Go-Live Task abschließen + Funnel-Links + Meta Ads Link
+            # ClickUp: Alle offenen Tasks abschließen + Monitoring-Task erstellen
+            list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
-            if task_ids.get("golive"):
-                comment = "🚀 Go-Live abgeschlossen!\n\nFunnel:\n"
+            ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={META_AD_ACCOUNT}" if META_AD_ACCOUNT else ""
+            if task_ids.get("pixel_setup"):
+                comment = "✅ Pixel & Tracking eingerichtet:\n\n"
                 for name, url in FUNNEL_LINKS.items():
                     comment += f"• {name}: {url}\n"
-                comment += "\nMeta Ads Manager: https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
-                await _complete_task(task_ids["golive"], comment)
-            if task_ids.get("funnel"):
-                comment = "✅ Funnel deployed:\n"
+                await _complete_task(task_ids["pixel_setup"], comment)
+            if task_ids.get("funnel_review"):
+                comment = "✅ Funnel geprüft und freigegeben:\n\n"
                 for name, url in FUNNEL_LINKS.items():
                     comment += f"• {name}: {url}\n"
-                await _complete_task(task_ids["funnel"], comment)
-            if task_ids.get("tracking"):
-                await _complete_task(task_ids["tracking"], "✅ Pixel & Tracking eingerichtet und geprüft.")
-            if task_ids.get("campaigns"):
-                await _complete_task(
-                    task_ids["campaigns"],
-                    "✅ Kampagnen konfiguriert und aktiviert.\n"
-                    "Meta Ads Manager: https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969",
+                await _complete_task(task_ids["funnel_review"], comment)
+            if task_ids.get("audience_qa"):
+                await _complete_task(task_ids["audience_qa"], "✅ Alle Custom Audiences aktiv und korrekt zugewiesen.")
+            if task_ids.get("campaign_review"):
+                comment = "✅ Alle Kampagnen geprüft und aktiviert.\n\n"
+                if ads_url: comment += f"Meta Ads Manager: {ads_url}"
+                await _complete_task(task_ids["campaign_review"], comment)
+            # Task 10: Erste Woche Monitoring
+            if list_id:
+                company = context.get("company", "Novacode GmbH")
+                lead_id = context.get("lead_id", "")
+                close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+                desc = f"Kampagnen-Performance in der ersten Woche nach Launch überwachen.\n\n"
+                desc += "Ressourcen:\n"
+                if ads_url: desc += f"- Meta Ads Manager: {ads_url}\n"
+                desc += f"- Tracking Sheet: {TRACKING_SHEET}\n"
+                desc += f"- Tracking Dashboard: {TRACKING_DASHBOARD}\n"
+                desc += f"- Funnel: {FUNNEL_LINKS.get('Landingpage', '')}\n"
+                if close_url: desc += f"- Close Deal: {close_url}\n"
+                t = await _create_task(
+                    list_id, f"Erste Woche Monitoring - {company}", desc,
+                    [CLICKUP_CLAUDIO, CLICKUP_ANAK], 2, 7,  # High, +7 Tage
+                    [
+                        "Tag 1: Kampagnen-Status 'Aktiv' im Ads Manager bestätigt",
+                        "Tag 1: Anzeigenauslieferung gestartet (Impressions > 0)",
+                        "Tag 2: CPM und CTR im normalen Bereich (CPM < 15 EUR, CTR > 0.5%)",
+                        "Tag 3: Erste Leads/Bewerbungen eingegangen prüfen",
+                        "Tag 3: Tracking Sheet mit echten Daten aktualisiert",
+                        "Tag 5: Budget-Pacing prüfen (Tagesbudget wird ausgeschöpft)",
+                        "Tag 7: Performance-Report erstellen (KPIs: CPC, CPL, CTR, Conversions)",
+                        "Tag 7: Underperformer identifizieren und pausieren",
+                        "Tag 7: Kunde über erste Ergebnisse informieren",
+                    ],
                 )
+                task_ids["monitoring"] = t["id"]
+                result["task_ids"] = task_ids
 
         elif node_id == "rl12":
             company = context.get("company", "Novacode GmbH")
@@ -1320,30 +1545,21 @@ async def execute_node(body: dict):
             blocks = _slack_blocks_message(
                 f":rocket: {company} Recruiting ist LIVE!",
                 [
-                    {"title": ":clipboard: Launch-Details", "items": [
-                        ("Datum", launch_date),
-                        ("Status", "Alle Kampagnen aktiviert"),
+                    {"text": "3 Kampagnen aktiviert:"},
+                    {"items": [
+                        f"TOF | Leads | DE | {cname}",
+                        f"RT | Leads | DE | {cname}",
+                        f"WU | Awareness | DE | {cname}",
                     ]},
-                    {"title": ":mega: Meta Kampagnen", "items": [
-                        (f"TOF | Leads | DE | {cname}", ads_url),
-                        (f"RT | Leads | DE | {cname}", ads_url),
-                        (f"WU | Awareness | DE | {cname}", ads_url),
-                    ]},
-                    {"title": ":globe_with_meridians: Funnel", "items": [
-                        (name, url) for name, url in FUNNEL_LINKS.items()
-                    ]},
-                    {"title": ":bar_chart: Ads & Tracking", "items": [
-                        ("Meta Ads Manager", ads_url),
-                        ("Tracking Dashboard", "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"),
-                        ("Performance Dashboard", "https://demo-recruiting.vercel.app/recruiting"),
-                    ]},
-                    {"title": ":open_file_folder: Alle Dokumente", "items": [
-                        (name, url) for name, url in {**STRATEGY_DOCS, **COPY_DOCS}.items()
-                    ] + [("Kickoff-Transkript", TRANSCRIPT_DOC)]},
                 ],
-                footer=f"Flowstack Automation | Launch {launch_date}",
+                buttons=[
+                    ("Meta Ads Manager", ads_url, "primary"),
+                    ("Funnel ansehen", FUNNEL_LINKS.get("Landingpage", "")),
+                    ("Tracking Dashboard", TRACKING_DASHBOARD),
+                ],
+                footer=f":zap: Flowstack Automation | Alle Kampagnen live | {launch_date}",
             )
-            await slack_message(f"{company} Recruiting ist LIVE!", blocks=blocks)
+            await slack_message(f"{company} Recruiting ist LIVE!", blocks=blocks, color=SLACK_COLOR_SUCCESS)
             result = {"sent": True, "url": "https://app.slack.com/"}
 
         # ── Meta Zielgruppen & Kampagnen ──────────────────────────────────────
@@ -1764,6 +1980,60 @@ async def cleanup_demo_data(body: Optional[dict] = None):
 
     log.info(f"Cleanup abgeschlossen: {len(deleted)} gelöscht, {len(errors)} Fehler")
     return {"ok": True, "deleted": deleted, "errors": errors}
+
+
+@app.post("/api/clear-channel")
+async def clear_slack_channel(body: Optional[dict] = None):
+    """Löscht alle Nachrichten in einem Slack-Channel (Bot-Messages + Webhook-Messages).
+
+    Body: { "channel_id": "C..." }
+    Nutzt conversations.history + chat.delete. Bot braucht channels:history + chat:write Scopes.
+    """
+    payload = body or {}
+    channel_id = payload.get("channel_id")
+    if not channel_id:
+        raise HTTPException(status_code=400, detail="channel_id required")
+    if not SLACK_BOT_TOKEN:
+        raise HTTPException(status_code=500, detail="SLACK_BOT_TOKEN not configured")
+
+    import asyncio
+    deleted_count = 0
+    skipped_count = 0
+    cursor = None
+
+    while True:
+        params: dict[str, Any] = {"channel": channel_id, "limit": 100}
+        if cursor:
+            params["cursor"] = cursor
+        hist = await slack_bot_api("conversations.history", params)
+        if not hist.get("ok"):
+            return {"ok": False, "error": hist.get("error"), "deleted": deleted_count}
+        messages = hist.get("messages", [])
+        if not messages:
+            break
+        for msg in messages:
+            ts = msg.get("ts")
+            if not ts:
+                continue
+            resp = await slack_bot_api("chat.delete", {"channel": channel_id, "ts": ts})
+            if resp.get("ok"):
+                deleted_count += 1
+            elif resp.get("error") == "ratelimited":
+                await asyncio.sleep(1.5)
+                resp2 = await slack_bot_api("chat.delete", {"channel": channel_id, "ts": ts})
+                if resp2.get("ok"):
+                    deleted_count += 1
+                else:
+                    skipped_count += 1
+            else:
+                skipped_count += 1
+            await asyncio.sleep(0.3)  # Rate-Limit vorbeugen
+        cursor = hist.get("response_metadata", {}).get("next_cursor")
+        if not cursor:
+            break
+
+    log.info(f"Channel {channel_id} gecleared: {deleted_count} gelöscht, {skipped_count} übersprungen")
+    return {"ok": True, "deleted": deleted_count, "skipped": skipped_count}
 
 
 # ══════════════════════════════════════════════════════════════════════════════

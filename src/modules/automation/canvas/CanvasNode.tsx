@@ -440,7 +440,7 @@ function CanvasNodeInner({
           <NodeIcon node={node} size={dims.iconSize} accent={style.accent} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className={cn('font-medium truncate', isLightText ? 'text-white' : isDark ? 'text-white' : 'text-gray-900')} style={{ fontSize: dims.fontSize }}>
+          <div className={cn('font-medium line-clamp-2 leading-tight', isLightText ? 'text-white' : isDark ? 'text-white' : 'text-gray-900')} style={{ fontSize: dims.fontSize }}>
             {node.label}
           </div>
           <div className={cn('mt-0.5 line-clamp-2 leading-tight', isLightText ? 'text-white/70' : isDark ? 'text-zinc-500' : 'text-gray-500')} style={{ fontSize: dims.descSize }}>

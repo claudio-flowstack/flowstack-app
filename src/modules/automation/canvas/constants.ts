@@ -11,10 +11,10 @@ export const NODE_TYPE_DIMENSIONS: Record<NodeType, {
   w: number; h: number; radius: string
   iconSize: number; fontSize: number; descSize: number; iconBoxSize: number
 }> = {
-  trigger:          { w: 200, h: 72,  radius: '20px 12px 12px 20px', iconSize: 16, fontSize: 12, descSize: 10, iconBoxSize: 32 },
-  process:          { w: 230, h: 82,  radius: '12px',                iconSize: 18, fontSize: 13, descSize: 10, iconBoxSize: 36 },
+  trigger:          { w: 250, h: 72,  radius: '20px 12px 12px 20px', iconSize: 16, fontSize: 12, descSize: 10, iconBoxSize: 32 },
+  process:          { w: 320, h: 82,  radius: '12px',                iconSize: 18, fontSize: 13, descSize: 10, iconBoxSize: 36 },
   ai:               { w: 300, h: 120, radius: '18px',                iconSize: 28, fontSize: 15, descSize: 11, iconBoxSize: 56 },
-  output:           { w: 200, h: 72,  radius: '12px 20px 20px 12px', iconSize: 16, fontSize: 12, descSize: 10, iconBoxSize: 32 },
+  output:           { w: 250, h: 72,  radius: '12px 20px 20px 12px', iconSize: 16, fontSize: 12, descSize: 10, iconBoxSize: 32 },
   subsystem:        { w: 320, h: 130, radius: '18px',                iconSize: 24, fontSize: 15, descSize: 10, iconBoxSize: 48 },
   ifelse:           { w: 180, h: 80,  radius: '40px',                iconSize: 20, fontSize: 12, descSize: 10, iconBoxSize: 28 },
   merge:            { w: 140, h: 60,  radius: '30px',                iconSize: 16, fontSize: 11, descSize: 9,  iconBoxSize: 28 },
@@ -22,7 +22,7 @@ export const NODE_TYPE_DIMENSIONS: Record<NodeType, {
   iterator:         { w: 220, h: 82,  radius: '14px',                iconSize: 18, fontSize: 12, descSize: 10, iconBoxSize: 36 },
   router:           { w: 160, h: 80,  radius: '40px',                iconSize: 18, fontSize: 12, descSize: 10, iconBoxSize: 28 },
   'error-handler':  { w: 200, h: 80,  radius: '12px',                iconSize: 18, fontSize: 12, descSize: 10, iconBoxSize: 36 },
-  approval:         { w: 260, h: 100, radius: '16px',                iconSize: 22, fontSize: 13, descSize: 10, iconBoxSize: 42 },
+  approval:         { w: 300, h: 100, radius: '16px',                iconSize: 22, fontSize: 13, descSize: 10, iconBoxSize: 42 },
   agent:            { w: 320, h: 130, radius: '18px',                iconSize: 28, fontSize: 15, descSize: 11, iconBoxSize: 56 },
   fork:             { w: 120, h: 80,  radius: '40px',                iconSize: 22, fontSize: 11, descSize: 9,  iconBoxSize: 32 },
   join:             { w: 120, h: 80,  radius: '40px',                iconSize: 22, fontSize: 11, descSize: 9,  iconBoxSize: 32 },

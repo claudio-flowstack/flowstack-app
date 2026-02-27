@@ -550,7 +550,7 @@ interface WorkflowCanvasProps {
   /** Info about sub-systems for subsystem nodes */
   subSystemInfo?: Map<string, { nodeCount: number; status: string }>;
   /** Systems available for presentation mode navigation */
-  presNavigationSystems?: { id: string; name: string; isCurrent: boolean; isMaster?: boolean }[];
+  presNavigationSystems?: { id: string; name: string; isCurrent: boolean; isMaster?: boolean; execStatus?: 'running' | 'completed' | 'pending' | 'idle' }[];
   /** Start in presentation mode immediately */
   startInPresentationMode?: boolean;
   /** Navigate to another system while in presentation mode */
@@ -1437,6 +1437,19 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
       if (e.code === 'Space' && !editNode && !editGroupId && !searchOpen) {
         e.preventDefault();
         setSpaceHeld(true);
+      }
+
+      // System navigation shortcuts (Alt+←/→) — presentation + normal mode
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && presNavigationSystems && presNavigationSystems.length > 1 && onPresNavigate) {
+        const idx = presNavigationSystems.findIndex(s => s.isCurrent);
+        if (idx >= 0) {
+          const next = e.key === 'ArrowLeft' ? idx - 1 : idx + 1;
+          if (next >= 0 && next < presNavigationSystems.length) {
+            e.preventDefault();
+            onPresNavigate(presNavigationSystems[next]!.id);
+            return;
+          }
+        }
       }
 
       if (e.key === 'Escape') {
@@ -3565,7 +3578,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
           {onReset && (
             <button
               onClick={() => { onReset(); setExecutionDone(false); setIsExecuting(false); setExecutingNodes(new Map()); setShowExecKpis(false); setExecDuration(0); execStartRef.current = 0; setExecutionDataMap(new Map()); executionTimeoutsRef.current.forEach(clearTimeout); executionTimeoutsRef.current = []; }}
-              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors duration-200 shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-500 dark:text-zinc-400"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200 shrink-0 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-gray-500 dark:text-zinc-400 active:scale-90 active:opacity-70"
               title={lang === 'en' ? 'Reset' : 'Zurücksetzen'}
             >
               <RotateCcw size={11} />
@@ -5522,12 +5535,16 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                         {i === 1 && <div className="w-px h-3.5 bg-white/20 mx-0.5" />}
                         <button
                           onClick={() => { if (!sys.isCurrent) { if (onPresNavigate) onPresNavigate(sys.id); else if (onDrillDown) onDrillDown(sys.id); } }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] transition-colors truncate max-w-[120px] ${
+                          className={`px-2.5 py-1 rounded-lg text-[11px] transition-all truncate max-w-[120px] flex items-center gap-1.5 ${
                             sys.isCurrent
                               ? sys.isMaster ? 'bg-white/20 text-white font-semibold shadow-sm' : 'bg-indigo-500/80 text-white font-medium shadow-sm'
                               : 'text-white/50 hover:text-white hover:bg-white/10 font-medium'
-                          }`}>
+                          } ${sys.execStatus === 'running' ? 'animate-pulse' : ''}`}
+                          style={sys.execStatus === 'running' ? { boxShadow: '0 0 12px rgba(168,85,247,0.6)' } : sys.execStatus === 'completed' ? { boxShadow: '0 0 8px rgba(16,185,129,0.5)' } : undefined}
+                        >
                           {sys.name}
+                          {sys.execStatus === 'running' && <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />}
+                          {sys.execStatus === 'completed' && <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />}
                         </button>
                       </React.Fragment>
                     ))}
@@ -5611,7 +5628,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                   {onReset && (
                     <button
                       onClick={() => { onReset(); setExecutionDone(false); setIsExecuting(false); setExecutingNodes(new Map()); setShowExecKpis(false); setExecDuration(0); execStartRef.current = 0; setExecutionDataMap(new Map()); executionTimeoutsRef.current.forEach(clearTimeout); executionTimeoutsRef.current = []; }}
-                      className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors bg-white/10 hover:bg-white/20 text-white/70"
+                      className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-all bg-white/10 hover:bg-white/20 text-white/70 active:scale-90 active:opacity-70"
                       title={lang === 'en' ? 'Reset' : 'Zurücksetzen'}
                     >
                       <RotateCcw size={11} />

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAutomationStore } from '../application/automation-store'
 import type { AutomationSystem, ExecutionLogEntry, NodeExecutionStatus, WorkflowVersion } from '../domain/types'
@@ -168,12 +168,39 @@ export function SystemEditorPage() {
   const [showPanel, setShowPanel] = useState(false)
   const [panelTab, setPanelTab] = useState<PanelTab>('documents')
   const [systemNavOpen, setSystemNavOpen] = useState(false)
+  const [demoRun, setDemoRun] = useState(true)
 
   // ── Sub-System Navigation ──────────────────────────────────────────────
   const parentSystem = useMemo(
     () => (system?.parentId ? systems.find((s) => s.id === system.parentId) : undefined),
     [system, systems],
   )
+
+  // ── System navigation shortcuts (Alt+←/→) ────────────────────────────
+  const navSystems = useMemo(() => {
+    const master = parentSystem ?? system
+    if (!master) return []
+    const subs = systems
+      .filter((s) => s.parentId === master.id)
+      .sort((a, b) => (a.subSystemOrder ?? 0) - (b.subSystemOrder ?? 0))
+    return [master, ...subs]
+  }, [parentSystem, system, systems])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      if (navSystems.length < 2) return
+      const idx = navSystems.findIndex((s) => s.id === systemId)
+      if (idx < 0) return
+      const next = e.key === 'ArrowLeft' ? idx - 1 : idx + 1
+      if (next < 0 || next >= navSystems.length) return
+      e.preventDefault()
+      navigate(`/automation/system/${navSystems[next]!.id}/editor`)
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [navSystems, systemId, navigate])
 
   // Sub-system info map for canvas badge rendering
   const subSystemInfoMap = useMemo(() => {
@@ -284,14 +311,45 @@ export function SystemEditorPage() {
     Map<string, NodeExecutionStatus> | undefined
   >(undefined)
 
+  // Per-subsystem execution status (for tab glow)
+  const [subExecStates, setSubExecStates] = useState<Map<string, NodeExecutionStatus>>(new Map())
+  const prevSubExecRef = useRef('')
+
   // Subscribe to global execution state changes
   useEffect(() => {
     return subscribeExecution(() => {
       if (isExecutionActive() && systemId) {
         const states = getNodeStates(systemId)
         setGlobalNodeStates(states.size > 0 ? states : undefined)
+
+        // Compute per-system execution status for tab indicators
+        const allSystems = useAutomationStore.getState().systems
+        const currentSys = allSystems.find((s) => s.id === systemId)
+        const masterId = currentSys?.parentId ?? systemId
+        const relatedSys = allSystems.filter((s) => s.id === masterId || s.parentId === masterId)
+        const entries: [string, NodeExecutionStatus][] = []
+        for (const sys of relatedSys) {
+          const sysStates = getNodeStates(sys.id)
+          if (sysStates.size === 0) continue
+          const vals = Array.from(sysStates.values())
+          if (vals.some((s) => s === 'running')) entries.push([sys.id, 'running'])
+          else if (vals.every((s) => s === 'completed')) entries.push([sys.id, 'completed'])
+          else if (vals.some((s) => s === 'completed' || s === 'pending')) entries.push([sys.id, 'pending'])
+        }
+        // Only update state if values actually changed
+        const key = entries.map(([id, s]) => `${id}:${s}`).join(',')
+        if (key !== prevSubExecRef.current) {
+          prevSubExecRef.current = key
+          setSubExecStates(new Map(entries))
+        }
       } else {
-        setGlobalNodeStates(undefined)
+        if (prevSubExecRef.current !== '') {
+          prevSubExecRef.current = ''
+          setGlobalNodeStates(undefined)
+          setSubExecStates(new Map())
+        } else {
+          setGlobalNodeStates(undefined)
+        }
       }
     })
   }, [systemId])
@@ -308,8 +366,10 @@ export function SystemEditorPage() {
     // ── Novacode: Event-driven DAG Execution ─────────────────────────────
     if (isNovacode) {
       resetSideEffectContext()
-      enableSideEffects(true)
-      await checkBackendHealth()
+      if (!demoRun) {
+        enableSideEffects(true)
+        await checkBackendHealth()
+      }
 
       const dagNodes: DagNode[] = []
       const dagEdges: DagEdge[] = []
@@ -329,7 +389,7 @@ export function SystemEditorPage() {
           nodeId: node.id,
           systemId: effectiveSystem.id,
           duration: node.demoConfig?.delay ?? 2000,
-          dynamic: hasSideEffect(node.id),
+          dynamic: !demoRun && hasSideEffect(node.id),
         })
       }
 
@@ -350,7 +410,7 @@ export function SystemEditorPage() {
             nodeId: node.id,
             systemId: sub.id,
             duration: node.demoConfig?.delay ?? 2000,
-            dynamic: hasSideEffect(node.id),
+            dynamic: !demoRun && hasSideEffect(node.id),
           })
         }
 
@@ -404,7 +464,7 @@ export function SystemEditorPage() {
             { id: `log-${nodeId}-run`, timestamp: new Date().toISOString(), status: 'running', message: `${label}`, nodeId },
           ])
 
-          if (hasSideEffect(nodeId)) {
+          if (!demoRun && hasSideEffect(nodeId)) {
             executeSideEffect(nodeId)
               .then((result) => {
                 // Update artifact URL with real URL from backend
@@ -600,7 +660,7 @@ export function SystemEditorPage() {
         setExecutionLog(logEntries)
       },
     })
-  }, [effectiveSystem, systems, updateSystem])
+  }, [effectiveSystem, systems, updateSystem, demoRun])
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleDrillDown = useCallback(
@@ -801,21 +861,36 @@ export function SystemEditorPage() {
             return (
               <>
                 {/* Master tab — visually distinct */}
-                <button
-                  onClick={() => navigate(`/automation/system/${masterSys.id}/editor`)}
-                  className={cn(
-                    'relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold whitespace-nowrap rounded-md transition-colors shrink-0',
-                    systemId === masterSys.id
-                      ? 'text-foreground bg-muted'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                  )}
-                >
-                  <Layers className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate max-w-[160px]">{masterSys.name}</span>
-                  {systemId === masterSys.id && (
-                    <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
-                  )}
-                </button>
+                {(() => {
+                  const masterExec = subExecStates.get(masterSys.id)
+                  const masterRunning = masterExec === 'running'
+                  const masterCompleted = masterExec === 'completed'
+                  return (
+                    <button
+                      onClick={() => navigate(`/automation/system/${masterSys.id}/editor`)}
+                      className={cn(
+                        'relative flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold whitespace-nowrap rounded-md transition-colors shrink-0',
+                        systemId === masterSys.id
+                          ? 'text-foreground bg-muted'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                        masterRunning && 'animate-pulse',
+                      )}
+                      style={masterRunning ? { boxShadow: '0 0 12px rgba(139,92,246,0.5), 0 0 4px rgba(139,92,246,0.3)' } : masterCompleted ? { boxShadow: '0 0 8px rgba(16,185,129,0.4)' } : undefined}
+                    >
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate max-w-[160px]">{masterSys.name}</span>
+                      {systemId === masterSys.id && (
+                        <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-primary rounded-full" />
+                      )}
+                      {masterRunning && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse shrink-0" />
+                      )}
+                      {masterCompleted && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      )}
+                    </button>
+                  )
+                })()}
 
                 {/* Separator + Sub-system tabs + Add button */}
                 <div className="flex items-center shrink-0 mx-1 gap-1">
@@ -824,6 +899,9 @@ export function SystemEditorPage() {
                 </div>
                 {masterSubs.map((sub) => {
                   const isActive = sub.id === systemId
+                  const execState = subExecStates.get(sub.id)
+                  const isRunning = execState === 'running'
+                  const isCompleted = execState === 'completed'
                   return (
                     <button
                       key={sub.id}
@@ -833,12 +911,20 @@ export function SystemEditorPage() {
                         isActive
                           ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10'
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                        isRunning && 'animate-pulse',
                       )}
+                      style={isRunning ? { boxShadow: '0 0 12px rgba(139,92,246,0.5), 0 0 4px rgba(139,92,246,0.3)' } : isCompleted ? { boxShadow: '0 0 8px rgba(16,185,129,0.4)' } : undefined}
                     >
                       <Workflow className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate max-w-[140px]">{sub.name}</span>
                       {isActive && (
                         <span className="absolute bottom-0 left-2 right-2 h-0.5 bg-indigo-500 rounded-full" />
+                      )}
+                      {isRunning && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-purple-500 animate-pulse shrink-0" />
+                      )}
+                      {isCompleted && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
                       )}
                     </button>
                   )
@@ -854,6 +940,24 @@ export function SystemEditorPage() {
             )
           })()}
         </nav>
+
+        <div className="w-px h-5 bg-border shrink-0" />
+
+        {/* Demo Run toggle */}
+        <button
+          onClick={() => setDemoRun(!demoRun)}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-medium transition-colors shrink-0',
+            demoRun
+              ? 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+          )}
+          title={demoRun ? 'Demo-Modus: Keine echten API-Calls' : 'Live-Modus: Echte Automations werden ausgeführt'}
+        >
+          <Play className="h-3 w-3" />
+          <span>{demoRun ? 'Demo' : 'Live'}</span>
+          <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', demoRun ? 'bg-amber-500' : 'bg-emerald-500')} />
+        </button>
 
         <div className="w-px h-5 bg-border shrink-0" />
 
@@ -897,8 +1001,8 @@ export function SystemEditorPage() {
                   .filter((s) => s.parentId === masterSys.id)
                   .sort((a, b) => (a.subSystemOrder ?? 0) - (b.subSystemOrder ?? 0))
                 return [
-                  { id: masterSys.id, name: masterSys.name, isCurrent: masterSys.id === systemId, isMaster: true },
-                  ...subs.map((s) => ({ id: s.id, name: s.name, isCurrent: s.id === systemId })),
+                  { id: masterSys.id, name: masterSys.name, isCurrent: masterSys.id === systemId, isMaster: true, execStatus: (subExecStates.get(masterSys.id) ?? 'idle') as 'running' | 'completed' | 'pending' | 'idle' },
+                  ...subs.map((s) => ({ id: s.id, name: s.name, isCurrent: s.id === systemId, execStatus: (subExecStates.get(s.id) ?? 'idle') as 'running' | 'completed' | 'pending' | 'idle' })),
                 ]
               })()}
               onPresNavigate={(id) => navigate(`/automation/system/${id}/editor`)}
