@@ -88,7 +88,7 @@ DEMO_TRANSCRIPT = (
 
 
 async def auto_run_execution(execution_id: str):
-    """Führt alle Nodes sequentiell aus. Approval Gates werden auto-approved."""
+    """Führt alle Nodes sequentiell aus. Approval Gates pausieren bis externe Freigabe."""
     log.info(f"Auto-Runner gestartet für {execution_id}")
     completed = 0
     skipped = 0
@@ -119,15 +119,25 @@ async def auto_run_execution(execution_id: str):
                 if not state:
                     return
 
-        # Approval Gates auto-approven
+        # Approval Gates: STOP and wait for external signal
         if node_id in APPROVAL_GATES:
             result = await execute_node(execution_id, node_id)
             if result.get("status") == "waiting_approval":
-                state = ExecutionState.load(execution_id)
-                if state:
-                    state.update_node(node_id, "completed", result={"approved_by": "Auto-Runner"})
-                    log.info(f"  {node_id}: auto-approved")
-                    completed += 1
+                log.info(f"  {node_id}: waiting for approval — Auto-Runner pausing")
+                # Wait until node is approved externally (via API call)
+                while True:
+                    await asyncio.sleep(3)
+                    state = ExecutionState.load(execution_id)
+                    if not state:
+                        return
+                    node_state = state.nodes.get(node_id, {})
+                    if node_state.get("status") == "completed":
+                        log.info(f"  {node_id}: approved externally, resuming")
+                        completed += 1
+                        break
+                    if state.paused_at:
+                        log.info(f"  {node_id}: execution paused, waiting")
+                        continue
             else:
                 completed += 1
             continue

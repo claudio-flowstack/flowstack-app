@@ -28,12 +28,29 @@ class ExecutionState:
         self._file = EXECUTIONS_DIR / f"{execution_id}.json"
 
     def update_node(self, node_id: str, status: str, result: Any = None, error: str = None, duration_ms: int = None, retries: int = 0):
+        old_status = self.nodes.get(node_id, {}).get("status", "new")
         self.nodes[node_id] = {
             "status": status, "result": result, "error": error,
             "duration_ms": duration_ms, "retries": retries,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
+        # Track state transitions for observability
+        self._add_event(node_id, f"{old_status} → {status}", result=result, error=error)
         self.save()
+
+    def _add_event(self, node_id: str, description: str, result: Any = None, error: str = None):
+        """Append event to execution timeline for debugging."""
+        if "timeline" not in self.context:
+            self.context["timeline"] = []
+        self.context["timeline"].append({
+            "node_id": node_id,
+            "description": description,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "error": str(error)[:200] if error else None,
+        })
+        # Keep max 200 events
+        if len(self.context["timeline"]) > 200:
+            self.context["timeline"] = self.context["timeline"][-200:]
 
     def update_context(self, updates: dict):
         self.context.update(updates)
