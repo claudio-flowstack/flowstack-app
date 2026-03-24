@@ -20,6 +20,8 @@ interface AdReviewViewProps {
   onRequestChanges?: (comment: string) => void;
   adCategory?: string;
   clientId?: string;
+  deliverables?: Deliverable[];
+  onSelectDeliverable?: (id: string) => void;
 }
 
 // ---- Ad Fields ----
@@ -71,11 +73,9 @@ const CTA_OPTIONS = [
 const PLACEMENT_PLATFORMS = ['facebook', 'instagram', 'tiktok'];
 
 // Map ad category to allowed platforms + default
+// Only Meta platforms are available — Google/LinkedIn/TikTok kept in AdPreview for later
 const CATEGORY_PLATFORMS: Record<string, { platforms: string[]; default: string }> = {
   meta_ads: { platforms: ['facebook', 'instagram'], default: 'facebook' },
-  google_ads: { platforms: ['google'], default: 'google' },
-  linkedin_ads: { platforms: ['linkedin'], default: 'linkedin' },
-  tiktok_ads: { platforms: ['tiktok'], default: 'tiktok' },
 };
 
 const AdReviewView: React.FC<AdReviewViewProps> = ({
@@ -86,6 +86,8 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
   onRequestChanges,
   adCategory,
   clientId,
+  deliverables = [],
+  onSelectDeliverable,
 }) => {
   const { t } = useLanguage();
   const { notify } = useNotification();
@@ -176,6 +178,9 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
         body: fields.primaryText,
         cta: fields.ctaType,
         image_url: fields.imageUrl,
+        link_url: fields.linkUrl,
+        placement: activePlacement,
+        platform: activePlatform,
       });
       notify({
         id: `ad-save-${Date.now()}`,
@@ -216,11 +221,26 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
 
   return (
     <div className="space-y-4 pt-2">
-      {/* Approval Header */}
+      {/* Approval Header with Deliverable Switcher */}
       {onApprove && onRequestChanges && (
         <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{deliverable.title}</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {deliverables.length > 1 && onSelectDeliverable ? (
+              <div className="relative flex items-center min-w-0">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[240px]">{deliverable.title}</span>
+                <select
+                  value={deliverable.id}
+                  onChange={(e) => onSelectDeliverable(e.target.value)}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                  title="Ad wechseln"
+                />
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" className="ml-1 shrink-0">
+                  <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            ) : (
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{deliverable.title}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -282,6 +302,8 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
               description={fields.description}
               ctaText={fields.ctaType}
               profileName={deliverable.title}
+              imageUrl={fields.imageUrl}
+              linkUrl={fields.linkUrl}
               placement={activePlacement as 'feed' | 'story' | 'reel'}
               platform={activePlatform as 'facebook' | 'instagram' | 'google' | 'linkedin' | 'tiktok'}
             />

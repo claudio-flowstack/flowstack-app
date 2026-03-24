@@ -4,6 +4,7 @@ import type { DeliverableStatus } from '../data/types';
 import StatusBadge from './StatusBadge';
 import TextArea from '../ui/form/input/TextArea';
 import Button from '../ui/components/button/Button';
+import { Modal } from '../ui/components/modal/index';
 
 interface ApprovalBarProps {
   status: DeliverableStatus;
@@ -25,38 +26,34 @@ const ApprovalBar: React.FC<ApprovalBarProps> = ({
   const { t } = useLanguage();
   const [showComment, setShowComment] = useState(false);
   const [comment, setComment] = useState('');
-  const [confirmApprove, setConfirmApprove] = useState(false);
-  const [confirmChanges, setConfirmChanges] = useState(false);
+  const [approveModalOpen, setApproveModalOpen] = useState(false);
+  const [changesModalOpen, setChangesModalOpen] = useState(false);
 
   if (!status) return null;
 
   const handleApproveClick = () => {
-    if (!confirmApprove) {
-      setConfirmApprove(true);
-      setConfirmChanges(false);
-      return;
-    }
+    setApproveModalOpen(true);
+  };
+
+  const executeApprove = () => {
     onApprove();
-    setConfirmApprove(false);
+    setApproveModalOpen(false);
   };
 
   const handleRequestChangesClick = () => {
     if (!showComment) {
       setShowComment(true);
-      setConfirmApprove(false);
-      setConfirmChanges(false);
       return;
     }
     if (comment.length < 10) return;
-    if (!confirmChanges) {
-      setConfirmChanges(true);
-      setConfirmApprove(false);
-      return;
-    }
+    setChangesModalOpen(true);
+  };
+
+  const executeRequestChanges = () => {
     onRequestChanges(comment);
     setComment('');
     setShowComment(false);
-    setConfirmChanges(false);
+    setChangesModalOpen(false);
   };
 
   const handleBulkApprove = () => {
@@ -66,6 +63,7 @@ const ApprovalBar: React.FC<ApprovalBarProps> = ({
   };
 
   return (
+    <>
     <div className="sticky bottom-0 z-30 rounded-2xl border-t border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900 shadow-theme-lg">
       {/* Comment area (expandable) */}
       {showComment && (
@@ -75,28 +73,12 @@ const ApprovalBar: React.FC<ApprovalBarProps> = ({
           </label>
           <TextArea
             value={comment}
-            onChange={(val) => { setComment(val); setConfirmChanges(false); }}
+            onChange={(val) => setComment(val)}
             placeholder={t('approval.commentPlaceholder')}
             rows={3}
             error={comment.length > 0 && comment.length < 10}
             hint={comment.length > 0 && comment.length < 10 ? `${comment.length}/10` : ''}
           />
-        </div>
-      )}
-
-      {/* Confirm banners */}
-      {confirmApprove && (
-        <div className="mb-3 rounded-lg border border-success-200 bg-success-50 p-3 dark:border-success-800 dark:bg-success-900/20">
-          <p className="text-sm font-medium text-success-600 dark:text-success-400">
-            {t('approval.confirmApprove')}
-          </p>
-        </div>
-      )}
-      {confirmChanges && (
-        <div className="mb-3 rounded-lg border border-error-200 bg-error-50 p-3 dark:border-error-800 dark:bg-error-900/20">
-          <p className="text-sm font-medium text-error-600 dark:text-error-400">
-            {t('approval.confirmChanges')}
-          </p>
         </div>
       )}
 
@@ -133,7 +115,7 @@ const ApprovalBar: React.FC<ApprovalBarProps> = ({
             disabled={showComment && comment.length < 10}
             className="!bg-error-500 hover:!bg-error-600 text-white"
           >
-            {confirmChanges ? t('approval.confirmChanges') : t('approval.requestChanges')}
+            {t('approval.requestChanges')}
           </Button>
 
           {/* Approve */}
@@ -143,11 +125,58 @@ const ApprovalBar: React.FC<ApprovalBarProps> = ({
             onClick={handleApproveClick}
             className="!bg-success-500 hover:!bg-success-600 text-white"
           >
-            {confirmApprove ? t('approval.confirmApprove') : t('approval.approve')}
+            {t('approval.approve')}
           </Button>
         </div>
       </div>
     </div>
+
+    {/* Approve confirmation modal */}
+    <Modal isOpen={approveModalOpen} onClose={() => setApproveModalOpen(false)} className="max-w-md p-6 sm:p-8">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-2">
+        {t('dialog.confirmApprove')}
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        {t('approval.confirmApprove')}
+      </p>
+      <div className="flex justify-end gap-3">
+        <Button size="sm" variant="outline" onClick={() => setApproveModalOpen(false)}>
+          {t('action.cancel')}
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          className="!bg-success-500 hover:!bg-success-600 text-white"
+          onClick={executeApprove}
+        >
+          {t('dialog.yesApprove')}
+        </Button>
+      </div>
+    </Modal>
+
+    {/* Request changes confirmation modal */}
+    <Modal isOpen={changesModalOpen} onClose={() => setChangesModalOpen(false)} className="max-w-md p-6 sm:p-8">
+      <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90 mb-2">
+        {t('approval.confirmChanges')}
+      </h2>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        {t('approval.confirmChangesDesc')}
+      </p>
+      <div className="flex justify-end gap-3">
+        <Button size="sm" variant="outline" onClick={() => setChangesModalOpen(false)}>
+          {t('action.cancel')}
+        </Button>
+        <Button
+          size="sm"
+          variant="primary"
+          className="!bg-error-500 hover:!bg-error-600 text-white"
+          onClick={executeRequestChanges}
+        >
+          {t('approval.requestChanges')}
+        </Button>
+      </div>
+    </Modal>
+    </>
   );
 };
 

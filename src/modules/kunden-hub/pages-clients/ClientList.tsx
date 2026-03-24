@@ -72,6 +72,7 @@ export default function ClientList() {
   const [statusFilter, setStatusFilter] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(24);
 
   useEffect(() => {
     loadClients();
@@ -120,17 +121,22 @@ export default function ClientList() {
     });
   }, [clients, search, statusFilter]);
 
-  const getAmpelColor = (client: Client): string => {
+  // Reset pagination when filters change
+  useEffect(() => {
+    setVisibleCount(24);
+  }, [search, statusFilter]);
+
+  const getAmpelColor = useCallback((client: Client): { className: string; label: string } => {
     const hasAlerts = alerts.some(
       (a) => a.clientId === client.id && !a.acknowledged
     );
-    if (hasAlerts) return "bg-error-500";
+    if (hasAlerts) return { className: "bg-error-500", label: t("ampel.alert") };
     const hasPending = approvals.some(
       (a) => a.clientId === client.id && a.status === "pending"
     );
-    if (hasPending) return "bg-warning-500";
-    return "bg-success-500";
-  };
+    if (hasPending) return { className: "bg-warning-500", label: t("ampel.pending") };
+    return { className: "bg-success-500", label: t("ampel.ok") };
+  }, [alerts, approvals, t]);
 
   const formatPrice = (price: number): string => {
     return `\u20AC${price.toLocaleString("de-DE")}`;
@@ -172,9 +178,9 @@ export default function ClientList() {
       </div>
 
       {/* Client Grid */}
-      {filteredClients.length > 0 ? (
+      {filteredClients.length > 0 ? (<>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => {
+          {filteredClients.slice(0, visibleCount).map((client) => {
             const cfg = CLIENT_STATUS_CONFIG[client.status] || { label: client.status, color: 'text-gray-400', bgColor: 'bg-gray-100' };
             return (
               <div
@@ -277,12 +283,28 @@ export default function ClientList() {
                   <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
                     {client.name}
                   </span>
-                  <div className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white dark:ring-gray-900 ${getAmpelColor(client)}`} />
+                  <div
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white dark:ring-gray-900 ${getAmpelColor(client).className}`}
+                    role="img"
+                    aria-label={getAmpelColor(client).label}
+                  />
                 </div>
               </div>
             );
           })}
         </div>
+        {filteredClients.length > visibleCount && (
+          <div className="mt-6 flex justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setVisibleCount((prev) => prev + 24)}
+            >
+              {t("clients.loadMore")} ({filteredClients.length - visibleCount} {t("clients.remaining")})
+            </Button>
+          </div>
+        )}
+        </>
       ) : (
         <div className="flex items-center justify-center rounded-2xl border border-gray-200 bg-white p-12 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="text-center">

@@ -1,12 +1,29 @@
+import { useState, useEffect, useCallback } from "react";
 import { SidebarProvider, useSidebar } from "../contexts/SidebarContext";
 import { Outlet } from "react-router-dom";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
 import NotificationToast from "../components/NotificationToast";
+import { CommandPalette } from "../components/CommandPalette";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
+
+  // Cmd+K / Ctrl+K hotkey
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const closePalette = useCallback(() => setCmdPaletteOpen(false), []);
 
   return (
     <div className="min-h-screen xl:flex overflow-x-hidden">
@@ -25,6 +42,7 @@ const LayoutContent: React.FC = () => {
         </div>
       </div>
       <NotificationToast />
+      <CommandPalette isOpen={cmdPaletteOpen} onClose={closePalette} />
     </div>
   );
 };

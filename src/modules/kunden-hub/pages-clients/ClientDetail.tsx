@@ -9,20 +9,20 @@ import type { ExecutionStatus, PerformanceData } from '../services/api';
 import StatusBadge from '../components/StatusBadge';
 import PipelineDetail from '../components/PipelineDetail';
 import ContentReviewPanel from '../components/ContentReviewPanel';
-import ConnectionsGrid from '../components/ConnectionsGrid';
+// ConnectionsGrid moved to ClientSettings page
 import TimelineView from '../components/TimelineView';
 import NotesTab from '../components/NotesTab';
 import ReportButton from '../components/ReportButton';
 import Button from '../ui/components/button/Button';
 import { Modal } from '../ui/components/modal/index';
 import { useNotification } from '../contexts/NotificationContext';
-import type { ClientConnection, ClientKpis } from '../data/types';
+import type { ClientKpis } from '../data/types';
 import type { ApexOptions } from 'apexcharts';
 
 // Lazy-load react-apexcharts to avoid runtime crash if window/document not ready
 const Chart = lazy(() => import('react-apexcharts'));
 
-type Tab = 'pipeline' | 'deliverables' | 'performance' | 'connections' | 'links' | 'timeline' | 'notes' | 'errors';
+type Tab = 'pipeline' | 'deliverables' | 'performance' | 'notes' | 'timeline' | 'errors';
 
 function TabErrorCard({ tab, onRetry }: { tab: string; onRetry: (tab: string) => void }) {
   return (
@@ -55,18 +55,15 @@ export default function ClientDetail() {
   const loadDeliverables = useFulfillmentStore((s) => s.loadDeliverables);
   const clientPerformance = useFulfillmentStore((s) => s.clientPerformance);
   const deleteClient = useFulfillmentStore((s) => s.deleteClient);
+  const allDeliverables = useFulfillmentStore((s) => s.deliverables);
+  const resetClient = useFulfillmentStore((s) => s.resetClient);
 
   const [activeTab, setActiveTab] = useState<Tab>('pipeline');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- API-backed data for Connections tab ---
-  const [connectionsLoading, setConnectionsLoading] = useState(false);
-  const [apiConnections, setApiConnections] = useState<ClientConnection[] | null>(null);
-
-  // --- API-backed data for Links tab ---
-  const [linksLoading, setLinksLoading] = useState(false);
-  const [linksContext, setLinksContext] = useState<Record<string, unknown> | null>(null);
+  // Connections + Links moved to ClientSettings page
 
   // --- Performance tab: API-loaded KPIs ---
   const [perfLoading, setPerfLoading] = useState(false);
@@ -178,101 +175,7 @@ export default function ClientDetail() {
       });
   }, [activeTab, clientId, loadDeliverables, deliverablesLoaded]);
 
-  // Connections: load execution context from API
-  useEffect(() => {
-    if (activeTab !== 'connections' || !clientId) return;
-    if (loadedRef.current[`connections-${clientId}`]) return;
-    setConnectionsLoading(true);
-    api.clientExecution.get(clientId)
-      .then((execStatus) => {
-        loadedRef.current[`connections-${clientId}`] = true;
-
-        // Map execution context to ClientConnection[]
-        const ctx = execStatus.context || {};
-        const conns: ClientConnection[] = [
-          {
-            service: 'close',
-            label: 'Close CRM',
-            icon: 'close',
-            status: ctx.close_lead_url ? 'connected' : 'disconnected',
-            externalUrl: (ctx.close_lead_url as string) || undefined,
-          },
-          {
-            service: 'google_drive',
-            label: 'Google Drive',
-            icon: 'google_drive',
-            status: ctx.drive_folder_url ? 'connected' : 'disconnected',
-            externalUrl: (ctx.drive_folder_url as string) || undefined,
-          },
-          {
-            service: 'slack',
-            label: 'Slack',
-            icon: 'slack',
-            status: ctx.channel_name ? 'connected' : 'disconnected',
-            accountName: (ctx.channel_name as string) || undefined,
-            externalUrl: ctx.channel_name
-              ? `https://flowstack.slack.com/channels/${(ctx.channel_name as string).replace('#', '')}`
-              : undefined,
-          },
-          {
-            service: 'clickup',
-            label: 'ClickUp',
-            icon: 'clickup',
-            status: ctx.clickup_list_url ? 'connected' : 'disconnected',
-            externalUrl: (ctx.clickup_list_url as string) || undefined,
-          },
-          {
-            service: 'google_meet',
-            label: 'Google Meet',
-            icon: 'google_meet',
-            status: ctx.meet_link ? 'connected' : 'disconnected',
-            externalUrl: (ctx.meet_link as string) || undefined,
-          },
-          {
-            service: 'meta',
-            label: 'Meta Ads Manager',
-            icon: 'meta',
-            status: ctx.meta_campaigns && typeof ctx.meta_campaigns === 'object' && Object.keys(ctx.meta_campaigns as object).length > 0
-              ? 'connected'
-              : ctx.campaign_id ? 'connected' : 'disconnected',
-          },
-          {
-            service: 'google_sheets',
-            label: 'Google Sheets',
-            icon: 'google_sheets',
-            status: ctx.overview_sheet_url ? 'connected' : 'disconnected',
-            externalUrl: (ctx.overview_sheet_url as string) || undefined,
-          },
-        ];
-        setApiConnections(conns);
-      })
-      .catch((err) => {
-        console.warn('[ClientDetail] Execution-Context laden fehlgeschlagen:', err);
-        // Keep null so we fall back to client.connections
-      })
-      .finally(() => {
-        setConnectionsLoading(false);
-      });
-  }, [activeTab, clientId]);
-
-  // Links: load execution context from API
-  useEffect(() => {
-    if (activeTab !== 'links' || !clientId) return;
-    if (loadedRef.current[`links-${clientId}`]) return;
-    setLinksLoading(true);
-    api.clientExecution.get(clientId)
-      .then((execStatus) => {
-        loadedRef.current[`links-${clientId}`] = true;
-        setLinksContext(execStatus.context || {});
-      })
-      .catch((err) => {
-        console.warn('[ClientDetail] Links-Context laden fehlgeschlagen:', err);
-        setLinksContext(null);
-      })
-      .finally(() => {
-        setLinksLoading(false);
-      });
-  }, [activeTab, clientId]);
+  // Connections + Links loading moved to ClientSettings page
 
   // Build merged KPIs: API performance data merged over client.kpis
   const client = clientId ? getClient(clientId) : undefined;
@@ -361,10 +264,8 @@ export default function ClientDetail() {
   const tabs: { key: Tab; labelKey: string }[] = [
     { key: 'pipeline', labelKey: 'client.pipeline' },
     { key: 'deliverables', labelKey: 'client.deliverables' },
-    { key: 'notes', labelKey: 'client.notes' },
     { key: 'performance', labelKey: 'client.performance' },
-    { key: 'connections', labelKey: 'client.connections' },
-    { key: 'links', labelKey: 'client.links' },
+    { key: 'notes', labelKey: 'client.notes' },
     { key: 'timeline', labelKey: 'client.timeline' },
     ...(failedNodes.length > 0 ? [{ key: 'errors' as Tab, labelKey: 'client.errors' }] : []),
   ];
@@ -476,6 +377,25 @@ export default function ClientDetail() {
             ))}
             {clientId && <ReportButton clientId={clientId} />}
             <button
+              title="Einstellungen"
+              onClick={() => navigate(`/kunden-hub/clients/${clientId}/settings`)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-600 transition"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+            <button
+              title="Kunde zurücksetzen"
+              onClick={() => setResetConfirmOpen(true)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-orange-200 text-orange-400 hover:bg-orange-50 hover:text-orange-600 transition"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
               title={t('delete.confirmTitle')}
               onClick={() => setDeleteConfirmOpen(true)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-200 text-red-400 hover:bg-red-50 hover:text-red-600 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/30 dark:hover:text-red-300 transition"
@@ -535,6 +455,19 @@ export default function ClientDetail() {
                   <span className="text-xs text-gray-400">{t('loading.title')}</span>
                 </div>
               )}
+              {/* Generating timeout warning */}
+              {allDeliverables.filter((d) => d.clientId === clientId && d.status === 'generating').map((d) => {
+                const mins = Math.floor((Date.now() - new Date(d.updatedAt).getTime()) / 60000);
+                if (mins < 10) return null;
+                return (
+                  <div key={d.id} className={`mb-3 flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${mins >= 30 ? 'border-red-200 bg-red-50 text-red-700' : 'border-orange-200 bg-orange-50 text-orange-700'}`}>
+                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span><strong>{d.title}</strong> generiert seit {mins} Minuten</span>
+                  </div>
+                );
+              })}
               <ContentReviewPanel clientId={clientId} />
             </>
           )}
@@ -562,38 +495,7 @@ export default function ClientDetail() {
         </>
       )}
 
-      {activeTab === 'connections' && (
-        <>
-          {tabErrors.connections ? (
-            <TabErrorCard tab="connections" onRetry={retryTab} />
-          ) : connectionsLoading ? (
-            <div className="flex items-center justify-center py-10">
-              <svg className="h-8 w-8 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            </div>
-          ) : (
-            <ConnectionsGrid connections={apiConnections ?? client.connections ?? []} />
-          )}
-        </>
-      )}
-
-      {activeTab === 'links' && clientId && (
-        <>
-          {linksLoading && (
-            <div className="flex items-center justify-center py-10">
-              <svg className="h-8 w-8 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            </div>
-          )}
-          {!linksLoading && (
-            <LinksTab context={linksContext} t={t} />
-          )}
-        </>
-      )}
+      {/* Connections + Links moved to Client Settings page */}
 
       {activeTab === 'timeline' && clientId && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
@@ -650,6 +552,40 @@ export default function ClientDetail() {
             ) : (
               t('delete.confirm')
             )}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Reset Client Modal */}
+      <Modal isOpen={resetConfirmOpen} onClose={() => setResetConfirmOpen(false)} className="max-w-md p-6 sm:p-8">
+        <h2 className="text-lg font-semibold text-gray-800 mb-2">
+          Kunde zurücksetzen?
+        </h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Alle Deliverables von <strong>{client?.company}</strong> werden zurückgesetzt:
+        </p>
+        <ul className="text-sm text-gray-500 mb-6 list-disc pl-5 space-y-1">
+          <li>Strategy-Dokumente → Entwurf</li>
+          <li>Alle anderen Deliverables → Blockiert</li>
+          <li>Freigaben werden gelöscht</li>
+          <li>Client-Status → Onboarding</li>
+        </ul>
+        <div className="flex justify-end gap-3">
+          <Button size="sm" variant="outline" onClick={() => setResetConfirmOpen(false)}>
+            Abbrechen
+          </Button>
+          <Button
+            size="sm"
+            variant="primary"
+            className="!bg-orange-500 hover:!bg-orange-600"
+            onClick={() => {
+              if (clientId) {
+                resetClient(clientId);
+                setResetConfirmOpen(false);
+              }
+            }}
+          >
+            Zurücksetzen
           </Button>
         </div>
       </Modal>
@@ -978,7 +914,7 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
           {funnelStages.map((stage, i) => {
             const maxVal = funnelStages[0]?.value || 1;
             const pct = Math.max((stage.value / maxVal) * 100, 6);
-            const prev = i > 0 ? funnelStages[i - 1].value : stage.value;
+            const prev = i > 0 ? (funnelStages[i - 1]?.value ?? stage.value) : stage.value;
             const stepCr = i > 0 && prev > 0 ? ((stage.value / prev) * 100).toFixed(1) : null;
             const totalCr = i > 0 && maxVal > 0 ? ((stage.value / maxVal) * 100).toFixed(2) : null;
             const barColors = ['from-blue-500 to-blue-400', 'from-blue-500 to-blue-400', 'from-indigo-500 to-indigo-400', 'from-violet-500 to-violet-400', 'from-purple-500 to-purple-400', 'from-emerald-500 to-emerald-400'];
@@ -1126,7 +1062,8 @@ interface LinkGroup {
   links: LinkItem[];
 }
 
-function LinksTab({ context, t }: { context: Record<string, unknown> | null; t: (key: string) => string }) {
+// Exported for potential reuse in ClientSettings
+export function LinksTab({ context, t }: { context: Record<string, unknown> | null; t: (key: string) => string }) {
   if (!context || Object.keys(context).length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-16 dark:border-gray-700 dark:bg-gray-800/30">

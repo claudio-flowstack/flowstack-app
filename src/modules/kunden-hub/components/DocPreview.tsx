@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify';
 import { useLanguage } from '../i18n/LanguageContext';
 
 interface DocPreviewProps {
@@ -154,7 +155,7 @@ const DocPreview: React.FC<DocPreviewProps> = ({ content, title }) => {
               fontSize: '11pt',
               lineHeight: '1.5',
             }}
-            dangerouslySetInnerHTML={{ __html: content || '' }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content || '') }}
           />
         </div>
 

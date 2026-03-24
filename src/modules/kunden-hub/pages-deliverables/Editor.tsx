@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import PageMeta from '../ui/common/PageMeta';
 import PageBreadcrumb from '../ui/common/PageBreadCrumb';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -351,7 +352,7 @@ export default function Editor() {
                 <p>{t('misc.campaignContent')}</p>
               </div>
               <div className="mt-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
-                <div dangerouslySetInnerHTML={{ __html: editContent || '' }} className="text-sm text-gray-700 dark:text-gray-300" />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(editContent || '') }} className="text-sm text-gray-700 dark:text-gray-300" />
               </div>
             </div>
           ) : (

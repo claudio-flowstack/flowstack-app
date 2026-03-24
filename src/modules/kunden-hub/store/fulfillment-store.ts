@@ -23,6 +23,19 @@ import type {
 } from '../services/api';
 import { toastError, toastWarning, toastSuccess } from '@/shared/hooks/useToast';
 
+// ── Runtime type guards ────────────────────────────────────
+const VALID_DELIVERABLE_STATUSES: DeliverableStatus[] = [
+  'generating', 'draft', 'in_review', 'approved', 'live',
+  'rejected', 'manually_edited', 'outdated', 'blocked',
+];
+
+function safeDeliverableStatus(status: string | undefined): DeliverableStatus {
+  if (status && VALID_DELIVERABLE_STATUSES.includes(status as DeliverableStatus)) {
+    return status as DeliverableStatus;
+  }
+  return 'draft';
+}
+
 // ── localStorage persistence for executionMap ──────────────
 const EXEC_MAP_KEY = 'flowstack-execution-map';
 
@@ -104,7 +117,7 @@ function mapApiDeliverable(raw: DeliverableFromAPI, clientId: string): Deliverab
     subtype: (subtypeMap[raw.id] || raw.id) as DeliverableSubtype,
     title: raw.title || '',
     content: raw.content || '',
-    status: (raw.status as DeliverableStatus) || 'draft',
+    status: safeDeliverableStatus(raw.status),
     phase: (raw.phase as PhaseGroup) || 'strategy',
     version: raw.version || 1,
     createdBy: 'ai',
@@ -138,13 +151,17 @@ interface FulfillmentState {
   timeline: TimelineEvent[];
 
   // API-specific data (per client)
-  pipeline: PipelineStatus | null;
+  pipeline: PipelineStatus | null; // deprecated, use pipelineByClient
+  pipelineByClient: Record<string, PipelineStatus>;
   clientDeliverables: DeliverableFromAPI[];
   clientTimeline: TimelineEventFromAPI[];
   clientPerformance: PerformanceData | null;
 
   // Execution tracking: clientId -> executionId
   executionMap: Record<string, string>;
+
+  // Dirty edits: deliverableId → unsaved content
+  dirtyEdits: Record<string, { content: string; editedAt: string }>;
 
   // Pending actions (prevents double-clicks on async operations)
   pendingActions: Set<string>;
@@ -156,10 +173,14 @@ interface FulfillmentState {
   selectedClientId: string | null;
   selectedDeliverableId: string | null;
   isLoading: boolean;
+  isUsingMockData: boolean;
   error: string | null;
 
   // Helpers
   isPending: (id: string) => boolean;
+  hasDirtyEdits: () => boolean;
+  clearDirtyEdit: (id: string) => void;
+  getStuckGenerating: (thresholdMinutes?: number) => Deliverable[];
 
   // Actions - Clients
   loadClients: () => Promise<void>;
@@ -176,7 +197,7 @@ interface FulfillmentState {
   approveDeliverable: (id: string, comment?: string) => Promise<void>;
   rejectDeliverable: (id: string, comment: string) => Promise<void>;
   requestChanges: (id: string, comment: string) => void;
-  submitForReview: (id: string) => void;
+  submitForReview: (id: string) => Promise<void>;
   regenerateDeliverable: (id: string, feedback?: string) => Promise<string | null>;
   fetchDeliverableContent: (id: string) => Promise<string | null>;
   getExecutionId: (clientId: string) => Promise<string | null>;
@@ -210,10 +231,14 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
 
   // API-specific state
   pipeline: null,
+  pipelineByClient: {},
   clientDeliverables: [],
   clientTimeline: [],
   clientPerformance: null,
   executionMap: loadExecutionMap(),
+
+  // Dirty edits
+  dirtyEdits: {},
 
   // Pending actions
   pendingActions: new Set<string>(),
@@ -223,9 +248,22 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   selectedClientId: null,
   selectedDeliverableId: null,
   isLoading: false,
+  isUsingMockData: false,
   error: null,
 
   isPending: (id: string) => get().pendingActions.has(id),
+  hasDirtyEdits: () => Object.keys(get().dirtyEdits).length > 0,
+  clearDirtyEdit: (id: string) => set((state) => {
+    const next = { ...state.dirtyEdits };
+    delete next[id];
+    return { dirtyEdits: next };
+  }),
+  getStuckGenerating: (thresholdMinutes = 10) => {
+    const threshold = Date.now() - thresholdMinutes * 60 * 1000;
+    return get().deliverables.filter(
+      (d) => d.status === 'generating' && new Date(d.updatedAt).getTime() < threshold
+    );
+  },
 
   // ── Load clients from API, fallback to mock ───────────────
 
@@ -263,6 +301,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
               company: ex.client_name,
               name: '',
               email: '',
+              phone: '',
               branche: '',
               status: 'onboarding' as ClientStatus,
               currentPhase: 'onboarding',
@@ -279,9 +318,9 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
       if (clients.length > 0) {
         const mergedMap = { ...get().executionMap, ...newExecutionMap };
         saveExecutionMap(mergedMap);
-        set({ clients, executionMap: mergedMap, isLoading: false });
+        set({ clients, executionMap: mergedMap, isLoading: false, isUsingMockData: false });
       } else {
-        // Fallback to mock data
+        // Fallback to mock data — flag it so UI can show banner
         set({
           clients: mockClients,
           deliverables: mockDeliverables,
@@ -289,6 +328,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
           alerts: mockAlerts,
           timeline: mockTimeline,
           isLoading: false,
+          isUsingMockData: true,
         });
       }
     } catch {
@@ -300,6 +340,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         alerts: mockAlerts,
         timeline: mockTimeline,
         isLoading: false,
+        isUsingMockData: true,
       });
     }
   },
@@ -347,7 +388,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         const execResult = await api.clientExecution.start(result.id);
         const updatedMap = { ...get().executionMap, [result.id]: execResult.execution_id };
         saveExecutionMap(updatedMap);
-        set((state) => ({ executionMap: updatedMap }));
+        set({ executionMap: updatedMap });
       } catch {
         toastWarning('Execution konnte nicht gestartet werden');
       }
@@ -395,8 +436,9 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   updateDeliverableContent: async (id: string, content: string) => {
     const original = get().deliverables.find((d) => d.id === id);
 
-    // Optimistic update
+    // Track dirty edit + optimistic update
     set((state) => ({
+      dirtyEdits: { ...state.dirtyEdits, [id]: { content, editedAt: new Date().toISOString() } },
       deliverables: state.deliverables.map((d) =>
         d.id === id
           ? { ...d, content, status: 'manually_edited' as DeliverableStatus, version: d.version + 1, editedBy: 'Claudio', updatedAt: new Date().toISOString() }
@@ -412,8 +454,14 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
           await api.clientDeliverables.updateContent(executionId, id, content);
         }
       }
+      // Clear dirty edit on successful save
+      set((state) => {
+        const next = { ...state.dirtyEdits };
+        delete next[id];
+        return { dirtyEdits: next };
+      });
     } catch {
-      // Rollback to original
+      // Rollback to original (dirty edit stays for retry)
       if (original) {
         set((state) => ({
           deliverables: state.deliverables.map((d) => d.id === id ? original : d),
@@ -446,11 +494,23 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   approveDeliverable: async (id: string, comment?: string) => {
     // Prevent double-clicks
     if (get().pendingActions.has(id)) return;
+
+    // Guard: blocked deliverables cannot be approved
+    const target = get().deliverables.find((d) => d.id === id);
+    if (target?.blockedBy) {
+      const blocker = get().deliverables.find((d) => d.id === target.blockedBy);
+      if (blocker && blocker.status !== 'approved' && blocker.status !== 'live') {
+        toastWarning('Dieses Deliverable ist noch blockiert');
+        return;
+      }
+    }
+
     set((state) => ({ pendingActions: new Set([...state.pendingActions, id]) }));
 
     const original = get().deliverables.find((d) => d.id === id);
     const originalApproval = get().approvals.find((a) => a.deliverableId === id);
     const now = new Date().toISOString();
+    const timelineEventId = `tl-auto-${Date.now()}`;
 
     // Optimistic update
     set((state) => ({
@@ -461,12 +521,12 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
       ),
       approvals: state.approvals.map((a) =>
         a.deliverableId === id
-          ? { ...a, status: 'approved' as const, comment, respondedAt: now }
+          ? { ...a, status: 'approved' as const, comment, respondedAt: now, approvedVersion: state.deliverables.find((d) => d.id === id)?.version }
           : a
       ),
       timeline: [
         {
-          id: `tl-auto-${Date.now()}`,
+          id: timelineEventId,
           clientId: state.deliverables.find((d) => d.id === id)?.clientId ?? '',
           type: 'approval_resolved' as const,
           title: `${state.deliverables.find((d) => d.id === id)?.title ?? 'Deliverable'} freigegeben`,
@@ -486,16 +546,21 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
           await api.clientDeliverables.approve(executionId, id, 'Claudio');
         }
 
-        // Auto Phase-Transition: check if all deliverables in this phase are approved/live
+        // Auto Phase-Transition: phase is done when ALL deliverables are decided
+        // (approved, live, or rejected — no open drafts/in_review/generating left)
         const phaseOrder: PhaseGroup[] = ['strategy', 'copy', 'funnel', 'campaigns'];
         const currentPhase = deliverable.phase;
         const clientDeliverables = get().deliverables.filter((d) => d.clientId === deliverable.clientId);
         const phaseDeliverables = clientDeliverables.filter((d) => d.phase === currentPhase);
-        const allPhaseApproved = phaseDeliverables.length > 0 && phaseDeliverables.every(
+        // Phase advance requires at least 1 approved/live — all-rejected must NOT advance
+        const hasApproved = phaseDeliverables.some(
           (d) => d.status === 'approved' || d.status === 'live'
         );
+        const allPhaseDecided = phaseDeliverables.length > 0 && hasApproved && phaseDeliverables.every(
+          (d) => d.status === 'approved' || d.status === 'live' || d.status === 'rejected'
+        );
 
-        if (allPhaseApproved) {
+        if (allPhaseDecided) {
           const currentIndex = phaseOrder.indexOf(currentPhase);
           const nextPhase = currentIndex >= 0 && currentIndex < phaseOrder.length - 1
             ? phaseOrder[currentIndex + 1]
@@ -514,13 +579,14 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         }
       }
     } catch {
-      // Rollback to ORIGINAL status (not hardcoded 'draft')
+      // Full rollback: deliverables, approvals, AND timeline event
       if (original) {
         set((state) => ({
           deliverables: state.deliverables.map((d) => d.id === id ? original : d),
           approvals: originalApproval
             ? state.approvals.map((a) => a.deliverableId === id ? originalApproval : a)
             : state.approvals,
+          timeline: state.timeline.filter((t) => t.id !== timelineEventId),
         }));
       }
       toastError('Freigabe fehlgeschlagen');
@@ -542,13 +608,17 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     const originalApproval = get().approvals.find((a) => a.deliverableId === id);
     const now = new Date().toISOString();
 
-    // Optimistic update
+    // Optimistic update + cascade (atomic — single set() call)
     set((state) => ({
-      deliverables: state.deliverables.map((d) =>
-        d.id === id
-          ? { ...d, status: 'rejected' as DeliverableStatus, updatedAt: now }
-          : d
-      ),
+      deliverables: state.deliverables.map((d) => {
+        // The rejected deliverable itself
+        if (d.id === id) return { ...d, status: 'rejected' as DeliverableStatus, updatedAt: now };
+        // Cascade: downstream dependents become outdated
+        if (d.blockedBy === id && d.status !== 'blocked' && d.status !== 'outdated') {
+          return { ...d, status: 'outdated' as DeliverableStatus, updatedAt: now };
+        }
+        return d;
+      }),
       approvals: state.approvals.map((a) =>
         a.deliverableId === id
           ? { ...a, status: 'rejected' as const, comment, respondedAt: now }
@@ -566,15 +636,6 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         },
         ...state.timeline,
       ],
-    }));
-
-    // Cascade: mark downstream deliverables that depend on the rejected one as outdated
-    set((state) => ({
-      deliverables: state.deliverables.map((d) =>
-        d.blockedBy === id && d.status !== 'blocked' && d.status !== 'outdated'
-          ? { ...d, status: 'outdated' as DeliverableStatus, updatedAt: now }
-          : d
-      ),
     }));
 
     // Sync via API
@@ -622,8 +683,11 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     }));
   },
 
-  submitForReview: (id: string) => {
+  submitForReview: async (id: string) => {
     const now = new Date().toISOString();
+    const deliverableBefore = get().deliverables.find((d) => d.id === id);
+
+    // Local state update
     set((state) => {
       const deliverable = state.deliverables.find((d) => d.id === id);
       const client = deliverable ? state.clients.find((c) => c.id === deliverable.clientId) : undefined;
@@ -660,6 +724,18 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         ],
       };
     });
+
+    // Sync to backend so automation knows about the review status
+    try {
+      if (deliverableBefore) {
+        const executionId = await get().getExecutionId(deliverableBefore.clientId);
+        if (executionId) {
+          await api.clientDeliverables.updateContent(executionId, id, deliverableBefore.content);
+        }
+      }
+    } catch {
+      // Non-critical — local state is correct, API sync is best-effort
+    }
   },
 
   // ── Regenerate via API ─────────────────────────────────────
@@ -698,7 +774,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
         // Update local store with fresh content
         set((state) => ({
           deliverables: state.deliverables.map((d) =>
-            d.id === id ? { ...d, content: found.content, status: (found.status as DeliverableStatus) || d.status, version: found.version || d.version } : d
+            d.id === id ? { ...d, content: found.content, status: safeDeliverableStatus(found.status) || d.status, version: found.version || d.version } : d
           ),
         }));
         return found.content;
@@ -717,6 +793,17 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     if (deliverable.status === 'generating' || get().activeRegenerations.has(id)) {
       toastWarning('Generierung läuft bereits');
       return null;
+    }
+
+    // Guard: approved/live deliverables should not be regenerated
+    if (deliverable.status === 'approved' || deliverable.status === 'live') {
+      toastWarning('Freigegebene Inhalte können nicht regeneriert werden');
+      return null;
+    }
+
+    // Warn if user has manual edits that will be overwritten
+    if (deliverable.status === 'manually_edited') {
+      toastWarning('Manuelle Änderungen werden überschrieben');
     }
 
     const originalStatus = deliverable.status;
@@ -770,7 +857,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
                   ? {
                       ...d,
                       content: updated.content,
-                      status: (updated.status as DeliverableStatus) || 'draft',
+                      status: safeDeliverableStatus(updated.status),
                       version: updated.version || d.version + 1,
                       updatedAt: new Date().toISOString(),
                     }
@@ -871,7 +958,10 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   loadPipeline: async (clientId: string) => {
     try {
       const pipeline = await api.pipeline.get(clientId);
-      set({ pipeline });
+      set((state) => ({
+        pipeline, // keep legacy field for backwards compat
+        pipelineByClient: { ...state.pipelineByClient, [clientId]: pipeline },
+      }));
     } catch {
       set({ pipeline: null });
     }
@@ -884,12 +974,19 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
       const rawDeliverables = await api.clientDeliverables.list(clientId);
       set({ clientDeliverables: rawDeliverables });
 
-      // Also merge into the main deliverables array for UI compatibility
+      // Merge into main deliverables array — preserve local edits
       const mapped = rawDeliverables.map((d) => mapApiDeliverable(d, clientId));
       set((state) => {
-        // Remove old deliverables for this client, add fresh ones
         const otherDeliverables = state.deliverables.filter((d) => d.clientId !== clientId);
-        return { deliverables: [...otherDeliverables, ...mapped] };
+        const merged = mapped.map((apiDel) => {
+          const local = state.deliverables.find((d) => d.id === apiDel.id);
+          // Keep locally edited version if API still has old draft
+          if (local && local.status === 'manually_edited' && apiDel.status === 'draft') {
+            return local;
+          }
+          return apiDel;
+        });
+        return { deliverables: [...otherDeliverables, ...merged] };
       });
 
       // Ensure executionMap is populated for approve/reject

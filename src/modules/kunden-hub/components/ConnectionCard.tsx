@@ -76,7 +76,7 @@ function ServiceIcon({ service }: { service: string }) {
   }
 }
 
-const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection, onConnect, onDisconnect, onEdit }) => {
+const ConnectionCard: React.FC<ConnectionCardProps> = ({ connection, onConnect, onDisconnect, onEdit: _onEdit }) => {
   const { t } = useLanguage();
   const cfg = statusConfig(connection.status);
 

@@ -135,6 +135,7 @@ export interface Approval {
   requestedAt: string;
   respondedAt?: string;
   deadline: string;
+  approvedVersion?: number;
 }
 
 export interface Alert {

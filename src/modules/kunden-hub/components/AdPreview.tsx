@@ -93,7 +93,7 @@ function FacebookAdFrame(props: MockupFrameProps) {
       <div className="flex-1 overflow-hidden">
         <ImageArea imageUrl={props.imageUrl} fallbackText={props.text || "Bild hier"} />
       </div>
-      {/* Headline + CTA */}
+      {/* Headline + Description + CTA */}
       <div className={cn("px-3 py-2 flex items-center gap-2 border-t bg-gray-100 dark:bg-zinc-800/60", borderStyle)}>
         <div className="flex-1 min-w-0">
           {props.browserUrl && (
@@ -102,6 +102,9 @@ function FacebookAdFrame(props: MockupFrameProps) {
           <p className="text-base font-semibold truncate text-gray-900 dark:text-white">
             {props.headline || "Ad Headline"}
           </p>
+          {props.description && (
+            <p className="text-sm truncate text-[#65676B] dark:text-zinc-400">{props.description}</p>
+          )}
         </div>
         <div className="shrink-0 bg-[#1877F2] text-white text-sm font-semibold px-4 py-2 rounded">
           {props.ctaText || "Mehr dazu"}
@@ -369,6 +372,7 @@ interface AdPreviewProps {
   description?: string
   ctaText?: string
   imageUrl?: string
+  linkUrl?: string
   profileName?: string
   profileImage?: string
 }
@@ -578,8 +582,14 @@ function InstagramReelFrame(props: MockupFrameProps) {
 
 // ── Main AdPreview Component ────────────────────────────────────────────────
 
-export default function AdPreview({ content, title, placement = "feed", platform = "facebook", headline, description, ctaText, imageUrl, profileName, profileImage }: AdPreviewProps) {
+export default function AdPreview({ content, title, placement = "feed", platform = "facebook", headline, description, ctaText, imageUrl, linkUrl, profileName, profileImage }: AdPreviewProps) {
   const strippedContent = (content || "").replace(/<[^>]*>/g, "")
+
+  // Extract hostname from linkUrl for browser display
+  let browserUrl = "karriere.firma.de"
+  if (linkUrl) {
+    try { browserUrl = new URL(linkUrl.startsWith('http') ? linkUrl : `https://${linkUrl}`).hostname; } catch { /* keep default */ }
+  }
 
   const frameProps: MockupFrameProps = {
     kind: platform,
@@ -593,7 +603,7 @@ export default function AdPreview({ content, title, placement = "feed", platform
     headline,
     description,
     ctaText: ctaText || "Jetzt bewerben",
-    browserUrl: "karriere.firma.de",
+    browserUrl,
   }
 
   const isVertical = placement === 'story' || placement === 'reel';

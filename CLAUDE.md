@@ -12,6 +12,10 @@
 - Path-Alias: `@/` → `./src/`
 - `@babel/core` auf 7.28.0 gepinnt (7.29+ bricht @vitejs/plugin-react) — siehe `overrides` in package.json
 
+## Architektur-Regeln
+- Bei Backend/Automation-Arbeit: Lies `demo-backend/ARCHITECTURE.md` vor dem Coden
+- Bei Kunden-Hub Frontend-Arbeit: Lies `src/modules/kunden-hub/RULES.md` vor dem Coden
+
 ## Architektur
 
 ```

@@ -43,6 +43,9 @@ export interface UpdateAdInput {
   body?: string;
   cta?: string;
   image_url?: string;
+  link_url?: string;
+  placement?: string;
+  platform?: string;
   status?: string;
 }
 
@@ -170,7 +173,12 @@ export interface BausteinFromAPI {
 
 const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3002') + '/api/v3';
 const API_ROOT = import.meta.env.VITE_API_URL || 'http://localhost:3002';
-const API_KEY = import.meta.env.VITE_API_KEY || 'flowstack-demo-2026';
+
+// API key from env only — no hardcoded fallback in production bundles
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+if (!API_KEY && import.meta.env.PROD) {
+  console.error('[API] VITE_API_KEY not set — API calls will fail');
+}
 
 class ApiError extends Error {
   status: number;
@@ -182,16 +190,38 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const resp = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY, ...(options?.headers || {}) },
-  });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => 'Unknown error');
-    throw new ApiError(resp.status, text);
+async function request<T>(path: string, options?: RequestInit, retries = 3): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {}),
+  };
+  if (API_KEY) headers['X-API-Key'] = API_KEY;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const resp = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => 'Unknown error');
+        const safeMessage = resp.status >= 500 ? 'Server-Fehler' : text;
+        // Retry on 5xx, not on 4xx (client errors)
+        if (resp.status >= 500 && attempt < retries) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt))); // 1s, 2s, 4s
+          continue;
+        }
+        throw new ApiError(resp.status, safeMessage);
+      }
+      return resp.json() as Promise<T>;
+    } catch (err) {
+      // Retry on network errors (fetch throws TypeError on network failure)
+      if (err instanceof TypeError && attempt < retries) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        continue;
+      }
+      throw err;
+    }
   }
-  return resp.json() as Promise<T>;
+  // Should never reach here, but TypeScript needs it
+  throw new ApiError(0, 'Max retries exceeded');
 }
 
 // ── Public API object ───────────────────────────────────────

@@ -15,6 +15,8 @@ const translations: Record<string, Record<Language, string>> = {
   'dashboard.avgLeads': { de: 'Ø Leads/Kunde', en: 'Avg Leads/Client' },
   'dashboard.avgCpl': { de: 'Ø CPL', en: 'Avg CPL' },
   'dashboard.pendingApprovals': { de: 'Offene Freigaben', en: 'Pending Approvals' },
+  'dashboard.needsAction': { de: 'Aktion nötig', en: 'Needs action' },
+  'dashboard.mockDataBanner': { de: 'Demo-Modus: Backend nicht erreichbar, es werden Beispieldaten angezeigt.', en: 'Demo mode: Backend unavailable, showing sample data.' },
   'dashboard.urgentAlerts': { de: 'Dringende Meldungen', en: 'Urgent Alerts' },
   'dashboard.openApprovals': { de: 'Offene Freigaben', en: 'Open Approvals' },
   'dashboard.clientTable': { de: 'Kunden', en: 'Clients' },
@@ -50,6 +52,14 @@ const translations: Record<string, Record<Language, string>> = {
   'status.live': { de: 'Live', en: 'Live' },
   'status.paused': { de: 'Pausiert', en: 'Paused' },
   'status.churned': { de: 'Beendet', en: 'Churned' },
+
+  // Ampel / accessibility labels
+  'ampel.alert': { de: 'Warnung vorhanden', en: 'Alert present' },
+  'ampel.pending': { de: 'Freigabe ausstehend', en: 'Approval pending' },
+  'ampel.ok': { de: 'Alles in Ordnung', en: 'All good' },
+  'ampel.live': { de: 'Status: Live', en: 'Status: Live' },
+  'ampel.inactive': { de: 'Status: Inaktiv', en: 'Status: Inactive' },
+  'ampel.inProgress': { de: 'Status: In Bearbeitung', en: 'Status: In progress' },
 
   // Deliverable Status
   'delStatus.generating': { de: 'Wird generiert...', en: 'Generating...' },
@@ -556,7 +566,7 @@ const translations: Record<string, Record<Language, string>> = {
   'wizard.setupDone': { de: 'Alles bereit! Weiterleitung...', en: 'All set! Redirecting...' },
   'wizard.setupPartial': { de: 'Setup abgeschlossen (mit Fehlern). Weiterleitung...', en: 'Setup completed (with errors). Redirecting...' },
   'wizard.stepFailed': { de: 'Fehlgeschlagen', en: 'Failed' },
-  'wizard.settingUp': { de: 'System wird eingerichtet...', en: 'Setting up system...' },
+  'wizard.settingUpSystem': { de: 'System wird eingerichtet...', en: 'Setting up system...' },
   'wizard.deleteClient': { de: 'Client löschen', en: 'Delete client' },
   'wizard.deleteConfirm': { de: 'Sind Sie sicher? Alle erstellten Ressourcen (CRM, Slack, ClickUp, Drive) werden gelöscht.', en: 'Are you sure? All created resources (CRM, Slack, ClickUp, Drive) will be deleted.' },
   'wizard.deleteSuccess': { de: 'Client und Ressourcen gelöscht', en: 'Client and resources deleted' },
@@ -660,6 +670,8 @@ const translations: Record<string, Record<Language, string>> = {
 
   // Client Card (redesign)
   'clients.perMonth': { de: '/Mo', en: '/mo' },
+  'clients.loadMore': { de: 'Mehr laden', en: 'Load more' },
+  'clients.remaining': { de: 'weitere', en: 'remaining' },
 
   // Pipeline Detail (timeline + checklist redesign)
   'pipeline.zeitstrahl': { de: 'Zeitstrahl', en: 'Timeline' },
@@ -723,6 +735,7 @@ const translations: Record<string, Record<Language, string>> = {
   'approval.changesRequested': { de: 'Änderungen angefordert', en: 'Changes Requested' },
   'approval.version': { de: 'Version {v}', en: 'Version {v}' },
   'approval.unsavedChanges': { de: 'Ungespeicherte Änderungen', en: 'Unsaved changes' },
+  'approval.confirmChangesDesc': { de: 'Möchtest du wirklich Änderungen für dieses Deliverable anfordern?', en: 'Do you really want to request changes for this deliverable?' },
 
   // Content Review Panel
   'review.noItems': { de: 'Keine Elemente in dieser Kategorie', en: 'No items in this category' },

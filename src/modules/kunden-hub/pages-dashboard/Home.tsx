@@ -1,9 +1,5 @@
-import { useEffect, useState, useMemo, lazy, Suspense } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import type { ApexOptions } from "apexcharts";
-
-// Lazy-load react-apexcharts to avoid runtime crash if window/document not ready
-const Chart = lazy(() => import("react-apexcharts"));
 import PageMeta from "../ui/common/PageMeta";
 import PageBreadcrumb from "../ui/common/PageBreadCrumb";
 import Badge from "../ui/components/badge/Badge";
@@ -17,8 +13,6 @@ import {
 } from "../ui/components/table";
 import {
   GroupIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
   DollarLineIcon,
   CheckCircleIcon,
   ShootingStarIcon,
@@ -79,6 +73,7 @@ export default function Home() {
   const loadClients = useFulfillmentStore((s) => s.loadClients);
   const acknowledgeAlert = useFulfillmentStore((s) => s.acknowledgeAlert);
   const approveDeliverable = useFulfillmentStore((s) => s.approveDeliverable);
+  const isUsingMockData = useFulfillmentStore((s) => s.isUsingMockData);
 
   const [sortKey, setSortKey] = useState<SortKey>("company");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -172,147 +167,29 @@ export default function Home() {
     return arr;
   }, [clients, sortKey, sortDir]);
 
-  // Chart data computed from real client KPIs
-  const leadsChartData = useMemo(() => {
-    const tl = liveClients.reduce((sum, c) => sum + (c.kpis?.leads ?? 0), 0);
-    const dailyAvg = tl / 30;
-    // Use deterministic pseudo-random based on index (no Math.random to avoid re-render instability)
-    return Array.from({ length: 30 }, (_, i) => {
-      const seed = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-      const pseudoRandom = seed - Math.floor(seed); // 0..1 deterministic
-      const variation = (Math.sin(i * 0.5) * 0.3 + (pseudoRandom - 0.5) * 0.4) * dailyAvg;
-      return Math.max(0, Math.round(dailyAvg + variation));
-    });
-  }, [liveClients]);
-
-  const leadsDateLabels = useMemo(() => {
-    const labels: string[] = [];
-    const today = new Date();
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      labels.push(`${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}`);
-    }
-    return labels;
-  }, []);
-
-  const spendChartData = useMemo(() => {
-    const totalSpend = liveClients.reduce((sum, c) => sum + (c.kpis?.spend ?? 0), 0);
-    const weeklyAvg = totalSpend / 4;
-    return [
-      Math.round(weeklyAvg * 0.85),
-      Math.round(weeklyAvg * 0.95),
-      Math.round(weeklyAvg * 1.05),
-      Math.round(weeklyAvg * 1.15),
-    ];
-  }, [liveClients]);
-
-  const spendWeekLabels = useMemo(() => {
-    const today = new Date();
-    const startOfYear = new Date(today.getFullYear(), 0, 1);
-    const dayOfYear = Math.floor((today.getTime() - startOfYear.getTime()) / 86400000);
-    const currentWeek = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7);
-    return [
-      `KW ${currentWeek - 3}`,
-      `KW ${currentWeek - 2}`,
-      `KW ${currentWeek - 1}`,
-      `KW ${currentWeek}`,
-    ];
-  }, []);
-
-  // Chart configs (memoized to prevent ApexCharts re-render loops)
-  const leadsChartOptions: ApexOptions = useMemo(() => ({
-    colors: ["#465FFF", "#9CB9FF"],
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      height: 310,
-      type: "line" as const,
-      toolbar: { show: false },
-    },
-    stroke: { curve: "straight" as const, width: [2, 2] },
-    fill: {
-      type: "gradient",
-      gradient: { opacityFrom: 0.55, opacityTo: 0 },
-    },
-    markers: {
-      size: 0,
-      strokeColors: "#fff",
-      strokeWidth: 2,
-      hover: { size: 6 },
-    },
-    grid: {
-      xaxis: { lines: { show: false } },
-      yaxis: { lines: { show: true } },
-    },
-    dataLabels: { enabled: false },
-    tooltip: { enabled: true },
-    xaxis: {
-      type: "category" as const,
-      categories: leadsDateLabels,
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-      labels: {
-        rotate: -45,
-        hideOverlappingLabels: true,
-        style: { fontSize: "10px", colors: ["#6B7280"] },
-      },
-      tickAmount: 6,
-    },
-    yaxis: {
-      labels: { style: { fontSize: "12px", colors: ["#6B7280"] } },
-      title: { text: "" },
-    },
-  }), [leadsDateLabels]);
-
-  const leadsChartSeries = useMemo(() => [
-    {
-      name: "Leads",
-      data: leadsChartData,
-    },
-  ], [leadsChartData]);
-
-  const spendChartOptions: ApexOptions = useMemo(() => ({
-    colors: ["#465fff"],
-    chart: {
-      fontFamily: "Outfit, sans-serif",
-      type: "bar" as const,
-      height: 180,
-      toolbar: { show: false },
-    },
-    plotOptions: {
-      bar: {
-        horizontal: false,
-        columnWidth: "39%",
-        borderRadius: 5,
-        borderRadiusApplication: "end" as const,
-      },
-    },
-    dataLabels: { enabled: false },
-    stroke: { show: true, width: 4, colors: ["transparent"] },
-    xaxis: {
-      categories: spendWeekLabels,
-      axisBorder: { show: false },
-      axisTicks: { show: false },
-    },
-    legend: { show: false },
-    yaxis: { title: { text: undefined } },
-    grid: { yaxis: { lines: { show: true } } },
-    fill: { opacity: 1 },
-    tooltip: {
-      y: { formatter: (val: number) => `${val.toLocaleString("de-DE")} \u20AC` },
-    },
-  }), [spendWeekLabels]);
-
-  const spendChartSeries = useMemo(() => [
-    { name: "Spend", data: spendChartData },
-  ], [spendChartData]);
+  // Pending approvals count for 5th KPI card
+  const pendingApprovalsCount = useMemo(
+    () => approvals.filter((a) => a.status === "pending").length,
+    [approvals]
+  );
 
   const headerClass =
-    "py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400 cursor-pointer select-none";
+    "py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400";
 
   const sortIndicator = (key: SortKey) => {
     if (sortKey !== key) return "";
     return sortDir === "asc" ? " \u2191" : " \u2193";
+  };
+
+  const ariaSortValue = (key: SortKey): "ascending" | "descending" | "none" => {
+    if (sortKey !== key) return "none";
+    return sortDir === "asc" ? "ascending" : "descending";
+  };
+
+  const getStatusLabel = (status: string): string => {
+    if (status === 'live') return t('ampel.live');
+    if (status === 'paused' || status === 'churned') return t('ampel.inactive');
+    return t('ampel.inProgress');
   };
 
   return (
@@ -324,8 +201,20 @@ export default function Home() {
       <PageBreadcrumb pageTitle={t("breadcrumb.overview")} />
       <div className="space-y-6">
 
-        {/* ===== TOP: KPI Cards (4er Grid) ===== */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+        {/* Mock-Data Banner */}
+        {isUsingMockData && (
+          <div className="flex items-center gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 dark:border-warning-800 dark:bg-warning-900/20">
+            <svg className="h-5 w-5 shrink-0 text-warning-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+            <p className="text-sm font-medium text-warning-700 dark:text-warning-300">
+              {t("dashboard.mockDataBanner")}
+            </p>
+          </div>
+        )}
+
+        {/* ===== TOP: KPI Cards (5er Grid) ===== */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 md:gap-6">
           {/* 1. Aktive Kunden */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
             <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
@@ -340,10 +229,6 @@ export default function Home() {
                   {activeClients.length}
                 </h4>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-400">
-                <ArrowUpIcon className="size-3" />
-                +50%
-              </span>
             </div>
           </div>
 
@@ -361,12 +246,6 @@ export default function Home() {
                   {totalLeads}
                 </h4>
               </div>
-              {totalLeads > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-400">
-                  <ArrowUpIcon className="size-3" />
-                  +12%
-                </span>
-              )}
             </div>
           </div>
 
@@ -386,12 +265,6 @@ export default function Home() {
                     : "\u2014"}
                 </h4>
               </div>
-              {avgCpl > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-400">
-                  <ArrowDownIcon className="size-3" />
-                  -8%
-                </span>
-              )}
             </div>
           </div>
 
@@ -409,62 +282,38 @@ export default function Home() {
                   {`\u20AC${mrr.toLocaleString("de-DE", { minimumFractionDigits: 0 })}`}
                 </h4>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600 dark:bg-success-500/10 dark:text-success-400">
-                <ArrowUpIcon className="size-3" />
-                +33%
-              </span>
+            </div>
+          </div>
+
+          {/* 5. Offene Freigaben */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
+              <svg className="text-gray-800 size-6 dark:text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex items-end justify-between mt-5">
+              <div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("dashboard.pendingApprovals")}
+                </span>
+                <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                  {pendingApprovalsCount}
+                </h4>
+              </div>
+              {pendingApprovalsCount > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/10 dark:text-warning-400">
+                  {t("dashboard.needsAction")}
+                </span>
+              )}
             </div>
           </div>
         </div>
 
         {/* ===== MIDDLE: Two-column grid ===== */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 md:gap-6">
-          {/* Left column */}
-          <div className="space-y-4 md:space-y-6">
-            <PipelineKanban />
-            <TeamCapacity />
-          </div>
-
-          {/* Right column */}
-          <div className="space-y-4 md:space-y-6">
-            {/* Leads Chart */}
-            <div className="rounded-2xl border border-gray-200 bg-white px-5 pb-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-              <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-                {t("dashboard.leadsOverTime")}
-              </h3>
-              <div className="max-w-full overflow-x-auto custom-scrollbar">
-                <div className="min-w-[500px] xl:min-w-full">
-                  <Suspense fallback={<div className="h-[310px]" />}>
-                    <Chart
-                      options={leadsChartOptions}
-                      series={leadsChartSeries}
-                      type="area"
-                      height={310}
-                    />
-                  </Suspense>
-                </div>
-              </div>
-            </div>
-
-            {/* Spend Chart */}
-            <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white px-5 pt-5 dark:border-gray-800 dark:bg-white/[0.03] sm:px-6 sm:pt-6">
-              <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
-                {t("dashboard.spendPerWeek")}
-              </h3>
-              <div className="max-w-full overflow-x-auto custom-scrollbar">
-                <div className="-ml-5 min-w-[300px] xl:min-w-full pl-2">
-                  <Suspense fallback={<div className="h-[180px]" />}>
-                    <Chart
-                      options={spendChartOptions}
-                      series={spendChartSeries}
-                      type="bar"
-                      height={180}
-                    />
-                  </Suspense>
-                </div>
-              </div>
-            </div>
-          </div>
+          <PipelineKanban />
+          <TeamCapacity />
         </div>
 
         {/* ===== BOTTOM: Alerts, Approvals, AI Suggestions ===== */}
@@ -571,53 +420,35 @@ export default function Home() {
               <Table>
                 <TableHeader className="border-gray-100 dark:border-gray-800 border-y">
                   <TableRow>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("company")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("company")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("company")}>
                         {t("table.client")}{sortIndicator("company")}
-                      </span>
+                      </button>
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("currentPhase")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("currentPhase")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("currentPhase")}>
                         {t("table.phase")}{sortIndicator("currentPhase")}
-                      </span>
+                      </button>
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("leads")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("leads")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("leads")}>
                         {t("table.leads")}{sortIndicator("leads")}
-                      </span>
+                      </button>
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("cpl")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("cpl")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("cpl")}>
                         {t("table.cpl")}{sortIndicator("cpl")}
-                      </span>
+                      </button>
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("spend")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("spend")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("spend")}>
                         {t("table.spend")}{sortIndicator("spend")}
-                      </span>
+                      </button>
                     </TableCell>
-                    <TableCell
-                      isHeader
-                      className={headerClass}
-                    >
-                      <span onClick={() => toggleSort("status")}>
+                    <TableCell isHeader className={headerClass} aria-sort={ariaSortValue("status")}>
+                      <button type="button" className="cursor-pointer select-none" onClick={() => toggleSort("status")}>
                         {t("table.status")}{sortIndicator("status")}
-                      </span>
+                      </button>
                     </TableCell>
                   </TableRow>
                 </TableHeader>
@@ -636,11 +467,15 @@ export default function Home() {
                             className="flex items-center gap-2 cursor-pointer"
                             onClick={() => navigate(`/kunden-hub/clients/${client.id}`)}
                           >
-                            <span className={`inline-block h-2.5 w-2.5 rounded-full shrink-0 ${
-                              client.status === 'live' ? 'bg-success-500' :
-                              client.status === 'paused' || client.status === 'churned' ? 'bg-error-400' :
-                              'bg-warning-400'
-                            }`} />
+                            <span
+                              className={`inline-block h-2.5 w-2.5 rounded-full shrink-0 ${
+                                client.status === 'live' ? 'bg-success-500' :
+                                client.status === 'paused' || client.status === 'churned' ? 'bg-error-400' :
+                                'bg-warning-400'
+                              }`}
+                              role="img"
+                              aria-label={getStatusLabel(client.status)}
+                            />
                             <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
                               {client.company}
                             </span>
