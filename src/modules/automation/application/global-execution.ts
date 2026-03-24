@@ -26,6 +26,8 @@ export interface DagNode {
   duration: number
   /** If true, node waits for completeNode() instead of auto-completing after duration */
   dynamic?: boolean
+  /** Node type — used to determine approval/blocked/retrying behavior */
+  nodeType?: string
 }
 
 /** DAG edge (dependency) */
@@ -178,13 +180,13 @@ function startNodeRunning(nodeId: string) {
     }, dagNode.duration)
     _runningTimers.set(nodeId, timer)
   } else {
-    // Dynamic: safety timeout 30s — completes even if API hangs
+    // Dynamic: safety timeout 120s — matches API timeout for side-effect nodes
     const timer = setTimeout(() => {
       _runningTimers.delete(nodeId)
       if (_nodeStates.get(nodeId)?.status === 'running') {
         completeNode(nodeId)
       }
-    }, 30_000)
+    }, 120_000)
     _runningTimers.set(nodeId, timer)
   }
 }
@@ -197,6 +199,14 @@ export function completeNode(nodeId: string) {
   // Clear any pending timer
   const timer = _runningTimers.get(nodeId)
   if (timer) { clearTimeout(timer); _runningTimers.delete(nodeId) }
+
+  // Approval nodes pause at waiting_approval instead of completing
+  const dagNode = _dagNodes.get(nodeId)
+  if (dagNode?.nodeType === 'approval') {
+    state.status = 'waiting_approval'
+    notify()
+    return // Execution pauses here — call approveNode() to continue
+  }
 
   state.status = 'completed'
   state.completedAt = Date.now()
@@ -245,6 +255,55 @@ function checkAllComplete() {
     _cleanupTimer = null
     notify()
   }, 3000)
+}
+
+/** Approve a node that is waiting_approval → completed, advance successors. */
+export function approveNode(nodeId: string) {
+  const state = _nodeStates.get(nodeId)
+  if (!state || state.status !== 'waiting_approval') return
+
+  state.status = 'completed'
+  state.completedAt = Date.now()
+
+  if (_dagOptions.onNodeCompleted && state.startedAt) {
+    const duration = state.completedAt - state.startedAt
+    try { _dagOptions.onNodeCompleted(nodeId, state.systemId, duration) } catch { /* ignore */ }
+  }
+
+  notify()
+
+  const succs = _successors.get(nodeId) ?? []
+  for (const succId of succs) {
+    const preds = _predecessors.get(succId) ?? []
+    const allDone = preds.every(p => _nodeStates.get(p)?.status === 'completed')
+    if (allDone) scheduleNode(succId)
+  }
+
+  checkAllComplete()
+}
+
+/** Reject a node that is waiting_approval → failed, execution pauses. */
+export function rejectNode(nodeId: string) {
+  const state = _nodeStates.get(nodeId)
+  if (!state || state.status !== 'waiting_approval') return
+  state.status = 'failed'
+  notify()
+}
+
+/** Set a node to blocked status (missing dependency). */
+export function blockNode(nodeId: string) {
+  const state = _nodeStates.get(nodeId)
+  if (!state) return
+  state.status = 'blocked'
+  notify()
+}
+
+/** Set a node to retrying status (API retry in progress). */
+export function setRetrying(nodeId: string) {
+  const state = _nodeStates.get(nodeId)
+  if (!state) return
+  state.status = 'retrying'
+  notify()
 }
 
 /** Get how long a node was (or has been) running. */
@@ -340,8 +399,14 @@ export function getNodeStates(systemId: string): Map<string, NodeExecutionStatus
 
     if (subStates.every(s => s === 'completed')) {
       map.set(ph.placeholderId, 'completed')
+    } else if (subStates.some(s => s === 'waiting_approval')) {
+      map.set(ph.placeholderId, 'waiting_approval')
     } else if (subStates.some(s => s === 'running' || s === 'completed')) {
       map.set(ph.placeholderId, 'running')
+    } else if (subStates.some(s => s === 'retrying')) {
+      map.set(ph.placeholderId, 'retrying')
+    } else if (subStates.some(s => s === 'blocked')) {
+      map.set(ph.placeholderId, 'blocked')
     } else if (subStates.some(s => s === 'pending')) {
       map.set(ph.placeholderId, 'pending')
     }

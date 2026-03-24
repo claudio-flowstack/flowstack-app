@@ -129,7 +129,7 @@ def get_credentials():
     """Get OAuth credentials from Doppler."""
     print("[1/3] Fetching credentials from Doppler...")
     result = subprocess.run(
-        [DOPPLER_PATH, "secrets", "get", "GOOGLE_CLAUDIO_OAUTH_TOKEN", "--plain",
+        [DOPPLER_PATH, "secrets", "get", "FLOWSTACK_GOOGLE_OAUTH_TOKEN", "--plain",
          "--project", "fulfillment-automation", "--config", "dev_claudio"],
         capture_output=True, text=True
     )

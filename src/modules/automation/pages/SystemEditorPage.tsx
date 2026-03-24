@@ -113,6 +113,10 @@ function persistArtifacts(
           art.url !== '#' || art.type === 'url' || art.type === 'image'
         )
         for (const art of realArtifacts) {
+          const nodeGroupId = sys.groups?.find(g =>
+            node.x >= g.x && node.x <= g.x + g.width &&
+            node.y >= g.y && node.y <= g.y + g.height
+          )?.id
           const output = {
             id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
             name: art.label,
@@ -121,6 +125,7 @@ function persistArtifacts(
             createdAt: new Date().toISOString(),
             contentPreview: art.contentPreview,
             durationMs: getNodeDuration(node.id),
+            groupId: nodeGroupId,
           }
           sysOutputs.push(output)
           masterOutputs.push(output)
@@ -366,10 +371,9 @@ export function SystemEditorPage() {
     // ── Novacode: Event-driven DAG Execution ─────────────────────────────
     if (isNovacode) {
       resetSideEffectContext()
-      if (!demoRun) {
-        enableSideEffects(true)
-        await checkBackendHealth()
-      }
+      // Always enable side-effects when backend is available (live URLs in UI)
+      enableSideEffects(true)
+      await checkBackendHealth()
 
       const dagNodes: DagNode[] = []
       const dagEdges: DagEdge[] = []
@@ -389,7 +393,7 @@ export function SystemEditorPage() {
           nodeId: node.id,
           systemId: effectiveSystem.id,
           duration: node.demoConfig?.delay ?? 2000,
-          dynamic: !demoRun && hasSideEffect(node.id),
+          dynamic: hasSideEffect(node.id),
         })
       }
 
@@ -410,7 +414,7 @@ export function SystemEditorPage() {
             nodeId: node.id,
             systemId: sub.id,
             duration: node.demoConfig?.delay ?? 2000,
-            dynamic: !demoRun && hasSideEffect(node.id),
+            dynamic: hasSideEffect(node.id),
           })
         }
 
@@ -464,7 +468,7 @@ export function SystemEditorPage() {
             { id: `log-${nodeId}-run`, timestamp: new Date().toISOString(), status: 'running', message: `${label}`, nodeId },
           ])
 
-          if (!demoRun && hasSideEffect(nodeId)) {
+          if (hasSideEffect(nodeId)) {
             executeSideEffect(nodeId)
               .then((result) => {
                 // Update artifact URL with real URL from backend
@@ -518,6 +522,12 @@ export function SystemEditorPage() {
           )
           if (realArtifacts.length === 0) return
 
+          // Find which group this node belongs to
+          const nodeGroupId = sys.groups?.find(g =>
+            node.x >= g.x && node.x <= g.x + g.width &&
+            node.y >= g.y && node.y <= g.y + g.height
+          )?.id
+
           const newOutputs = realArtifacts.map(art => ({
             id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
             name: art.label,
@@ -526,6 +536,7 @@ export function SystemEditorPage() {
             createdAt: new Date().toISOString(),
             contentPreview: art.contentPreview,
             durationMs,
+            groupId: nodeGroupId,
           }))
 
           // Accumulate per-system outputs
@@ -547,13 +558,8 @@ export function SystemEditorPage() {
           }
         },
         onComplete: () => {
-          // Final: update execution metadata
-          for (const sys of allSystems) {
-            updateSystem(sys.id, {
-              lastExecuted: new Date().toISOString(),
-              executionCount: (sys.executionCount ?? 0) + 1,
-            })
-          }
+          // Final: persist all artifacts as safety net (in case progressive writes were lost)
+          persistArtifacts(effectiveSystem, allSystems, updateSystem)
         },
         subSystemPlaceholders: placeholders,
       })
@@ -660,7 +666,7 @@ export function SystemEditorPage() {
         setExecutionLog(logEntries)
       },
     })
-  }, [effectiveSystem, systems, updateSystem, demoRun])
+  }, [effectiveSystem, systems, updateSystem])
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handleDrillDown = useCallback(

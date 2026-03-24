@@ -16,6 +16,9 @@ import {
   Languages,
   X,
   LayoutDashboard,
+  FolderSearch,
+  TerminalSquare,
+  Package,
 } from 'lucide-react'
 
 interface NavItem {
@@ -23,17 +26,21 @@ interface NavItem {
   labelKey: string
   icon: typeof Workflow
   path: string
+  external?: boolean
 }
 
 const navItems: NavItem[] = [
   { id: 'dashboard', labelKey: 'sidebar.dashboard', icon: LayoutDashboard, path: '/' },
   { id: 'automation', labelKey: 'sidebar.automation', icon: Workflow, path: '/automation' },
   { id: 'content', labelKey: 'sidebar.content', icon: FileText, path: '/content' },
+  { id: 'drive', labelKey: 'sidebar.drive', icon: FolderSearch, path: '/drive' },
   { id: 'research', labelKey: 'sidebar.research', icon: Search, path: '/research' },
   { id: 'kpi', labelKey: 'sidebar.kpi', icon: BarChart3, path: '/kpi' },
+  { id: 'kunden-hub', labelKey: 'sidebar.kundenHub', icon: Package, path: '/kunden-hub', external: true },
 ]
 
 const bottomItems: NavItem[] = [
+  { id: 'terminal', labelKey: 'sidebar.terminal', icon: TerminalSquare, path: '/terminal' },
   { id: 'settings', labelKey: 'sidebar.settings', icon: Settings, path: '/settings' },
 ]
 
@@ -60,6 +67,26 @@ export function Sidebar() {
   }
 
   const renderNavItem = (item: NavItem) => {
+    if (item.external) {
+      return (
+        <a
+          key={item.id}
+          href={item.path}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
+            'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-sidebar-foreground',
+            collapsed && 'justify-center px-2.5',
+          )}
+          title={collapsed ? t(item.labelKey) : undefined}
+        >
+          <item.icon className="h-[18px] w-[18px] shrink-0 text-muted-foreground group-hover:text-sidebar-accent-foreground transition-colors" />
+          {!collapsed && <span>{t(item.labelKey)}</span>}
+        </a>
+      )
+    }
+
     const active = isActive(item.path)
     return (
       <button

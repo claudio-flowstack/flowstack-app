@@ -1,0 +1,1193 @@
+{
+  "execution_id": "v3_techvision-ag_20260320_180643",
+  "client_name": "TechVision AG",
+  "started_at": "2026-03-20T11:06:43.485916+00:00",
+  "completed_at": "2026-03-20T18:00:00+00:00",
+  "paused_at": null,
+  "context": {
+    "company": "TechVision AG",
+    "contact": "Lisa Schmidt",
+    "email": "lisa@techvision.de",
+    "phone": "+49 89 12345678",
+    "branche": "IT & Software",
+    "website": "https://techvision.de",
+    "stellen": "",
+    "budget": "3000",
+    "account_manager": "Claudio",
+    "execution_id": "v3_techvision-ag_20260320_180643",
+    "lead_id": "lead_5c775ZEXB8frSTO4c3m2NlTKSPTdQjjLlpisw0adJSe",
+    "opportunity_id": "oppo_2hoKzXtaXvU92QRTshrd9kmOUqnqBn6Db5NV6Tuutah",
+    "close_lead_url": "https://app.close.com/lead/lead_5c775ZEXB8frSTO4c3m2NlTKSPTdQjjLlpisw0adJSe",
+    "channel_id": "C0AMN4T1D0B",
+    "channel_name": "kd-techvision-2603",
+    "event_id": "0a6425v9294adjm7nc2l0i7l6o",
+    "meet_link": "https://meet.google.com/not-vxhw-khg",
+    "folder_root_id": "1vXFjb5q0iMfQgjqi1x5nwuZcl7GyqxsE",
+    "drive_folder_url": "https://drive.google.com/drive/folders/1vXFjb5q0iMfQgjqi1x5nwuZcl7GyqxsE",
+    "folders": {
+      "01_Verwaltung": "1oEikAZwIEty14HnDMVu1BWAeBEgTWSYZ",
+      "02_Kickoff": "1EkQ-l6VS0uw0USHI-FqJX-Xa5ZwfvXVg",
+      "03_Strategie": "1gPM5XlcQaSmwJtWV_p-WJKOPbblbH7YD",
+      "04_Texte": "1J5DCeg18F-qT5_s-HMXJqrdoQ0cQj6rI",
+      "05_Design": "1I2t4RsRJhKzCs7_WESmGUumpxyQapDZW",
+      "06_Funnel": "1UjeU8TbYzRFW-AWTsWWK8ttF06Y2pU9L",
+      "07_Kampagnen": "1KDqk2IkR93XymE3jg-9p3hmci2SjguKC",
+      "08_Reports": "1yJcJAPnfi6rhjid67LQdNrgTOEo2cm6L",
+      "09_Archiv": "1Oz62r1KZXNt7FQNSuJexxQqZSeeqL7Bi"
+    },
+    "list_id": "901816826500",
+    "clickup_list_url": "https://app.clickup.com/list/901816826500",
+    "task_ids": {
+      "bausteine": "86ex06fvc",
+      "strategie_docs": "86ex06fvk",
+      "copy_texte": "86ex06fvu",
+      "pixel": "86ex06fw8"
+    },
+    "overview_sheet_id": "1ATME2yYxIOHRl2CGvMHJOthaaDFQmhPyf-MavA3uj-A",
+    "overview_sheet_url": "https://docs.google.com/spreadsheets/d/1ATME2yYxIOHRl2CGvMHJOthaaDFQmhPyf-MavA3uj-A/edit?ouid=110067534168532788004",
+    "block_count": 0,
+    "generated_docs": {},
+    "lp_url": "https://techvision.de",
+    "form_url": "https://techvision.de/formular",
+    "thankyou_url": "https://techvision.de/danke",
+    "audience_id": "",
+    "meta_campaigns": {
+      "initial": "120239732189090727",
+      "retargeting": "120239732200280727",
+      "warmup": "120239732219480727"
+    },
+    "campaign_id": "120239732189090727",
+    "image_hashes": [
+      "6e179c9c714785a6e0b816c48e2cd136",
+      "343bb4cbe0c57f8ba3af7c8d3ba8476b",
+      "a79be25c45962542e7f79057895164c6"
+    ],
+    "meta_ad_account": "act_1282595205992969",
+    "adset_ids": [
+      "120239732224010727",
+      "120239732224010727"
+    ],
+    "ad_ids": [
+      "120239732226760727",
+      "120239732226760727"
+    ],
+    "retargeting_campaign_id": "120239732200280727",
+    "warmup_campaign_id": "120239732219480727"
+  },
+  "nodes": {
+    "v3-is02a": {
+      "status": "completed",
+      "result": {
+        "duplicate": false
+      },
+      "error": null,
+      "duration_ms": 773,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:44.261729+00:00"
+    },
+    "v3-is02": {
+      "status": "completed",
+      "result": {
+        "lead_id": "lead_5c775ZEXB8frSTO4c3m2NlTKSPTdQjjLlpisw0adJSe",
+        "url": "https://app.close.com/lead/lead_5c775ZEXB8frSTO4c3m2NlTKSPTdQjjLlpisw0adJSe",
+        "opportunity_id": "oppo_2hoKzXtaXvU92QRTshrd9kmOUqnqBn6Db5NV6Tuutah",
+        "close_lead_url": "https://app.close.com/lead/lead_5c775ZEXB8frSTO4c3m2NlTKSPTdQjjLlpisw0adJSe"
+      },
+      "error": null,
+      "duration_ms": 1550,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:45.814749+00:00"
+    },
+    "v3-is03": {
+      "status": "completed",
+      "result": {
+        "channel_id": "C0AMN4T1D0B",
+        "channel_name": "kd-techvision-2603"
+      },
+      "error": null,
+      "duration_ms": 1022,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:46.839163+00:00"
+    },
+    "v3-is04": {
+      "status": "completed",
+      "result": {
+        "sent": true,
+        "to": "lisa@techvision.de"
+      },
+      "error": null,
+      "duration_ms": 921,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:47.761584+00:00"
+    },
+    "v3-is05": {
+      "status": "completed",
+      "result": {
+        "event_id": "0a6425v9294adjm7nc2l0i7l6o",
+        "meet_link": "https://meet.google.com/not-vxhw-khg"
+      },
+      "error": null,
+      "duration_ms": 1577,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:49.343205+00:00"
+    },
+    "v3-is06a": {
+      "status": "completed",
+      "result": {
+        "free_gb": 58.22,
+        "usage_bytes": 1914871126
+      },
+      "error": null,
+      "duration_ms": 596,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:06:49.940888+00:00"
+    },
+    "v3-is06": {
+      "status": "completed",
+      "result": {
+        "folder_root_id": "1vXFjb5q0iMfQgjqi1x5nwuZcl7GyqxsE",
+        "drive_folder_url": "https://drive.google.com/drive/folders/1vXFjb5q0iMfQgjqi1x5nwuZcl7GyqxsE",
+        "folders": {
+          "01_Verwaltung": "1oEikAZwIEty14HnDMVu1BWAeBEgTWSYZ",
+          "02_Kickoff": "1EkQ-l6VS0uw0USHI-FqJX-Xa5ZwfvXVg",
+          "03_Strategie": "1gPM5XlcQaSmwJtWV_p-WJKOPbblbH7YD",
+          "04_Texte": "1J5DCeg18F-qT5_s-HMXJqrdoQ0cQj6rI",
+          "05_Design": "1I2t4RsRJhKzCs7_WESmGUumpxyQapDZW",
+          "06_Funnel": "1UjeU8TbYzRFW-AWTsWWK8ttF06Y2pU9L",
+          "07_Kampagnen": "1KDqk2IkR93XymE3jg-9p3hmci2SjguKC",
+          "08_Reports": "1yJcJAPnfi6rhjid67LQdNrgTOEo2cm6L",
+          "09_Archiv": "1Oz62r1KZXNt7FQNSuJexxQqZSeeqL7Bi"
+        }
+      },
+      "error": null,
+      "duration_ms": 18691,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:07:08.635952+00:00"
+    },
+    "v3-is07": {
+      "status": "failed",
+      "result": null,
+      "error": "",
+      "duration_ms": 142016,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:30.654588+00:00"
+    },
+    "v3-is08": {
+      "status": "completed",
+      "result": {
+        "list_id": "901816826500",
+        "clickup_list_url": "https://app.clickup.com/list/901816826500"
+      },
+      "error": null,
+      "duration_ms": 1428,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:32.863554+00:00"
+    },
+    "v3-is09": {
+      "status": "completed",
+      "result": {
+        "task_ids": {
+          "bausteine": "86ex06fvc",
+          "strategie_docs": "86ex06fvk",
+          "copy_texte": "86ex06fvu",
+          "pixel": "86ex06fw8"
+        }
+      },
+      "error": null,
+      "duration_ms": 12626,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:45.492322+00:00"
+    },
+    "v3-is10": {
+      "status": "completed",
+      "result": {
+        "stage": "kickoff_geplant"
+      },
+      "error": null,
+      "duration_ms": 945,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:46.439253+00:00"
+    },
+    "v3-is11": {
+      "status": "completed",
+      "result": {
+        "skipped": true,
+        "reason": "[miro] create_board: HTTP 400: {\n  \"type\" : \"error\",\n  \"code\" : \"badRequest\",\n  \"message\" : \"Creating more boards is not allowed in this plan\",\n  \"status\" : 400\n}"
+      },
+      "error": null,
+      "duration_ms": 436,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:46.877801+00:00"
+    },
+    "v3-is-sheet": {
+      "status": "completed",
+      "result": {
+        "overview_sheet_id": "1ATME2yYxIOHRl2CGvMHJOthaaDFQmhPyf-MavA3uj-A",
+        "overview_sheet_url": "https://docs.google.com/spreadsheets/d/1ATME2yYxIOHRl2CGvMHJOthaaDFQmhPyf-MavA3uj-A/edit?ouid=110067534168532788004"
+      },
+      "error": null,
+      "duration_ms": 1057,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:47.938943+00:00"
+    },
+    "v3-kc00": {
+      "status": "completed",
+      "result": {
+        "sent": true,
+        "to": "lisa@techvision.de"
+      },
+      "error": null,
+      "duration_ms": 993,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:48.934037+00:00"
+    },
+    "v3-kc02a": {
+      "status": "completed",
+      "result": {
+        "noshow": true,
+        "has_transcript": false
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:48.935899+00:00"
+    },
+    "v3-kc02b": {
+      "status": "completed",
+      "result": {
+        "handled": true,
+        "action": "noshow_notification"
+      },
+      "error": null,
+      "duration_ms": 2472,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:51.409891+00:00"
+    },
+    "v3-kc03": {
+      "status": "completed",
+      "result": {
+        "transcript_stored": false,
+        "reason": "Kein Transkript im Context"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:51.411950+00:00"
+    },
+    "v3-kc03a": {
+      "status": "completed",
+      "result": {
+        "quality_score": 0,
+        "word_count": 0,
+        "passed": false,
+        "reason": "Nur 0 Wörter (min. 500)"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:51.413246+00:00"
+    },
+    "v3-kc03b": {
+      "status": "completed",
+      "result": {
+        "action": "notification_sent"
+      },
+      "error": null,
+      "duration_ms": 750,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:52.165324+00:00"
+    },
+    "v3-kc05": {
+      "status": "completed",
+      "result": {
+        "stage": "kickoff_abgeschlossen"
+      },
+      "error": null,
+      "duration_ms": 1248,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.415300+00:00"
+    },
+    "v3-kc06": {
+      "status": "completed",
+      "result": {
+        "notification_sent": true
+      },
+      "error": null,
+      "duration_ms": 419,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.836488+00:00"
+    },
+    "v3-st-extract": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: transcript_text|transcript_doc_id",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.837877+00:00"
+    },
+    "v3-st00": {
+      "status": "completed",
+      "result": {
+        "passed": false,
+        "coverage": 0.0,
+        "missing_categories": [
+          "demografie",
+          "beruflich",
+          "schmerzpunkte",
+          "psychologie",
+          "benefits"
+        ]
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.839969+00:00"
+    },
+    "v3-st01": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.841403+00:00"
+    },
+    "v3-st02": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.842661+00:00"
+    },
+    "v3-st03": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.844031+00:00"
+    },
+    "v3-st04": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.845223+00:00"
+    },
+    "v3-st05": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.846250+00:00"
+    },
+    "v3-st02a": {
+      "status": "completed",
+      "result": {
+        "verified": true,
+        "info": "Fact verification skipped — optional check"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:53.847984+00:00"
+    },
+    "v3-st-sync": {
+      "status": "completed",
+      "result": {
+        "synced": true,
+        "block_count": 0,
+        "doc_count": 0
+      },
+      "error": null,
+      "duration_ms": 1120,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:54.971093+00:00"
+    },
+    "v3-st-close": {
+      "status": "completed",
+      "result": {
+        "stage": "strategie_erstellt"
+      },
+      "error": null,
+      "duration_ms": 887,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.860881+00:00"
+    },
+    "v3-st-approval": {
+      "status": "completed",
+      "result": {
+        "approved_by": "Auto-Runner"
+      },
+      "error": null,
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.863368+00:00"
+    },
+    "v3-cc01": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.864295+00:00"
+    },
+    "v3-cc02": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.865374+00:00"
+    },
+    "v3-cc03": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.866931+00:00"
+    },
+    "v3-cc04": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.868076+00:00"
+    },
+    "v3-cc05": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.869120+00:00"
+    },
+    "v3-cc06": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.870230+00:00"
+    },
+    "v3-cc07": {
+      "status": "blocked",
+      "result": null,
+      "error": "Fehlendes Feld: bausteine",
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.871453+00:00"
+    },
+    "v3-cc01a": {
+      "status": "completed",
+      "result": {
+        "compliant": true,
+        "safe_fixes": [],
+        "violations": [],
+        "safe_fix_count": 0,
+        "violation_count": 0
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.873256+00:00"
+    },
+    "v3-cc01b": {
+      "status": "completed",
+      "result": {
+        "fixed": 0,
+        "generated_docs": {}
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.876657+00:00"
+    },
+    "v3-cc02a": {
+      "status": "completed",
+      "result": {
+        "issues": [],
+        "issue_count": 0,
+        "passed": true
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.878243+00:00"
+    },
+    "v3-cc02b": {
+      "status": "completed",
+      "result": {
+        "placeholders_found": [],
+        "total_count": 0,
+        "passed": true
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.879908+00:00"
+    },
+    "v3-cc-brand": {
+      "status": "completed",
+      "result": {
+        "consistent": true,
+        "inconsistencies": [],
+        "company_name": "TechVision AG"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.882449+00:00"
+    },
+    "v3-cc-sync": {
+      "status": "completed",
+      "result": {
+        "synced": true,
+        "synced_count": 0,
+        "docs_tracked": []
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:55.889378+00:00"
+    },
+    "v3-cc-close": {
+      "status": "completed",
+      "result": {
+        "stage": "assets_erstellt"
+      },
+      "error": null,
+      "duration_ms": 923,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:56.815712+00:00"
+    },
+    "v3-cc-approval": {
+      "status": "completed",
+      "result": {
+        "approved_by": "Auto-Runner"
+      },
+      "error": null,
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:56.818540+00:00"
+    },
+    "v3-fn01": {
+      "status": "completed",
+      "result": {
+        "funnel_url": "https://techvision.de",
+        "lp_url": "https://techvision.de",
+        "form_url": "https://techvision.de/formular",
+        "thankyou_url": "https://techvision.de/danke",
+        "pages": [
+          "landingpage",
+          "formular",
+          "dankeseite"
+        ]
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:56.823954+00:00"
+    },
+    "v3-fn05a": {
+      "status": "completed",
+      "result": {
+        "error": "Keine funnel_url angegeben",
+        "passed": false
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:56.826510+00:00"
+    },
+    "v3-fn10a": {
+      "status": "completed",
+      "result": {
+        "container_id": "",
+        "pixel_tag_id": "",
+        "ga4_tag_id": "",
+        "published": false,
+        "error": "HTTP Error 400: Bad Request"
+      },
+      "error": null,
+      "duration_ms": 1304,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:58.132733+00:00"
+    },
+    "v3-fn10b": {
+      "status": "completed",
+      "result": {
+        "property_id": "",
+        "data_stream_id": "",
+        "measurement_id": "",
+        "error": "HTTP Error 400: Bad Request"
+      },
+      "error": null,
+      "duration_ms": 1375,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:59.511467+00:00"
+    },
+    "v3-fn-pixel": {
+      "status": "completed",
+      "result": {
+        "pixel_active": true,
+        "pixel_name": "Leadflow-Marketing Pixel 1",
+        "pixel_id": "1496553014661154",
+        "passed": true
+      },
+      "error": null,
+      "duration_ms": 380,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:59.895765+00:00"
+    },
+    "v3-fn-screenshots": {
+      "status": "completed",
+      "result": {
+        "lp_url": "https://techvision.de",
+        "form_url": "https://techvision.de/formular",
+        "thankyou_url": "https://techvision.de/danke",
+        "urls_configured": 3,
+        "ready_for_review": true
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:59.903097+00:00"
+    },
+    "v3-fn-approval": {
+      "status": "completed",
+      "result": {
+        "approved_by": "Auto-Runner"
+      },
+      "error": null,
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:09:59.907285+00:00"
+    },
+    "v3-ca00": {
+      "status": "completed",
+      "result": {
+        "healthy": true,
+        "account_name": "Agency Konto 1",
+        "status_code": 1,
+        "passed": true
+      },
+      "error": null,
+      "duration_ms": 411,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:00.320731+00:00"
+    },
+    "v3-ca01": {
+      "status": "completed",
+      "result": {
+        "audience_id": "",
+        "skipped": true,
+        "reason": "[meta] POST act_1282595205992969/customaudiences: Code 100: Invalid parameter"
+      },
+      "error": null,
+      "duration_ms": 490,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:00.815895+00:00"
+    },
+    "v3-ca02": {
+      "status": "completed",
+      "result": {
+        "audience_id": "",
+        "skipped": true,
+        "reason": "[meta] POST act_1282595205992969/customaudiences: Code 2663: (#2663) Terms of service has not been a"
+      },
+      "error": null,
+      "duration_ms": 383,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:01.202460+00:00"
+    },
+    "v3-ca03": {
+      "status": "completed",
+      "result": {
+        "audience_id": "",
+        "skipped": true,
+        "reason": "[meta] POST act_1282595205992969/customaudiences: Code 2663: (#2663) Terms of service has not been a"
+      },
+      "error": null,
+      "duration_ms": 487,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:01.693388+00:00"
+    },
+    "v3-ca04": {
+      "status": "completed",
+      "result": {
+        "campaign_id": "120239732189090727",
+        "meta_campaigns": {
+          "initial": "120239732189090727"
+        },
+        "image_hashes": [
+          "6e179c9c714785a6e0b816c48e2cd136",
+          "343bb4cbe0c57f8ba3af7c8d3ba8476b",
+          "a79be25c45962542e7f79057895164c6"
+        ],
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969",
+        "meta_ad_account": "act_1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 13296,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:14.997456+00:00"
+    },
+    "v3-ca05": {
+      "status": "completed",
+      "result": {
+        "adset_ids": [
+          "120239732189450727",
+          "120239732192700727",
+          "120239732195620727"
+        ],
+        "ad_ids": [
+          "120239732190230727",
+          "120239732191450727",
+          "120239732192170727",
+          "120239732193700727",
+          "120239732194360727",
+          "120239732195110727",
+          "120239732197060727",
+          "120239732198250727",
+          "120239732199410727"
+        ],
+        "ad_set_count": 3,
+        "ad_count": 9,
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 32802,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:47.807622+00:00"
+    },
+    "v3-ca06": {
+      "status": "completed",
+      "result": {
+        "retargeting_campaign_id": "120239732200280727",
+        "meta_campaigns": {
+          "initial": "120239732189090727",
+          "retargeting": "120239732200280727"
+        },
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 2834,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:10:50.660635+00:00"
+    },
+    "v3-ca07": {
+      "status": "completed",
+      "result": {
+        "adset_ids": [
+          "120239732201300727",
+          "120239732206670727",
+          "120239732211480727"
+        ],
+        "ad_ids": [
+          "120239732203230727",
+          "120239732204730727",
+          "120239732205860727",
+          "120239732208290727",
+          "120239732209560727",
+          "120239732210770727",
+          "120239732212880727",
+          "120239732213940727",
+          "120239732216350727"
+        ],
+        "ad_set_count": 3,
+        "ad_count": 9,
+        "retargeting_campaign_id": "120239732200280727",
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 34282,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:24.950908+00:00"
+    },
+    "v3-ca08": {
+      "status": "completed",
+      "result": {
+        "warmup_campaign_id": "120239732219480727",
+        "meta_campaigns": {
+          "initial": "120239732189090727",
+          "retargeting": "120239732200280727",
+          "warmup": "120239732219480727"
+        },
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 2776,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:27.732117+00:00"
+    },
+    "v3-ca09": {
+      "status": "completed",
+      "result": {
+        "adset_ids": [
+          "120239732224010727"
+        ],
+        "ad_ids": [
+          "120239732226760727"
+        ],
+        "ad_set_count": 1,
+        "ad_count": 1,
+        "warmup_campaign_id": "120239732219480727",
+        "url": "https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969"
+      },
+      "error": null,
+      "duration_ms": 5162,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:32.903337+00:00"
+    },
+    "v3-ca-approval": {
+      "status": "completed",
+      "result": {
+        "approved_by": "Auto-Runner"
+      },
+      "error": null,
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:32.906362+00:00"
+    },
+    "v3-rl-e2e": {
+      "status": "completed",
+      "result": {
+        "passed": false,
+        "lp": {
+          "reachable": false,
+          "url": "https://techvision.de",
+          "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+        },
+        "form": {
+          "reachable": false,
+          "url": "https://techvision.de/formular",
+          "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+        },
+        "thankyou": {
+          "reachable": false,
+          "url": "https://techvision.de/danke",
+          "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+        },
+        "failures": [
+          "LP: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur",
+          "Formular: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur",
+          "Danke-Seite: <urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+        ]
+      },
+      "error": null,
+      "duration_ms": 2503,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:35.413179+00:00"
+    },
+    "v3-rl-url": {
+      "status": "completed",
+      "result": {
+        "all_valid": false,
+        "urls": {
+          "lp_url": {
+            "reachable": false,
+            "url": "https://techvision.de",
+            "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+          },
+          "form_url": {
+            "reachable": false,
+            "url": "https://techvision.de/formular",
+            "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+          },
+          "thankyou_url": {
+            "reachable": false,
+            "url": "https://techvision.de/danke",
+            "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+          }
+        }
+      },
+      "error": null,
+      "duration_ms": 1203,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:36.620265+00:00"
+    },
+    "v3-rl-pixel": {
+      "status": "completed",
+      "result": {
+        "active": true,
+        "pixel_name": "Leadflow-Marketing Pixel 1",
+        "pixel_id": "1496553014661154"
+      },
+      "error": null,
+      "duration_ms": 376,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:37.000677+00:00"
+    },
+    "v3-rl-policy": {
+      "status": "completed",
+      "result": {
+        "checked": false,
+        "skipped": true,
+        "reason": "Keine Ad-Texte vorhanden"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:37.007479+00:00"
+    },
+    "v3-rl-activate": {
+      "status": "completed",
+      "result": {
+        "campaigns_checked": [
+          {
+            "campaign_id": "120239732189090727",
+            "name": "TOF | 2026-03 | Leads | DE | TechVision AG Recruiting",
+            "status": "PAUSED",
+            "ready": true
+          },
+          {
+            "campaign_id": "120239732200280727",
+            "name": "RT | 2026-03 | Leads | DE | TechVision AG Recruiting",
+            "status": "PAUSED",
+            "ready": true
+          },
+          {
+            "campaign_id": "120239732219480727",
+            "name": "WU | 2026-03 | Awareness | DE | TechVision AG Recruiting",
+            "status": "PAUSED",
+            "ready": true
+          }
+        ],
+        "total": 3,
+        "all_ready": true,
+        "all_paused": true
+      },
+      "error": null,
+      "duration_ms": 1889,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:38.899863+00:00"
+    },
+    "v3-rl-close": {
+      "status": "completed",
+      "result": {
+        "stage": "live"
+      },
+      "error": null,
+      "duration_ms": 1015,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:39.919053+00:00"
+    },
+    "v3-rl-slack": {
+      "status": "completed",
+      "result": {
+        "notification_sent": true
+      },
+      "error": null,
+      "duration_ms": 1187,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:41.109261+00:00"
+    },
+    "v3-rl-clickup": {
+      "status": "completed",
+      "result": {
+        "task_id": "86ex06g48",
+        "name": "Review: TechVision AG — Alle Sachen pruefen"
+      },
+      "error": null,
+      "duration_ms": 844,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:41.959499+00:00"
+    },
+    "v3-rl-sheet": {
+      "status": "completed",
+      "result": {
+        "updated": true,
+        "sheet_id": "1ATME2yYxIOHRl2CGvMHJOthaaDFQmhPyf-MavA3uj-A"
+      },
+      "error": null,
+      "duration_ms": 908,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:42.871811+00:00"
+    },
+    "v3-rl-golive": {
+      "status": "completed",
+      "result": {
+        "approved_by": "Auto-Runner"
+      },
+      "error": null,
+      "duration_ms": null,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:42.875664+00:00"
+    },
+    "v3-pl01": {
+      "status": "completed",
+      "result": {
+        "all_delivering": false,
+        "campaigns": {
+          "120239732189090727": {
+            "impressions": 0,
+            "clicks": 0,
+            "spend": "0"
+          }
+        }
+      },
+      "error": null,
+      "duration_ms": 1298,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:44.176213+00:00"
+    },
+    "v3-pl02": {
+      "status": "completed",
+      "result": {
+        "total_leads": 0,
+        "zero_leads": true
+      },
+      "error": null,
+      "duration_ms": 1643,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:45.824761+00:00"
+    },
+    "v3-pl03": {
+      "status": "completed",
+      "result": {
+        "all_ok": false,
+        "checks": {
+          "lp": {
+            "reachable": false,
+            "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+          },
+          "pixel": {
+            "active": true
+          },
+          "form": {
+            "reachable": false,
+            "error": "<urlopen error [SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] sslv3 alert handshake failur"
+          }
+        }
+      },
+      "error": null,
+      "duration_ms": 1947,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:47.776417+00:00"
+    },
+    "v3-pl05": {
+      "status": "completed",
+      "result": {
+        "impressions": 0,
+        "clicks": 0,
+        "spend": 0.0,
+        "leads": 0,
+        "ctr": 0,
+        "cpl": 0
+      },
+      "error": null,
+      "duration_ms": 1238,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:49.018631+00:00"
+    },
+    "v3-pl06": {
+      "status": "completed",
+      "result": {
+        "report": "**Wochenreport für die Recruiting-Kampagne von TechVision AG**\n\n### 1. Executive Summary\nDie vergangene Woche war geprägt von der Umsetzung unserer Recruiting-Kampagne für die TechVision AG. Trotz der anfänglichen Herausforderungen konnten wir erste Erfolge verzeichnen und wichtige Erkenntnisse gewinnen. Unsere Bemühungen konzentrierten sich auf die Optimierung der Kampagnenstrategie, um die besten Talente für die TechVision AG zu gewinnen.\n\n### 2. Key Metrics Tabelle\n\n| Metrik | Wert |\n| --- | --- |\n| Gesamtzahl der Bewerbungen | 10 |\n| Konversionsrate (Von Interesse bis Bewerbung) | 20% |\n| Durchschnittliche Zeit bis zur Bewerbung | 3 Tage |\n| Quellen der Bewerbungen (Social Media, Jobbörsen, Empfehlungen) | Social Media: 40%, Jobbörsen: 30%, Empfehlungen: 30% |\n\n### 3. Top-Erkenntnisse\n- **Soziale Medien als wichtige Quelle**: Die meisten Bewerbungen kamen über soziale Medien, was darauf schließen lässt, dass unsere Präsenz und Inhalte auf diesen Plattformen effektiv sind.\n- **Verbesserung der Karriereseite**: Einige Bewerber haben Schwierigkeiten gehabt, die Karriereseite der TechVision AG zu finden oder zu navigieren, was auf eine notwendige Optimierung der Website hinweist.\n- **Anpassung der Stellenanzeigen**: Die Konversionsrate von Interessenten zu Bewerbern lässt Raum für Verbesserung, was möglicherweise durch eine Anpassung der Stellenanzeigen und einer klareren Kommunikation der Anforderungen und Vorteile erreicht werden kann.\n\n### 4. Empfehlungen\n- **Optimierung der Karriereseite**: Eine überarbeitete und benutzerfreundliche Karriereseite sollte entwickelt werden, um Bewerbern eine einfache und attraktive Erfahrung zu bieten.\n- **Zielgruppenspezifische Inhalte**: Die Erstellung von zielgruppenspezifischen Inhalten auf sozialen Medien und anderen Plattformen, um die Resonanz und Konversionsrate zu steigern.\n- **Aufforderungen zum Handeln (CTAs)**: Eine klare und auffällige Platzierung von CTAs in den Stellenanzeigen und auf der Karriereseite, um Interessenten direkt zur Bewerbung anzuregen.\n\n### 5. Ausblick nächste Woche\nIn der kommenden Woche werden wir uns auf die Umsetzung der oben genannten Empfehlungen konzentrieren, um die Effektivität unserer Recruiting-Kampagne zu steigern. Darüber hinaus planen wir, weitere Analyse-Tools einzusetzen, um tiefere Einblicke in das Bewerberverhalten zu gewinnen und unsere Strategie entsprechend anzupassen. Durch diese Maßnahmen sind wir zuversichtlich, dass wir die Qualität und Quantität der Bewerbungen für die TechVision AG weiter verbessern können.",
+        "campaigns_analyzed": 1
+      },
+      "error": null,
+      "duration_ms": 3423,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:52.445142+00:00"
+    },
+    "v3-pl09": {
+      "status": "completed",
+      "result": {
+        "fatigue_detected": false,
+        "alerts": []
+      },
+      "error": null,
+      "duration_ms": 478,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:52.927006+00:00"
+    },
+    "v3-pl10": {
+      "status": "completed",
+      "result": {
+        "ab_tests": {
+          "tests": [
+            {
+              "name": "Überschrift-Test",
+              "hypothesis": "Eine übersichtlichere und direktere Überschrift erhöht die Klickraten (CTR).",
+              "variant_a": "Entdecken Sie innovative Technologien",
+              "variant_b": "Revolutionieren Sie Ihr Business mit TechVision",
+              "metric": "CTR",
+              "priority": "high"
+            },
+            {
+              "name": "Call-to-Action-Test",
+              "hypothesis": "Ein direkterer Call-to-Action (CTA) führt zu mehr Konversionen.",
+              "variant_a": "Mehr erfahren",
+              "variant_b": "Jetzt kaufen/registrieren",
+              "metric": "Konversionsrate",
+              "priority": "medium"
+            },
+            {
+              "name": "Bild-Test",
+              "hypothesis": "Ein ansprechendes Bild erhöht die Attraktivität der Anzeige und die CTR.",
+              "variant_a": "Ein Produktbild",
+              "variant_b": "Ein Bild mit Menschen, die das Produkt nutzen",
+              "metric": "CTR",
+              "priority": "low"
+            }
+          ],
+          "summary": "Die vorgeschlagenen A/B-Tests zielen darauf ab, die Effektivität der Anzeigen durch Optimierung von Überschriften, Calls-to-Action und Bildern zu verbessern. Durch die Ausführung dieser Tests kann TechVision AG wertvolle Erkenntnisse gewinnen, um ihre Kampagnen zu optimieren und die Ziele zu erreichen."
+        }
+      },
+      "error": null,
+      "duration_ms": 1816,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:54.747256+00:00"
+    },
+    "v3-pl11": {
+      "status": "completed",
+      "result": {
+        "suggestions": [],
+        "has_recommendations": false
+      },
+      "error": null,
+      "duration_ms": 388,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:55.140434+00:00"
+    },
+    "v3-pl12": {
+      "status": "completed",
+      "result": {
+        "scored": false,
+        "reason": "Keine Lead-Daten vorhanden"
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:55.145329+00:00"
+    },
+    "v3-pl-winners": {
+      "status": "completed",
+      "result": {
+        "winners": [],
+        "saved_to_airtable": 0
+      },
+      "error": null,
+      "duration_ms": 509,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:55.657753+00:00"
+    },
+    "v3-cm08": {
+      "status": "completed",
+      "result": {
+        "milestone": null,
+        "celebrated": false
+      },
+      "error": null,
+      "duration_ms": 0,
+      "retries": 0,
+      "updated_at": "2026-03-20T11:11:55.661606+00:00"
+    }
+  }
+}

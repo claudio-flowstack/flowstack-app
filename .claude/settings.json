@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "command": "cd \"$HOME/Desktop/Flowstack /04_Marketing/Webseite/Seiten code/Flowstack-Platform\" && npx vite build --logLevel error 2>&1 | tail -3"
+      }
+    ]
+  }
+}

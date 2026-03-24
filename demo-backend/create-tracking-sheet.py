@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 
-_google_raw = os.environ.get("GOOGLE_CLAUDIO_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
+_google_raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
 _google_creds = json.loads(_google_raw) if _google_raw else {}
 GOOGLE_ACCESS_TOKEN = _google_creds.get("token", "")
 GOOGLE_REFRESH_TOKEN = _google_creds.get("refresh_token", "")

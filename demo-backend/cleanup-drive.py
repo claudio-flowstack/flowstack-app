@@ -5,7 +5,7 @@ import os
 import json
 import httpx
 
-_raw = os.environ.get("GOOGLE_CLAUDIO_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
+_raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
 try:
     _creds = json.loads(_raw)
 except json.JSONDecodeError:

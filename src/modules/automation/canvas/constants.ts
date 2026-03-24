@@ -112,6 +112,19 @@ export const STROKE_DASH: Record<string, string | undefined> = {
 
 // ── Lucide Icon Map ─────────────────────────────────────────────────────────
 
+// ── Node Execution Status Styles (V3) ─────────────────────────────────────
+
+export const NODE_STATUS_STYLES: Record<
+  'retrying' | 'blocked' | 'waiting_approval',
+  { borderColor: string; bgColor: string; pulseAnimation?: boolean; stripes?: boolean; icon?: string }
+> = {
+  retrying:         { borderColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.06)', pulseAnimation: true },
+  blocked:          { borderColor: '#6b7280', bgColor: 'rgba(107,114,128,0.06)', stripes: true },
+  waiting_approval: { borderColor: '#22c55e', bgColor: 'rgba(34,197,94,0.06)', pulseAnimation: true, icon: 'shield-check' },
+}
+
+// ── Lucide Icon Map ─────────────────────────────────────────────────────────
+
 export const ICON_NAMES = [
   'zap', 'users', 'file-text', 'globe', 'mail', 'target',
   'bar-chart', 'database', 'sparkles', 'search', 'image',

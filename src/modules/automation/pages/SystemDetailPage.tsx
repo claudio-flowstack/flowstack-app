@@ -92,13 +92,23 @@ export function SystemDetailPage() {
     [system, systems],
   )
 
-  const subSystems = useMemo(
-    () =>
-      systems
-        .filter((s) => s.parentId === systemId)
-        .sort((a, b) => (a.subSystemOrder ?? 0) - (b.subSystemOrder ?? 0)),
-    [systems, systemId],
-  )
+  const subSystems = useMemo(() => {
+    // Direct children
+    const direct = systems.filter((s) => s.parentId === systemId)
+    // Also include subsystems referenced in master connections (sub-{id} pattern)
+    const referencedIds = new Set(
+      (system?.connections ?? [])
+        .flatMap((c) => [c.from, c.to])
+        .filter((id) => id.startsWith('sub-'))
+        .map((id) => id.replace('sub-', '')),
+    )
+    const referenced = systems.filter(
+      (s) => referencedIds.has(s.id) && s.parentId !== systemId,
+    )
+    return [...direct, ...referenced].sort(
+      (a, b) => (a.subSystemOrder ?? 0) - (b.subSystemOrder ?? 0),
+    )
+  }, [systems, systemId, system?.connections])
 
   const siblings = useMemo(() => {
     if (!parentSystem) return []

@@ -56,6 +56,9 @@ export type NodeExecutionStatus =
   | 'running'
   | 'completed'
   | 'failed'
+  | 'retrying'            // Node wird gerade wiederholt (nach Fehler)
+  | 'blocked'             // Node wartet auf fehlende Dependency
+  | 'waiting_approval'    // Node fertig, wartet auf menschliche Freigabe
 
 export type SystemStatus = 'active' | 'draft'
 
@@ -167,6 +170,8 @@ export interface SystemOutput {
   artifactType?: ArtifactSourceType
   /** Generation duration in ms (from DAG execution) */
   durationMs?: number
+  /** Group/Phase ID this output belongs to (for phase-based filtering) */
+  groupId?: string
 }
 
 export type AdvancedOutputType = OutputType | 'json' | 'table' | 'csv'

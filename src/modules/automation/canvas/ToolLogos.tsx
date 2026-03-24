@@ -67,6 +67,19 @@ const GoogleCalendar: React.FC = () => (
   </svg>
 )
 
+const GoogleForms: React.FC = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z" fill="#673AB7"/>
+    <path d="M14 2v6h6" fill="#B39DDB"/>
+    <circle cx="9" cy="12.5" r="1" fill="white"/>
+    <line x1="11.5" y1="12.5" x2="16" y2="12.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+    <circle cx="9" cy="15.5" r="1" fill="white"/>
+    <line x1="11.5" y1="15.5" x2="16" y2="15.5" stroke="white" strokeWidth="1" strokeLinecap="round"/>
+    <circle cx="9" cy="18.5" r="1" fill="white" opacity={0.6}/>
+    <line x1="11.5" y1="18.5" x2="14" y2="18.5" stroke="white" strokeWidth="1" strokeLinecap="round" opacity={0.6}/>
+  </svg>
+)
+
 // ── Communication ────────────────────────────────────────────────────────────
 
 const Slack: React.FC = () => (
@@ -192,6 +205,13 @@ const Airtable: React.FC = () => (
     <path d="M11.5 3.5L3 7.5l8.5 4 8.5-4-8.5-4z" fill="#FCB400"/>
     <path d="M12.5 12.5v8l8.5-4v-8l-8.5 4z" fill="#18BFFF"/>
     <path d="M11.5 12.5v8L3 16.5v-8l8.5 4z" fill="#F82B60"/>
+  </svg>
+)
+
+const Miro: React.FC = () => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="2" width="20" height="20" rx="4" fill="#FFD02F"/>
+    <path d="M7 17V9l3 4 3-6 3 6 3-4v8" stroke="#050038" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 )
 
@@ -377,6 +397,7 @@ export const TOOL_LOGOS: Record<string, ToolLogo> = {
   'logo-google-sheets':    { id: 'logo-google-sheets',    name: 'Google Sheets',    category: 'Google',        component: GoogleSheets,    color: '#0F9D58' },
   'logo-google-docs':      { id: 'logo-google-docs',      name: 'Google Docs',      category: 'Google',        component: GoogleDocs,      color: '#4285F4' },
   'logo-google-calendar':  { id: 'logo-google-calendar',  name: 'Google Calendar',  category: 'Google',        component: GoogleCalendar,  color: '#4285F4' },
+  'logo-google-forms':     { id: 'logo-google-forms',     name: 'Google Forms',     category: 'Google',        component: GoogleForms,     color: '#673AB7' },
 
   // Communication
   'logo-slack':            { id: 'logo-slack',            name: 'Slack',            category: 'Communication', component: Slack,           color: '#4A154B' },
@@ -405,6 +426,7 @@ export const TOOL_LOGOS: Record<string, ToolLogo> = {
   // Productivity
   'logo-notion':           { id: 'logo-notion',           name: 'Notion',           category: 'Productivity',  component: Notion,          color: '#000000' },
   'logo-airtable':         { id: 'logo-airtable',         name: 'Airtable',         category: 'Productivity',  component: Airtable,        color: '#18BFFF' },
+  'logo-miro':             { id: 'logo-miro',             name: 'Miro',             category: 'Productivity',  component: Miro,            color: '#FFD02F' },
 
   // Social
   'logo-linkedin':         { id: 'logo-linkedin',         name: 'LinkedIn',         category: 'Social',        component: LinkedIn,        color: '#0A66C2' },

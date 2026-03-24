@@ -203,13 +203,13 @@ export function PresentationMode({
     <>
       {/* System Navigation Pills — top-right */}
       {navigationSystems && navigationSystems.length > 1 && onNavigateSystem && (
-        <div className="absolute top-3 right-3 z-50 flex gap-1.5">
+        <div className="absolute top-3 right-3 z-50 flex gap-1.5 flex-wrap justify-end max-w-[60vw]">
           {navigationSystems.map((sys) => (
             <button
               key={sys.id}
               onClick={() => onNavigateSystem(sys.id)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border backdrop-blur-xl',
+                'px-3 py-1.5 rounded-full text-[11px] font-medium transition-all border backdrop-blur-xl whitespace-nowrap',
                 sys.id === currentSystemId
                   ? 'bg-purple-500/30 border-purple-400/40 text-white'
                   : 'bg-black/50 border-white/10 text-white/60 hover:text-white hover:bg-black/70',

@@ -4,7 +4,12 @@ Update 12 existing Google Docs with clean, well-structured content.
 Uses native HTML tags (h1, h2, h3, table, b, i, ul, ol) that Google Docs renders natively.
 """
 import subprocess, json, sys, time
+from datetime import datetime
 import httpx
+
+# Dynamic date for docs — always "today"
+_TODAY = datetime.now().strftime("%d.%m.%Y")
+_QUARTER = f"Q{(datetime.now().month - 1) // 3 + 1} {datetime.now().year}"
 
 DOPPLER_PATH = "/Users/claudiodifranco/.local/bin/doppler"
 
@@ -27,7 +32,7 @@ DOCS = {
 
 def get_credentials():
     result = subprocess.run(
-        [DOPPLER_PATH, "secrets", "get", "GOOGLE_CLAUDIO_OAUTH_TOKEN", "--plain",
+        [DOPPLER_PATH, "secrets", "get", "FLOWSTACK_GOOGLE_OAUTH_TOKEN", "--plain",
          "--project", "fulfillment-automation", "--config", "dev_claudio"],
         capture_output=True, text=True)
     if result.returncode != 0:
@@ -88,8 +93,7 @@ def wrap(body):
 
 def doc_02():
     b = '<h1>#02 Zielgruppen-Avatar</h1>'
-    b += '<p><i>Kandidatenprofil &mdash; Senior Fullstack Developer &mdash; Recruiting-Kampagne Q1 2026</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 1 von 12</i></p><hr>'
+    b += '<p><i>Kandidatenprofil &mdash; Senior Fullstack Developer &mdash; Recruiting-Kampagne</i></p><hr>'
 
     b += '<h2>01 Persona-Steckbrief</h2>'
     b += tbl(["Merkmal", "Detail"], [
@@ -181,14 +185,12 @@ def doc_02():
 
     b += '<h2>08 Zusammenfassung</h2>'
     b += '<p><b>Kern-Insight:</b> Markus sucht keinen neuen Job &mdash; er sucht ein Umfeld, in dem er wieder als Engineer wachsen kann. Er braucht keine Versprechen, sondern konkrete Beweise: Tech-Stack, Team-Qualit&auml;t, echte Remote-Kultur. Der Schl&uuml;ssel liegt nicht in der Stellenanzeige, sondern im authentischen Einblick in den Arbeitsalltag.</p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 1/12</i></p>'
-    return "#02 – Zielgruppen-Avatar | NOVACODE Recruiting", wrap(b)
+    return "Zielgruppen-Avatar | NOVACODE Recruiting", wrap(b)
 
 
 def doc_03():
     b = '<h1>#03 Arbeitgeber-Avatar</h1>'
     b += '<p><i>Employer Positioning &amp; EVP &middot; NOVACODE Solutions GmbH</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 2 von 12</i></p><hr>'
 
     b += '<h2>01 Unternehmenssteckbrief</h2>'
     b += tbl(["Merkmal", "Detail"], [
@@ -261,14 +263,12 @@ def doc_03():
 
     b += '<h2>07 Positionierungsstatement</h2>'
     b += '<p>NOVACODE positioniert sich als das Remote-First Tech-Unternehmen, bei dem Senior Developer <b>wieder wie Engineers arbeiten</b> k&ouml;nnen: moderner Stack, echte Ownership, faire Verg&uuml;tung &mdash; ohne Konzern-B&uuml;rokratie und ohne Startup-Chaos. Wir bieten die <b>Stabilit&auml;t eines profitablen Unternehmens</b> mit der <b>Agilit&auml;t eines kleinen Teams</b>.</p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 2/12</i></p>'
-    return "#03 – Arbeitgeber-Avatar | NOVACODE Recruiting", wrap(b)
+    return "Arbeitgeber-Avatar | NOVACODE Recruiting", wrap(b)
 
 
 def doc_04():
     b = '<h1>#04 Messaging-Matrix</h1>'
     b += '<p><i>Kernbotschaften &middot; USPs &middot; Pain-Point-Mapping &middot; Tone of Voice</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 3 von 12</i></p><hr>'
 
     b += '<h2>01 Kernbotschaft</h2>'
     b += '<p><b>&laquo;Bei NOVACODE baust du nicht nur Software &mdash; du gestaltest Produkte mit echtem Impact, in einem Team das technische Exzellenz lebt.&raquo;</b></p>'
@@ -326,14 +326,12 @@ def doc_04():
         ["Du", "Sie", "Tech-Community ist per Du"],
         ["Team-Retreat", "Firmenevent", "Klingt attraktiver, authentischer"],
     ])
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 3/12</i></p>'
-    return "#04 – Messaging-Matrix | NOVACODE Recruiting", wrap(b)
+    return "Messaging-Matrix | NOVACODE Recruiting", wrap(b)
 
 
 def doc_05():
     b = '<h1>#05 Creative Briefing</h1>'
     b += '<p><i>Visuelle Richtlinien &middot; Bildsprache &middot; Formatvorgaben &middot; Kampagnendesign</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 4 von 12</i></p><hr>'
 
     b += '<h2>01 Projekt&uuml;bersicht</h2>'
     b += tbl(["Parameter", "Detail"], [
@@ -405,14 +403,12 @@ def doc_05():
         ["Untertitel in Videos (80% schauen stumm)", "Videos ohne Untertitel"],
         ["Echte Mitarbeiterfotos wenn m&ouml;glich", "Generische Stock-Fotos"],
     ])
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 4/12</i></p>'
-    return "#05 – Creative Briefing | NOVACODE Recruiting", wrap(b)
+    return "Creative Briefing | NOVACODE Recruiting", wrap(b)
 
 
 def doc_06():
     b = '<h1>#06 Marken-Richtlinien</h1>'
     b += '<p><i>Employer Brand Narrative &middot; Kommunikationsregeln &middot; Sprachstil</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 5 von 12</i></p><hr>'
 
     b += '<h2>01 Brand Story</h2>'
     b += '<p><b>Origin:</b> NOVACODE wurde 2019 gegr&uuml;ndet, weil die Founder selbst frustriert waren &mdash; frustriert von Legacy-Code, endlosen Meeting-Ketten und der Illusion von &laquo;Agilit&auml;t&raquo; in Konzernen. Die Idee war einfach: Was w&auml;re, wenn man eine Software-Firma baut, bei der Engineers wirklich wie Engineers arbeiten k&ouml;nnen?</p>'
@@ -460,14 +456,12 @@ def doc_06():
     b += '<p><b>Template B &mdash; Typischer Tag:</b></p>'
     b += '<p>&laquo;Mein typischer Tag bei NOVACODE: [Morgenroutine]. Dann [Kernarbeit]. Was ich am meisten sch&auml;tze: [Key Benefit].&raquo;</p>'
     b += '<p><i>Beispiel: &laquo;Mein typischer Tag: Kaffee, Standup um 9:30 (15 Min), dann 4 Stunden Deep Work an unserem Recommendation-Engine. Was ich am meisten sch&auml;tze: Kein Meeting-Marathon, kein Micromanagement.&raquo;</i></p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 5/12</i></p>'
-    return "#06 – Marken-Richtlinien | NOVACODE Recruiting", wrap(b)
+    return "Marken-Richtlinien | NOVACODE Recruiting", wrap(b)
 
 
 def doc_07():
     b = '<h1>#07 Landingpage-Texte</h1>'
     b += '<p><i>Hero &middot; Benefits &middot; Team &middot; Testimonials &middot; CTA &middot; FAQ</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 6 von 12</i></p><hr>'
 
     b += '<h2>01 Hero Section &mdash; 3 Varianten</h2>'
     b += '<h3>Variante A &mdash; Problem-Hook</h3>'
@@ -541,14 +535,12 @@ def doc_07():
     b += '<p><b>Bereit f&uuml;r den n&auml;chsten Schritt?</b></p>'
     b += '<p>Kein Anschreiben n&ouml;tig. Wir melden uns innerhalb von 48 Stunden.</p>'
     b += '<p><b>&rarr; Jetzt in 2 Minuten bewerben</b></p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 6/12</i></p>'
-    return "#07 – Landingpage-Texte | NOVACODE Recruiting", wrap(b)
+    return "Landingpage-Texte | NOVACODE Recruiting", wrap(b)
 
 
 def doc_08():
     b = '<h1>#08 Formularseite-Texte</h1>'
     b += '<p><i>Labels &middot; Placeholders &middot; Validierung &middot; Microcopy &middot; Datenschutz</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 7 von 12</i></p><hr>'
 
     b += '<h2>01 Seiten-Header</h2>'
     b += '<p><b>Headline:</b> Fast geschafft &mdash; erz&auml;hl uns kurz von dir.</p>'
@@ -583,14 +575,12 @@ def doc_08():
     b += '<p><b>Info-Text:</b> &laquo;Deine Daten werden ausschlie&szlig;lich f&uuml;r den Bewerbungsprozess genutzt und nach 6 Monaten gel&ouml;scht. Keine Weitergabe an Dritte.&raquo;</p>'
     b += '<p><b>CTA-Button:</b> &laquo;Jetzt bewerben&raquo;</p>'
     b += '<p><b>Below-Button:</b> &laquo;Wir melden uns innerhalb von 48 Stunden bei dir.&raquo;</p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 7/12</i></p>'
-    return "#08 – Formularseite-Texte | NOVACODE Recruiting", wrap(b)
+    return "Formularseite-Texte | NOVACODE Recruiting", wrap(b)
 
 
 def doc_09():
     b = '<h1>#09 Dankeseite-Texte</h1>'
     b += '<p><i>Best&auml;tigung &middot; N&auml;chste Schritte &middot; Social Proof &middot; Follow-Up</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 8 von 12</i></p><hr>'
 
     b += '<h2>01 Best&auml;tigungsnachricht</h2>'
     b += '<p><b>Danke, [Vorname]! Deine Bewerbung ist bei uns.</b></p>'
@@ -617,185 +607,219 @@ def doc_09():
     b += '<p><b>Referral:</b> &laquo;Kennst du jemanden, f&uuml;r den NOVACODE auch passen k&ouml;nnte? Teile diesen Link: [URL]&raquo;</p>'
     b += '<p><b>Social:</b> &laquo;Folge uns auf LinkedIn f&uuml;r Einblicke in unseren Engineering-Alltag.&raquo;</p>'
     b += '<p><b>Kontakt:</b> &laquo;Fragen? Schreib uns: jobs@novacode.de &mdash; Dein Ansprechpartner: Sarah M&uuml;ller, People &amp; Culture&raquo;</p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 8/12</i></p>'
-    return "#09 – Dankeseite-Texte | NOVACODE Recruiting", wrap(b)
+    return "Dankeseite-Texte | NOVACODE Recruiting", wrap(b)
 
 
 def doc_10():
-    b = '<h1>#10 Anzeigentexte: Hauptkampagne</h1>'
-    b += '<p><i>Cold Audience &middot; Facebook &amp; Instagram Ads &middot; 5 Varianten + Carousel + Story</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 9 von 12</i></p><hr>'
+    LP = 'https://demo-recruiting.vercel.app/demo-landing/'
+    FORM = 'https://demo-recruiting.vercel.app/demo-formular'
+    sep = '<br><hr style="border:none;border-top:2px solid #e0e0e0;margin:24px 0"><br>'
+    section_sep = '<br><hr style="border:none;border-top:4px solid #1a1a1a;margin:36px 0"><br>'
 
-    b += '<h2>01 Kampagnen-&Uuml;bersicht</h2>'
-    b += tbl(["Parameter", "Detail"], [
-        ["<b>Kampagnenname</b>", "Initial_Novacode_Recruiting_Leads"],
-        ["<b>Objective</b>", "Leads (Conversions)"],
-        ["<b>Zielgruppe</b>", "Senior Devs 28&ndash;45, NRW, Interests: React/Node/DevOps"],
-        ["<b>Budget</b>", "30 &euro;/Tag"],
-        ["<b>Placements</b>", "Facebook Feed + Instagram Feed + Stories"],
+    b = '<h1>Anzeigentexte &mdash; NOVACODE Recruiting</h1>'
+    b += '<p><i>Hauptkampagne &middot; Retargeting &middot; Warmup &mdash; 9 Varianten f&uuml;r Facebook &amp; Instagram</i></p>'
+
+    b += tbl(["Kampagne", "Zielgruppe", "Varianten", "CTA", "Ziel-URL"], [
+        ["<b>Hauptkampagne</b>", "Kalte Audience &mdash; noch kein Kontakt", "3", "Jetzt bewerben", f'<a href="{LP}">Landingpage</a>'],
+        ["<b>Retargeting</b>", "LP-Besucher ohne Bewerbung", "3", "Jetzt bewerben", f'<a href="{FORM}">Bewerbungsformular</a>'],
+        ["<b>Warmup</b>", "Kalte Audience &mdash; Awareness", "3", "Mehr erfahren", f'<a href="{LP}">Landingpage</a>'],
     ])
 
-    b += '<h2>02 Variante 1 &mdash; Problem-Hook (PAS)</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Legacy-Code, Micromanagement und 5 Tage B&uuml;ro?</p>'
-    b += '<p>Bei NOVACODE entwickelst du mit React, Node.js und Kubernetes &mdash; 100% remote, mit Option auf 4-Tage-Woche. Kein jQuery, kein Java 8, kein Zur&uuml;ck.</p>'
-    b += '<p>Wir suchen Senior Developer, die echten Impact wollen. Nicht Ticket-Shuffler.</p>'
-    b += '<p>&rarr; Bewirb dich in 2 Minuten. Kein Anschreiben n&ouml;tig.</p>'
-    b += '<p><b>Headline:</b> Senior Developer? Code mit Impact. (37 Z.)<br><b>Description:</b> 100% Remote &middot; 4-Tage-Woche (28 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # HAUPTKAMPAGNE
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    b += section_sep
+    b += '<h1>Hauptkampagne</h1>'
+    b += '<p><i>Cold Audience &middot; Conversion-Ziel: Bewerbung &middot; Budget: 30 &euro;/Tag</i></p>'
 
-    b += '<h2>03 Variante 2 &mdash; Benefit-Hook (AIDA)</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>4-Tage-Woche, Remote-First und ein Stack, der Spa&szlig; macht.</p>'
-    b += '<p>NOVACODE sucht Senior Fullstack Developer. Was wir bieten: React 19, TypeScript, Kubernetes auf AWS. Merge to Prod in unter 15 Minuten.</p>'
-    b += '<p>35 Engineers, 8 L&auml;nder, profitabel seit 2021. Kein VC-Druck, kein Startup-Chaos.</p>'
-    b += '<p>&rarr; 2 Minuten Bewerbung. Wir melden uns in 48h.</p>'
-    b += '<p><b>Headline:</b> React, Node, K8s &mdash; und freitags frei. (39 Z.)<br><b>Description:</b> Senior Developer gesucht (25 Z.)<br><b>CTA:</b> Jetzt bewerben</p>'
+    # Variante 1 — Klassisch / Strukturiert
+    b += '<h2>Variante 1 &mdash; Klassisch / Strukturiert</h2>'
+    b += '<p>NOVACODE Solutions sucht: Senior Fullstack Developer (m/w/d) &ndash; D&uuml;sseldorf / Hybrid</p>'
+    b += '<p>Du willst wieder entwickeln.<br>Nicht nur Tickets schieben.</p>'
+    b += '<p>Dann lies weiter.</p>'
+    b += '<p>Wir sind NOVACODE.<br>19 Leute.<br>Ein Softwareunternehmen aus D&uuml;sseldorf.</p>'
+    b += '<p>Wir bauen individuelle L&ouml;sungen f&uuml;r den Mittelstand.<br>Keine Agentur.<br>Kein Bauchladen.<br>Echtes Product Engineering.</p>'
+    b += '<p><b>Dein Stack:</b><br>React. TypeScript. Node.js. PostgreSQL. AWS. Docker. GitHub Actions.</p>'
+    b += '<p><b>Dein Arbeitsmodell:</b><br>2 Tage B&uuml;ro in D&uuml;sseldorf.<br>3 Tage remote.<br>Kernzeit: 10&ndash;15 Uhr.</p>'
+    b += '<p><b>Das bieten wir dir:</b></p><ul>'
+    b += '<li>65.000&ndash;85.000 &euro; Jahresgehalt.</li>'
+    b += '<li>30 Urlaubstage.</li>'
+    b += '<li>3.000 &euro; Weiterbildungsbudget pro Jahr.</li>'
+    b += '<li>Hardware deiner Wahl.</li>'
+    b += '<li>Eigene Projektverantwortung.</li>'
+    b += '<li>Direkter Kundenkontakt.</li></ul>'
+    b += '<p><b>Das bringst du mit:</b></p><ul>'
+    b += '<li>Mindestens 4 Jahre Erfahrung als Fullstack Developer.</li>'
+    b += '<li>Sicher in React, Node.js und TypeScript.</li>'
+    b += '<li>Architekturverst&auml;ndnis und eigenst&auml;ndige Arbeitsweise.</li>'
+    b += '<li>Flie&szlig;end Deutsch.</li></ul>'
+    b += '<p><b>Unser Bewerbungsprozess:</b><br>20 Minuten Kennenlernen.<br>Tech-Gespr&auml;ch mit einem Senior Dev.<br>Entscheidung in 14 Tagen.</p>'
+    b += '<p>Kein Anschreiben.<br>Kein 6-Stunden-Coding-Test.</p>'
+    b += '<p>6 Jahre am Markt. Bootstrapped. Profitabel. Kein Startup-Chaos.</p>'
+    b += '<p>Die Bewerbung dauert unter 3 Minuten.</p>'
+    b += f'<p><b>&rarr; <a href="{LP}">Jetzt bewerben</a></b></p>'
 
-    b += '<h2>04 Variante 3 &mdash; Social Proof</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>&laquo;Seit ich bei NOVACODE bin, code ich wieder mit Freude.&raquo; &mdash; Lisa, Senior Dev</p>'
-    b += '<p>Was Lisa meint: Moderner Stack (React, Node.js, K8s), echte Ownership, keine sinnlosen Meetings. Und freitags hat sie frei.</p>'
-    b += '<p>Wir suchen Senior Developer, denen es genauso geht. Remote, fair, modern.</p>'
-    b += '<p>&rarr; Kein Anschreiben. 2 Min. Wir melden uns.</p>'
-    b += '<p><b>Headline:</b> 96% Empfehlungsrate. Kein Zufall. (38 Z.)<br><b>Description:</b> Erfahre warum (14 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
+    b += sep
 
-    b += '<h2>05 Variante 4 &mdash; Question-Hook</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Was w&auml;re, wenn dein n&auml;chster Arbeitgeber alles anders macht?</p>'
-    b += '<p>Kein Legacy-Code. Keine B&uuml;ropflicht. Keine Meeting-Marathons. Stattdessen: React, K8s, echte Ownership und eine 4-Tage-Woche bei gleichem Gehalt.</p>'
-    b += '<p>NOVACODE. 35 Engineers. 100% Remote. Profitabel.</p>'
-    b += '<p>&rarr; Bewirb dich jetzt &mdash; in 2 Minuten, ohne Anschreiben.</p>'
-    b += '<p><b>Headline:</b> Alles anders. Alles besser. (27 Z.)<br><b>Description:</b> Remote &middot; Modern &middot; Fair (20 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
+    # Variante 2 — Schmerzpunkt / Emotional
+    b += '<h2>Variante 2 &mdash; Schmerzpunkt / Emotional</h2>'
+    b += '<p>Du bist Entwickler.<br>Du bist verdammt gut in dem, was du tust.</p>'
+    b += '<p>Aber jetzt mal ehrlich:</p>'
+    b += '<p>Wann hast du das letzte Mal ein Feature gebaut, das wirklich live gegangen ist?</p>'
+    b += '<p>Wann hast du das letzte Mal eine Architekturentscheidung selbst getroffen &ndash; ohne dass ein Manager sie zerredet hat?</p>'
+    b += '<p>Wann hast du das letzte Mal das Gef&uuml;hl gehabt, dass du dich weiterentwickelst?</p>'
+    b += '<p>Wenn du jetzt &uuml;berlegen musstest, dann wei&szlig;t du, was das bedeutet.</p>'
+    b += '<p>Es ist Zeit.</p>'
+    b += '<p>Nicht, weil dein Job schlecht ist.<br>Nicht, weil deine Kollegen schlecht sind.</p>'
+    b += '<p>Sondern, weil du aufgeh&ouml;rt hast, Entwickler zu sein.</p>'
+    b += '<p>Wir sind NOVACODE.</p>'
+    b += '<p>Ein Softwareunternehmen aus D&uuml;sseldorf.<br>19 Mitarbeiter.<br>Wir bauen individuelle Software f&uuml;r den Mittelstand.</p>'
+    b += '<p>Keine Agentur. Kein Bauchladen. Echtes Engineering.</p>'
+    b += '<p>Unser Stack? React. TypeScript. Node.js. PostgreSQL. AWS.</p>'
+    b += '<p>Wir suchen einen Senior Fullstack Developer (m/w/d), der wieder coden will.<br>Der wieder entscheiden will.<br>Der wieder deployen will.</p>'
+    b += '<p>Was dich erwartet:</p><ul>'
+    b += '<li>&#10004;&#65039; Eigene Projektverantwortung ab Tag 1.</li>'
+    b += '<li>&#10004;&#65039; Direkter Kundenkontakt &ndash; du bist nicht der Letzte in der Kette.</li>'
+    b += '<li>&#10004;&#65039; Moderner Stack, kein Legacy.</li>'
+    b += '<li>&#10004;&#65039; Hybrid: 2 Tage B&uuml;ro, 3 Tage remote.</li>'
+    b += '<li>&#10004;&#65039; 65.000&ndash;85.000 &euro; Jahresgehalt.</li>'
+    b += '<li>&#10004;&#65039; 30 Urlaubstage.</li>'
+    b += '<li>&#10004;&#65039; 3.000 &euro; Weiterbildungsbudget pro Jahr.</li>'
+    b += '<li>&#10004;&#65039; Hardware deiner Wahl.</li></ul>'
+    b += '<p>Kein Coding-Marathon im Bewerbungsprozess.<br>Kein Assessment-Center.<br>Du sprichst direkt mit einem unserer Senior Devs &ndash; auf Augenh&ouml;he.</p>'
+    b += '<p>6 Jahre am Markt. Profitabel. Kein VC. Kein Startup-Chaos.</p>'
+    b += '<p>Die Bewerbung dauert unter 3 Minuten. Kein Anschreiben n&ouml;tig.</p>'
+    b += f'<p><b>&rarr; <a href="{LP}">Jetzt bewerben</a></b></p>'
 
-    b += '<h2>06 Variante 5 &mdash; Statistik-Hook</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>92% unserer Engineers w&uuml;rden NOVACODE weiterempfehlen.</p>'
-    b += '<p>Warum? Moderner Stack (React 19, TypeScript, K8s), 100% Remote, 4-Tage-Woche Option, 3.000 &euro; Weiterbildungsbudget und ein Team mit &Oslash; 6 Jahren Erfahrung.</p>'
-    b += '<p>Wir suchen Senior Fullstack Developer. Und wir meinen wirklich Senior &mdash; kein Junior mit &laquo;ambitioniertem Mindset&raquo;.</p>'
-    b += '<p>&rarr; 2 Min Bewerbung. Kein Anschreiben.</p>'
-    b += '<p><b>Headline:</b> 92% Empfehlungsrate. Dein Move. (36 Z.)<br><b>Description:</b> Senior Dev? Jetzt bewerben (27 Z.)<br><b>CTA:</b> Jetzt bewerben</p>'
+    b += sep
 
-    b += '<h2>07 Carousel-Ad (5 Cards)</h2>'
-    b += tbl(["Card", "Headline", "Description", "Image-Briefing"], [
-        ["<b>1 &mdash; Hook</b>", "Legacy-Code leid?", "Es gibt einen besseren Weg.", "Frustrierter Dev vor altem Code"],
-        ["<b>2 &mdash; Stack</b>", "React &middot; Node &middot; K8s", "Merge to Prod in 15 Min.", "Clean Code auf dunklem Editor"],
-        ["<b>3 &mdash; Benefits</b>", "100% Remote", "4-Tage-Woche Option", "Dev auf Balkon mit Laptop"],
-        ["<b>4 &mdash; Team</b>", "35 Engineers", "8 L&auml;nder. 1 Mission.", "Team-Call Screenshots"],
-        ["<b>5 &mdash; CTA</b>", "Bereit?", "2 Min. Kein Anschreiben.", "NOVACODE Logo + URL"],
-    ])
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 9/12</i></p>'
-    return "#10 – Anzeigentexte Hauptkampagne | NOVACODE Recruiting", wrap(b)
+    # Variante 3 — Contrarian / Pattern Interrupt
+    b += '<h2>Variante 3 &mdash; Contrarian / Pattern Interrupt</h2>'
+    b += '<p>Diese Anzeige ist nichts f&uuml;r dich.</p>'
+    b += '<p>Nicht, wenn du gl&uuml;cklich bist mit endlosen Meetings.<br>Nicht, wenn du okay damit bist, dass deine Features nie live gehen.<br>Nicht, wenn du mit einem Tech-Stack aus 2016 zufrieden bist.</p>'
+    b += '<p>Aber wenn du abends denkst: &laquo;Ich will wieder bauen.&raquo;<br>Dann lies weiter.</p>'
+    b += '<p>Wir sind NOVACODE.</p>'
+    b += '<p>19 Leute. 14 Entwickler. Durchschnittsalter: 32.<br>Wir entwickeln individuelle Software f&uuml;r den Mittelstand.<br>Interne Tools. Prozessautomatisierung. Plattformen.</p>'
+    b += '<p>Kein Agentur-Bauchladen.<br>Kein &laquo;Wir machen alles&raquo;.<br>Reines Custom Development.</p>'
+    b += '<p>Unser Stack? React. TypeScript. Node.js. Go. PostgreSQL. AWS. Docker. CI/CD via GitHub Actions.</p>'
+    b += '<p>Was bei uns anders ist?<br>Du triffst Architekturentscheidungen.<br>Du sprichst direkt mit Kunden.<br>Du deployst Code, der in Produktion l&auml;uft.<br>Nicht Code, der auf dem Feature-Friedhof verrottet.</p>'
+    b += '<p>Wir sagen nicht &laquo;flache Hierarchien&raquo;.<br>Wir sagen: 19 Leute. Keine Hierarchie. Punkt.</p>'
+    b += '<p>Wir sagen nicht &laquo;Startup-Mentalit&auml;t&raquo;.<br>Wir sagen: 6 Jahre profitabel. Kein VC. Kein Chaos.</p>'
+    b += '<p>Wir sagen nicht &laquo;wie eine Familie&raquo;.<br>Wir sagen: Profis, die abliefern. Und um 17 Uhr Feierabend machen.</p>'
+    b += '<p>Hybrid: 2 Tage D&uuml;sseldorf. 3 Tage remote. Kernzeit: 10&ndash;15 Uhr.</p>'
+    b += '<p>65.000&ndash;85.000 &euro;. 30 Tage Urlaub. 3.000 &euro; Weiterbildungsbudget.</p>'
+    b += '<p>Bewerbungsprozess? 20 Minuten Call. Tech-Talk mit einem Engineer. Architektur-Diskussion.</p>'
+    b += '<p>Kein Whiteboard. Kein Assessment-Center. Entscheidung in 14 Tagen.</p>'
+    b += '<p>Unter 3 Minuten. Kein Anschreiben.</p>'
+    b += f'<p><b>&rarr; <a href="{LP}">Jetzt bewerben</a></b></p>'
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # RETARGETING
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    b += section_sep
+    b += '<h1>Retargeting</h1>'
+    b += '<p><i>Warme Audience &middot; LP-Besucher ohne Bewerbung &middot; Ziel: Bewerbungsformular</i></p>'
+
+    # RT Variante 1
+    b += '<h2>Variante 1 &mdash; Direkt / Erinnerung</h2>'
+    b += '<p>Du hast dir die Stelle bei NOVACODE angeschaut.<br>Aber du hast dich noch nicht beworben.</p>'
+    b += '<p>Warum nicht?</p>'
+    b += '<p>Fragst du dich, ob es wirklich passt?</p>'
+    b += '<p>Hier sind die Fakten:</p>'
+    b += '<p>&#10004;&#65039; Keine langweilige 9-to-5-M&uuml;hle. Flexible Arbeitszeiten, die zu deinem Leben passen.<br>'
+    b += '&#10004;&#65039; 100 % Remote oder Hybrid in D&uuml;sseldorf. Du entscheidest.<br>'
+    b += '&#10004;&#65039; Ein moderner Tech-Stack. Kein veralteter Kram aus 2015.<br>'
+    b += '&#10004;&#65039; Ein Weiterbildungsbudget, das du wirklich nutzen kannst.</p>'
+    b += '<p>Und das Beste?</p>'
+    b += '<p>Der Bewerbungsprozess dauert nur 60 Sekunden.<br>Kein Anschreiben. Kein Lebenslauf-Upload.</p>'
+    b += f'<p><b>&rarr; <a href="{FORM}">Beantworte ein paar Fragen</a></b> und wir melden uns innerhalb von 48 Stunden.</p>'
+
+    b += sep
+
+    # RT Variante 2
+    b += '<h2>Variante 2 &mdash; Einwand-Killer</h2>'
+    b += '<p>&laquo;Bin ich gut genug?&raquo;</p>'
+    b += '<p>Das denken 90 % der Entwickler.<br>Und genau die sind oft die Besten.</p>'
+    b += '<p>Bei NOVACODE suchen wir keine Entwickler mit 47 Zertifikaten.<br>Wir suchen echte Macher.</p>'
+    b += '<p>Leute, die:<br>'
+    b += '&bull; Sauberen Code schreiben wollen &ndash; nicht nur schnellen.<br>'
+    b += '&bull; Probleme l&ouml;sen statt nur Tickets abzuarbeiten.<br>'
+    b += '&bull; Verantwortung &uuml;bernehmen wollen.</p>'
+    b += '<p>Du warst schon auf unserer Seite.<br>Das zeigt, dass du neugierig bist.</p>'
+    b += f'<p>Gib deiner Neugier eine Chance.<br><b>&rarr; <a href="{FORM}">60 Sekunden. Kein Risiko.</a></b></p>'
+
+    b += sep
+
+    # RT Variante 3
+    b += '<h2>Variante 3 &mdash; Social Proof / Knappheit</h2>'
+    b += '<p>Du warst auf unserer Karriereseite.<br>Aber du bist noch unentschlossen?</p>'
+    b += '<p>Hier ein Update:</p>'
+    b += '<p>In den letzten 2 Wochen haben wir &uuml;ber 40 Bewerbungen erhalten.</p>'
+    b += '<p>Was Bewerber am h&auml;ufigsten sagen:<br>'
+    b += '&laquo;Endlich mal ein Prozess, der nicht nervt.&raquo;<br>'
+    b += '&laquo;Ich wusste nach 2 Minuten, dass ich mich bewerben will.&raquo;</p>'
+    b += '<p>NOVACODE ist kein Konzern.<br>Hier bist du nicht Entwickler #847.<br>Hier bist du Teil eines Teams, das zusammen etwas Gro&szlig;es baut.</p>'
+    b += f'<p><b>&rarr; <a href="{FORM}">Die Stelle ist noch offen. 60 Sekunden reichen.</a></b></p>'
+
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    # WARMUP
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    b += section_sep
+    b += '<h1>Warmup</h1>'
+    b += '<p><i>Top-of-Funnel &middot; Awareness &middot; Kalte Zielgruppe &middot; Kein harter CTA</i></p>'
+
+    # WU Variante 1
+    b += '<h2>Variante 1 &mdash; Werte / Kultur</h2>'
+    b += '<p>Die meisten Unternehmen labern von flachen Hierarchien.<br>Bei NOVACODE gibt es einfach keine.</p>'
+    b += '<p>14 Leute. Jeder kennt jeden.<br>Entscheidungen? Fallen in Minuten, nicht in Meetings.</p>'
+    b += '<p>Wir bauen Software, die den Mittelstand digitalisiert.<br>Kein Startup-Gehype. Kein Konzern-Geschwafel.<br>Nur echte Ergebnisse mit Profis, die wissen, was sie tun.</p>'
+    b += f'<p>Willst du sehen, wie wir arbeiten?<br><b>&rarr; <a href="{LP}">Mehr erfahren</a></b></p>'
+
+    b += sep
+
+    # WU Variante 2
+    b += '<h2>Variante 2 &mdash; Storytelling / Behind the Scenes</h2>'
+    b += '<p>Freitag, 14:30 Uhr bei NOVACODE:</p>'
+    b += '<p>Tim hat sein Feature gerade live gebracht.<br>Lisa checkt den letzten PR vom Sprint.<br>Max? Seit 12 Uhr im Deep Work &ndash; und niemand st&ouml;rt ihn.</p>'
+    b += '<p>Um 15 Uhr: Weekly. 20 Minuten. Nicht l&auml;nger.<br>Danach? Wochenende.</p>'
+    b += '<p>Kein Crunch. Keine &Uuml;berstunden.<br>Nur Code, auf den du stolz sein kannst.</p>'
+    b += '<p>NOVACODE baut digitale L&ouml;sungen f&uuml;r den Mittelstand.<br>Mit einem Team, das Qualit&auml;t &uuml;ber alles stellt.</p>'
+    b += f'<p><b>&rarr; <a href="{LP}">Mehr &uuml;ber uns erfahren</a></b></p>'
+
+    b += sep
+
+    # WU Variante 3
+    b += '<h2>Variante 3 &mdash; Provokant / Aufmerksamkeit</h2>'
+    b += '<p>73 % der Entwickler in Deutschland denken &uuml;ber einen Jobwechsel nach.<br>Aber nur 12 % bewerben sich.</p>'
+    b += '<p>Warum? Weil jede Stellenanzeige gleich klingt.<br>&laquo;Dynamisches Team&raquo;, &laquo;spannende Projekte&raquo;, &laquo;attraktives Gehalt&raquo;.</p>'
+    b += '<p>Wir bei NOVACODE sagen dir lieber, was wir NICHT bieten:<br>'
+    b += '&#10060; Kein Gro&szlig;raumb&uuml;ro<br>'
+    b += '&#10060; Keine 5 Interview-Runden<br>'
+    b += '&#10060; Keine Legacy-Systeme aus den 2000ern<br>'
+    b += '&#10060; Keinen Chef, der st&auml;ndig &laquo;kurz mal schauen&raquo; will</p>'
+    b += f'<p>Was wir bieten?<br><b>&rarr; <a href="{LP}">Das findest du hier.</a></b></p>'
+    b += '<p>Aber nur, wenn du neugierig genug bist.</p>'
+
+    return "Anzeigentexte | NOVACODE Recruiting", wrap(b)
 
 
 def doc_11():
-    b = '<h1>#11 Anzeigentexte: Retargeting</h1>'
-    b += '<p><i>Warm Audience &middot; Einwand-Entkr&auml;ftung &middot; Social Proof &middot; FOMO</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 10 von 12</i></p><hr>'
-
-    b += '<h2>01 Retargeting-Strategie</h2>'
-    b += tbl(["Segment", "Trigger", "Zeitfenster", "Botschaftstyp"], [
-        ["<b>LP-Besucher (kein Apply)</b>", "Hat Landingpage besucht, nicht beworben", "1&ndash;7 Tage", "Soft Reminder + Einwand-Entkr&auml;ftung"],
-        ["<b>LP-Besucher (kein Apply)</b>", "L&auml;ngere Zeit vergangen", "8&ndash;14 Tage", "Social Proof + FOMO"],
-        ["<b>Video-Viewers (50%+)</b>", "Hat Video zu &gt;50% gesehen", "1&ndash;14 Tage", "Benefit-Deepdive"],
-        ["<b>Formular-Abbrecher</b>", "Hat Formular ge&ouml;ffnet, nicht abgeschickt", "1&ndash;3 Tage", "Friction-Reduktion"],
-    ])
-
-    b += '<h2>02 Variante 1 &mdash; Soft Reminder</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Du warst neugierig &mdash; und wir auch auf dich.</p>'
-    b += '<p>Du hast dir NOVACODE angesehen. Falls du noch &uuml;berlegst: Wir suchen Senior Developer, die React, Node.js oder Go beherrschen. 100% Remote, 4-Tage-Woche Option, kein Startup-Chaos.</p>'
-    b += '<p>Die Bewerbung dauert 2 Minuten. Kein Anschreiben, kein Assessment-Center.</p>'
-    b += '<p><b>Headline:</b> Noch am &Uuml;berlegen? (19 Z.)<br><b>CTA:</b> Jetzt bewerben</p>'
-
-    b += '<h2>03 Variante 2 &mdash; Einwand-Entkr&auml;fter</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Kein Anschreiben. Kein Assessment-Center. Kein Whiteboard-Coding. Versprochen.</p>'
-    b += '<p>Bei NOVACODE bewirbst du dich in 2 Minuten und sprichst dann direkt mit einem Engineer &mdash; nicht mit HR.</p>'
-    b += '<p>Falls du denkst &laquo;Bestimmt ein Chaos-Startup&raquo;: 4.2M ARR, profitabel seit 2021, 35 Engineers. Stabil und modern.</p>'
-    b += '<p><b>Headline:</b> Einfacher Prozess. Echte Gespr&auml;che. (37 Z.)<br><b>CTA:</b> In 2 Min bewerben</p>'
-
-    b += '<h2>04 Variante 3 &mdash; Social Proof</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>12 neue Engineers in den letzten 6 Monaten. Alle remote. Alle happy.</p>'
-    b += '<p>&laquo;Der beste Bewerbungsprozess, den ich je erlebt habe. Vom Erstgespr&auml;ch zum Angebot in 8 Tagen.&raquo; &mdash; Jan K., Lead Frontend</p>'
-    b += '<p>Wir wachsen weiter und suchen Senior Fullstack Developer. React, Node.js, TypeScript.</p>'
-    b += '<p><b>Headline:</b> 92% w&uuml;rden uns weiterempfehlen. (37 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
-
-    b += '<h2>05 Variante 4 &mdash; FOMO</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Noch 3 Positionen offen f&uuml;r Senior Fullstack Developer. Danach schlie&szlig;en wir die Bewerbungsphase.</p>'
-    b += '<p>100% Remote, React/Node/K8s Stack, 4-Tage-Woche Option, 75&ndash;95k Gehalt.</p>'
-    b += '<p>Der Prozess: 2 Min Bewerbung &rarr; Tech-Talk mit Engineer &rarr; Team-Call &rarr; Angebot in 10 Tagen.</p>'
-    b += '<p><b>Headline:</b> Letzte Pl&auml;tze. Dein Move. (25 Z.)<br><b>CTA:</b> Jetzt bewerben</p>'
-
-    b += '<h2>06 Variante 5 &mdash; Behind-the-Scenes</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Unsere letzte Hack-Week: 5 Tage Mallorca, 8 Prototypen, 0 Meetings.</p>'
-    b += '<p>So sieht Teamkultur bei NOVACODE aus. Remote hei&szlig;t nicht isoliert &mdash; es hei&szlig;t flexibel. 2x im Jahr treffen wir uns zum gemeinsamen Bauen und Feiern.</p>'
-    b += '<p>N&auml;chste Hack-Week: September 2026. Du k&ouml;nntest dabei sein.</p>'
-    b += '<p><b>Headline:</b> Remote &#8800; Isoliert (18 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 10/12</i></p>'
-    return "#11 – Anzeigentexte Retargeting | NOVACODE Recruiting", wrap(b)
+    b = '<h1>Anzeigentexte: Retargeting</h1>'
+    b += '<p><i>Dieses Dokument wurde in <b>#10 Anzeigentexte</b> zusammengef&uuml;hrt.</i></p>'
+    b += '<p>Alle 9 Anzeigenvarianten (Hauptkampagne, Retargeting, Warmup) befinden sich jetzt in einem Dokument.</p>'
+    return "Anzeigentexte Retargeting | NOVACODE Recruiting", wrap(b)
 
 
 def doc_12():
-    b = '<h1>#12 Anzeigentexte: Warmup</h1>'
-    b += '<p><i>Top-of-Funnel &middot; Video Views &middot; Awareness &middot; Soft Sell</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 11 von 12</i></p><hr>'
-
-    b += '<h2>01 Warmup-Strategie</h2>'
-    b += tbl(["Parameter", "Detail"], [
-        ["<b>Kampagnenname</b>", "Warmup_Novacode_Recruiting_Views"],
-        ["<b>Objective</b>", "Video Views (ThruPlay)"],
-        ["<b>Ziel</b>", "Brand Awareness aufbauen, Video-Audiences f&uuml;r Retargeting f&uuml;llen"],
-        ["<b>Zielgruppe</b>", "Broad &mdash; Developers NRW, Interest-based"],
-        ["<b>Budget</b>", "30 &euro;/Tag"],
-        ["<b>KPI</b>", "Cost per ThruPlay &lt; 0.05 &euro;, Video View Rate &gt; 25%"],
-    ])
-
-    b += '<h2>02 Variante 1 &mdash; Value-Content</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>3 Dinge, die Top-Entwickler bei einem Arbeitgeber erwarten &mdash; und die meisten Firmen nicht bieten.</p>'
-    b += '<p>1. Moderner Tech-Stack (nicht nur im Stellenangebot)<br>2. Echte Remote-Kultur (nicht Hybrid mit B&uuml;ropflicht)<br>3. Ownership statt Ticket-Shuffling</p>'
-    b += '<p>Wie viele Punkte erf&uuml;llt dein aktueller AG?</p>'
-    b += '<p><b>Headline:</b> Was erwarten Top-Devs wirklich? (34 Z.)<br><b>CTA:</b> Video ansehen</p>'
-
-    b += '<h2>03 Variante 2 &mdash; Culture-Glimpse</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>So sieht ein typischer Tag bei einem Remote-First Tech-Startup aus.</p>'
-    b += '<p>9:00 Kaffee. 9:30 Async Standup (Text, kein Call). 10:00&ndash;14:00 Deep Work. Kein Meeting-Marathon. Nachmittags Code Review und Pair Programming. Freitags: frei (4-Tage-Woche).</p>'
-    b += '<p>Klingt gut? Das ist kein Wunschdenken. Das ist Alltag bei NOVACODE.</p>'
-    b += '<p><b>Headline:</b> Ein Tag bei NOVACODE (22 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
-
-    b += '<h2>04 Variante 3 &mdash; Tech-Content</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Von Monolith zu Microservices &mdash; unsere Migration in 6 Monaten.</p>'
-    b += '<p>Wie wir bei NOVACODE einen 200k-LOC Monolith in 12 Services zerlegt haben. React Frontend, Node.js + Go Backend, Kubernetes auf AWS.</p>'
-    b += '<p>Das Ergebnis: 3x schnellere Deployments, 40% weniger Incidents, ein Team das wieder gerne deployed.</p>'
-    b += '<p><b>Headline:</b> Monolith &rarr; Microservices (25 Z.)<br><b>CTA:</b> Video ansehen</p>'
-
-    b += '<h2>05 Variante 4 &mdash; Contrarian</h2>'
-    b += '<p><b>Primary Text:</b></p>'
-    b += '<p>Warum wir keine Stellenanzeigen auf StepStone schalten.</p>'
-    b += '<p>Weil gute Senior Developer nicht auf Jobb&ouml;rsen suchen. Sie scrollen durch LinkedIn und Instagram. Und sie reagieren nicht auf &laquo;Wir suchen einen Rockstar-Ninja&raquo;.</p>'
-    b += '<p>Was sie wollen: echte Einblicke, konkrete Zahlen, authentische Kultur. Das liefern wir hier.</p>'
-    b += '<p><b>Headline:</b> Recruiting anders gedacht (25 Z.)<br><b>CTA:</b> Mehr erfahren</p>'
-
-    b += '<h2>06 Audience-Building-Logik</h2>'
-    b += tbl(["Phase", "Audience", "N&auml;chste Aktion"], [
-        ["<b>1. Warmup</b>", "Broad Interest-Targeting", "Video Views sammeln"],
-        ["<b>2. Video Audience</b>", "50%+ Video-Viewer", "&rarr; Hauptkampagne (Consideration)"],
-        ["<b>3. LP Visitors</b>", "Landingpage-Besucher", "&rarr; Retargeting (Conversion)"],
-        ["<b>4. Applicants</b>", "Formular ausgef&uuml;llt", "&rarr; Exclude aus allen Kampagnen"],
-    ])
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 11/12</i></p>'
-    return "#12 – Anzeigentexte Warmup | NOVACODE Recruiting", wrap(b)
+    b = '<h1>Anzeigentexte: Warmup</h1>'
+    b += '<p><i>Dieses Dokument wurde in <b>#10 Anzeigentexte</b> zusammengef&uuml;hrt.</i></p>'
+    b += '<p>Alle 9 Anzeigenvarianten (Hauptkampagne, Retargeting, Warmup) befinden sich jetzt in einem Dokument.</p>'
+    return "Anzeigentexte Warmup | NOVACODE Recruiting", wrap(b)
 
 
 def doc_13():
     b = '<h1>#13 Videoskript</h1>'
     b += '<p><i>Recruiting-Video &middot; 60 Sekunden &middot; Senior Developer Kampagne</i></p>'
-    b += '<p><i>NOVACODE Solutions GmbH &middot; Generiert am 25.02.2026 &middot; Flowstack AI &middot; Dokument 12 von 12</i></p><hr>'
 
     b += '<h2>01 Video-&Uuml;bersicht</h2>'
     b += tbl(["Parameter", "Detail"], [
@@ -849,8 +873,7 @@ def doc_13():
         ["9", "Benefit-Montage (Quick Cuts)", "5 Sek.", "Diverse Settings"],
         ["10", "Logo + CTA + URL", "4 Sek.", "Clean, Dark Background"],
     ])
-    b += '<hr><p><i>Erstellt von Flowstack AI &middot; Vertraulich &middot; NOVACODE Solutions GmbH &middot; Dok. 12/12</i></p>'
-    return "#13 – Videoskript | NOVACODE Recruiting", wrap(b)
+    return "Videoskript | NOVACODE Recruiting", wrap(b)
 
 
 # ── Main ─────────────────────────────────────────────────────────

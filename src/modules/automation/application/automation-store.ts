@@ -119,7 +119,7 @@ export const useAutomationStore = create<AutomationStore>((set, get) => ({
 
       // Demo-Systeme: Nur initialisieren wenn sie fehlen oder Version sich ändert.
       // Benutzer-Änderungen (Node-Positionen, Outputs, etc.) bleiben erhalten.
-      const DEMO_DATA_VERSION = '2026-02-26-v8'
+      const DEMO_DATA_VERSION = '2026-03-18-v5'
       const storedVersion = localStorage.getItem('flowstack-demo-version')
       const needsRefresh = storedVersion !== DEMO_DATA_VERSION
       const demoIds = new Set(DEMO_SYSTEMS.map((d) => d.id))

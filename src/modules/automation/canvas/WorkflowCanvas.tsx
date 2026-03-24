@@ -588,6 +588,8 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
 
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 40, y: 40 });
+  // Hide canvas until first fitToScreen completes to prevent visual jump
+  const [canvasReady, setCanvasReady] = useState(false);
   // Panning — 100% ref-based for ZERO React re-renders during pan
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
@@ -735,6 +737,9 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
       setZoom(fitZ);
       setPan(fitP);
       setSystemName(initialSystem.name || '');
+
+      // Canvas is now positioned correctly — reveal it
+      setCanvasReady(true);
 
       // ── Sync refs (no render cost) ──
       undoStackRef.current = [];
@@ -900,6 +905,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
   // Feature Log + Presentation panels
   const [showFeatureLog, setShowFeatureLog] = useState(false);
   const [showPresDocuments, setShowPresDocuments] = useState(false);
+  const [docFilterGroupId, setDocFilterGroupId] = useState<string | null>(null); // null = alle
   const [showPresCode, setShowPresCode] = useState(false);
   const [presCodeExpanded, setPresCodeExpanded] = useState(new Set());
 
@@ -1108,8 +1114,14 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
   useEffect(() => {
     if (initialSystem && initialSystem.nodes.length > 0) {
       requestAnimationFrame(() => {
-        requestAnimationFrame(() => fitToScreen());
+        requestAnimationFrame(() => {
+          fitToScreen();
+          setCanvasReady(true);
+        });
       });
+    } else {
+      // No nodes to fit — reveal immediately
+      setCanvasReady(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1270,8 +1282,18 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
     [...groups].sort((a, b) => a.x - b.x || a.y - b.y),
   [groups]);
 
+  // Refs for phase animation (must be declared before useMemo that reads them)
+  const targetPhaseRef = useRef<number | null>(null);
+  const phaseAnimRef = useRef<number>(0);
+  const phaseAnimatingRef = useRef(false);
+
   // Determine which group is currently closest to viewport center
+  // Skip recalculation during animation to avoid lag
   const currentPhaseIndex = useMemo(() => {
+    // During animation, use the target phase (set by focusGroup)
+    if (phaseAnimatingRef.current && targetPhaseRef.current !== null) {
+      return targetPhaseRef.current;
+    }
     if (sortedGroups.length === 0) return -1;
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return 0;
@@ -1288,11 +1310,13 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
     return bestIdx;
   }, [sortedGroups, pan, zoom]);
 
-  const phaseAnimRef = useRef<number>(0);
-
   const focusGroup = useCallback((groupIndex: number) => {
     const group = sortedGroups[groupIndex];
     if (!group) return;
+    // Ignore rapid clicks while animating
+    if (phaseAnimatingRef.current && phaseAnimated) return;
+    // Set target phase immediately for instant UI update (no lag)
+    targetPhaseRef.current = groupIndex;
     const rect = viewportRef.current?.getBoundingClientRect();
     if (!rect) return;
     const gCx = group.x + group.width / 2;
@@ -1314,8 +1338,9 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
       setZoom(targetZoom);
       setPan(targetPan);
     } else {
-      // Smooth animation
+      // Smooth animation with debounce protection
       cancelAnimationFrame(phaseAnimRef.current);
+      phaseAnimatingRef.current = true;
       const startZoom = zoom;
       const startPan = { ...pan };
       const duration = phaseAnimSpeed;
@@ -1331,7 +1356,12 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
           x: startPan.x + (targetPan.x - startPan.x) * ease,
           y: startPan.y + (targetPan.y - startPan.y) * ease,
         });
-        if (t < 1) phaseAnimRef.current = requestAnimationFrame(animate);
+        if (t < 1) {
+          phaseAnimRef.current = requestAnimationFrame(animate);
+        } else {
+          phaseAnimatingRef.current = false;
+          targetPhaseRef.current = null;
+        }
       };
       phaseAnimRef.current = requestAnimationFrame(animate);
     }
@@ -1951,10 +1981,17 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
     let effectiveSelection = multiSelectedIds;
     if (e.metaKey || e.ctrlKey) {
       const next = new Set(multiSelectedIds);
+      // If starting multi-select from single selection, include the single-selected node
+      if (next.size === 0 && selectedNodeId && selectedNodeId !== nodeId) {
+        next.add(selectedNodeId);
+      }
       if (next.has(nodeId)) next.delete(nodeId);
       else next.add(nodeId);
       effectiveSelection = next;
       setMultiSelectedIds(next);
+      setSelectedNodeId(null);
+      setSelectedConnId(null);
+      setSelectedGroupId(null);
     } else {
       if (!multiSelectedIds.has(nodeId)) {
         effectiveSelection = new Set();
@@ -2033,6 +2070,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
     setSelectedNodeId(null);
     setSelectedConnId(null);
     setMultiSelectedIds(new Set());
+    multiDragOriginsRef.current = null;
   }, [groups, readOnly, spaceHeld, isPresentationMode, presEditEnabled, screenToCanvas]);
 
   const handleGroupResizeStart = useCallback((e: React.MouseEvent, groupId: string) => {
@@ -2061,6 +2099,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
     setSelectedGroupId(null);
     setSelectedConnId(null);
     setMultiSelectedIds(new Set());
+    multiDragOriginsRef.current = null;
   }, [stickyNotes, readOnly, spaceHeld, isPresentationMode, presEditEnabled, screenToCanvas]);
 
   const handleStickyResizeStart = useCallback((e: React.MouseEvent, stickyId: string) => {
@@ -3691,7 +3730,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
         <div
           ref={viewportRef}
           className={`flex-1 overflow-hidden relative select-none ${isDragOver ? 'ring-2 ring-inset ring-purple-500/30 bg-purple-500/5' : ''}`}
-          style={{ cursor: spaceHeld ? 'grab' : connectState ? 'crosshair' : connectingStickyId ? 'crosshair' : 'grab', touchAction: 'none' }}
+          style={{ cursor: spaceHeld ? 'grab' : connectState ? 'crosshair' : connectingStickyId ? 'crosshair' : 'grab', touchAction: 'none', opacity: canvasReady ? 1 : 0, transition: 'opacity 0.15s ease-in' }}
           onMouseDown={handleViewportMouseDown}
           onMouseMove={handleViewportMouseMove}
           onMouseUp={handleViewportMouseUp}
@@ -3743,7 +3782,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
             }}
           >
             {/* SVG Connections */}
-            <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 1 }}>
+            <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 0 }}>
               {/* SVG Marker defs for arrowheads */}
               {(() => {
                 const cc = CONN_COLORS[connColorTheme];
@@ -4301,7 +4340,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                     ...themeStyle,
                     opacity: (100 - nodeTransparency) / 100,
                     cursor: (readOnly || (isPresentationMode && !presEditEnabled)) ? 'default' : (dragState?.nodeId === node.id ? 'grabbing' : 'grab'),
-                    zIndex: isNodeActive ? 15 : (isSelected ? 20 : 10),
+                    zIndex: isNodeActive ? 15 : ((isSelected || isMultiSelected) ? 20 : 10),
                   }}
                   onMouseDown={e => handleNodeMouseDown(e, node.id)}
                   onMouseEnter={() => { if (isDraggingRef.current || readOnly || (isPresentationMode && !presEditEnabled)) return; setHoveredNodeId(node.id); }}
@@ -4558,7 +4597,7 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                 return (
                   <div key={sub.id}>
                     {/* Dotted connector line */}
-                    <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 1 }}>
+                    <svg className="absolute inset-0 pointer-events-none" style={{ width: canvasW, height: canvasH, overflow: 'visible', zIndex: 0 }}>
                       <line
                         x1={parentCX} y1={parentBottom}
                         x2={subCX} y2={subTopY}
@@ -5413,15 +5452,53 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                   )}
 
                   {/* Documents Panel */}
-                  {showPresDocuments && (
+                  {showPresDocuments && (() => {
+                    const allOutputs = liveOutputs || initialSystem?.outputs || []
+                    // Build unique group labels for filter
+                    const groupLabels = new Map<string, string>()
+                    for (const out of allOutputs) {
+                      if (out.groupId) {
+                        const grp = sortedGroups.find(g => g.id === out.groupId)
+                        if (grp && !groupLabels.has(out.groupId)) {
+                          groupLabels.set(out.groupId, grp.label)
+                        }
+                      }
+                    }
+                    const filteredOutputs = docFilterGroupId
+                      ? allOutputs.filter(out => out.groupId === docFilterGroupId)
+                      : allOutputs
+                    return (
                     <div className="w-60 bg-zinc-900/95 rounded-2xl border border-white/10 overflow-hidden">
                       <div className="px-3 py-2 border-b border-white/10 flex items-center justify-between">
                         <span className="text-[11px] text-white/80 font-semibold">{lang === 'en' ? 'Documents' : 'Dokumente'}</span>
                         <button onClick={() => setShowPresDocuments(false)} className="p-0.5 rounded hover:bg-white/10"><X size={12} className="text-white/50" /></button>
                       </div>
-                      {(liveOutputs || initialSystem?.outputs || []).length > 0 ? (
+                      {/* Phase Filter */}
+                      {groupLabels.size > 0 && (
+                        <div className="px-2 py-1.5 border-b border-white/10 flex gap-1 flex-wrap">
+                          <button
+                            onClick={() => setDocFilterGroupId(null)}
+                            className={`px-2 py-0.5 rounded-full text-[9px] font-medium transition-all ${!docFilterGroupId ? 'bg-purple-500/30 text-white border border-purple-400/40' : 'bg-white/5 text-white/50 border border-white/10 hover:text-white/70'}`}
+                          >
+                            {lang === 'en' ? 'All' : 'Alle'} ({allOutputs.length})
+                          </button>
+                          {Array.from(groupLabels).map(([gId, label]) => {
+                            const count = allOutputs.filter(o => o.groupId === gId).length
+                            return (
+                              <button
+                                key={gId}
+                                onClick={() => setDocFilterGroupId(docFilterGroupId === gId ? null : gId)}
+                                className={`px-2 py-0.5 rounded-full text-[9px] font-medium transition-all ${docFilterGroupId === gId ? 'bg-purple-500/30 text-white border border-purple-400/40' : 'bg-white/5 text-white/50 border border-white/10 hover:text-white/70'}`}
+                              >
+                                {label} ({count})
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {filteredOutputs.length > 0 ? (
                       <div className="max-h-[50vh] overflow-y-auto p-2 space-y-0.5">
-                        {(liveOutputs || initialSystem?.outputs || []).map(out => (
+                        {filteredOutputs.map(out => (
                           <a
                             key={out.id}
                             href={out.link || '#'}
@@ -5459,7 +5536,8 @@ export function WorkflowCanvas({ onSave, onExecute, onStop, onReset, initialSyst
                       </div>
                       )}
                     </div>
-                  )}
+                    )
+                  })()}
 
                   {/* Code Panel */}
                   {showPresCode && initialSystem && (

@@ -9,7 +9,7 @@ import json
 import os
 import httpx
 
-raw = os.environ.get("GOOGLE_CLAUDIO_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
+raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
 creds = json.loads(raw)
 TOKEN = creds.get("token", "")
 REFRESH = creds.get("refresh_token", "")

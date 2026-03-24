@@ -10,11 +10,11 @@ import os
 import httpx
 
 # ── Credentials ──
-CLOSE_API_KEY = os.environ.get("CLOSE_API")
+CLOSE_API_KEY = os.environ.get("CLOSE_API") or os.environ.get("CLOSE_API_KEY") or os.environ.get("CLOSE_API_KEY_V2")
 CLICKUP_TOKEN = os.environ.get("CLICKUP_API_TOKEN")
 SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
 
-raw = os.environ.get("GOOGLE_CLAUDIO_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
+raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
 creds = json.loads(raw)
 GOOGLE_TOKEN = creds.get("token", "")
 GOOGLE_REFRESH = creds.get("refresh_token", "")
@@ -238,6 +238,39 @@ if SLACK_BOT_TOKEN:
         print(f"   ❌ Slack Fehler: {e}")
 else:
     print("   ⚠️ Kein SLACK_BOT_TOKEN")
+
+# ── 6. Miro: Novacode Boards finden und löschen ──
+MIRO_ACCESS_TOKEN = os.environ.get("MIRO_ACCESS_TOKEN", "")
+print("\n🔍 Miro: Suche nach Novacode Boards...")
+if MIRO_ACCESS_TOKEN:
+    try:
+        resp = http.get(
+            "https://api.miro.com/v2/boards",
+            headers={"Authorization": f"Bearer {MIRO_ACCESS_TOKEN}"},
+            params={"query": "Novacode", "limit": 50},
+        )
+        if resp.status_code == 200:
+            boards = resp.json().get("data", [])
+            print(f"   Gefunden: {len(boards)} Boards")
+            for board in boards:
+                bid = board["id"]
+                bname = board.get("name", "?")
+                r = http.delete(
+                    f"https://api.miro.com/v2/boards/{bid}",
+                    headers={"Authorization": f"Bearer {MIRO_ACCESS_TOKEN}"},
+                )
+                if r.status_code < 400:
+                    deleted.append(f"Miro Board: {bname} ({bid})")
+                    print(f"   ✅ Gelöscht: {bname}")
+                else:
+                    errors.append(f"Miro Board: {bname} — {r.status_code}")
+                    print(f"   ❌ Fehler: {bname} — {r.status_code}")
+        else:
+            print(f"   ⚠️ Miro API Fehler: {resp.status_code}")
+    except Exception as e:
+        print(f"   ❌ Miro Fehler: {e}")
+else:
+    print("   ⚠️ Kein MIRO_ACCESS_TOKEN")
 
 # ── Zusammenfassung ──
 print("\n" + "=" * 60)

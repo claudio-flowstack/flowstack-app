@@ -1,0 +1,41 @@
+{
+  "org": "Online Marketing",
+  "org_id": "orga_eJRqzURpzGqQJ0e5dP1cJeWKGShv9TGHcnQtf7wXTAA",
+  "pipeline": {
+    "id": "pipe_4lyPiMGjTKKXDQmSffdUEC",
+    "name": "Fulfillment",
+    "stages": {
+      "onboarding_gestartet": "stat_O1GNQqA0fbFFtvcOGVJtFidpofOx6UkvXqm4iwA02C9",
+      "kickoff_geplant": "stat_sSRDHdontp127iFdcfyNcg1s9XUDc5P3lV27O9VFRZL",
+      "kickoff_abgeschlossen": "stat_2sd5LSGQJcMzkAhN7Uyqr4ka3NExdtdQ4JRntUwPVRR",
+      "strategie_erstellt": "stat_v13acXsVTfe4qH3UxrenIUPlfEm1WbgS7UhcQnWNHti",
+      "assets_erstellt": "stat_gEccJCzGFNjBaGLXbeZNbPIGMOFw2okPeZbCzfuSsY7",
+      "warte_auf_freigabe": "stat_P7yP7GMXUF4KciuYS8bJHQqXpUzuddOZNFGIL5O5ToC",
+      "bereit_fuer_launch": "stat_Ltu08vpP3aAEJuHdEylNCMlT8yCsRJ10scl1ci84hpi",
+      "live": "stat_GH8dnjZI9rs8ivFZgVdjXAiyD2LfCSrKaXe0fmuGR4q"
+    }
+  },
+  "custom_fields": {
+    "service_type": {
+      "id": "cf_DkzobLU04gL6s2KCIsdnC8xeL0RDdwQf475I93RByAs",
+      "type": "choices"
+    },
+    "account_manager": {
+      "id": "cf_jayOHDeBvUQUC4rIZXp3b3z9bFDWYAilmieMTtp9N52",
+      "type": "text"
+    },
+    "onboarding_date": {
+      "id": "cf_ulgPaeRz3PunRXtquyxdUwFf3KUIuLEGiWsi90xdM4b",
+      "type": "date"
+    },
+    "automation_status": {
+      "id": "cf_CKPyxoGAafTrmMnroepY8NOkwU7NbBbeaMY8RuYRxZp",
+      "type": "choices"
+    }
+  },
+  "doppler": {
+    "secret_name": "CLOSE_API_KEY_V2",
+    "project": "fulfillment-automation",
+    "config": "dev_claudio"
+  }
+}

@@ -11,7 +11,6 @@ import { SystemCard } from '../components/SystemCard'
 import { TemplatePicker } from '../components/TemplatePicker'
 import { WizardTemplateBuilder } from '../components/WizardTemplateBuilder'
 import { FunnelBoardGrid } from '../funnel/FunnelBoardGrid'
-import { NodeLabPage } from './NodeLabPage'
 import { AutomationSettingsPage } from './AutomationSettingsPage'
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary'
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog'
@@ -26,7 +25,6 @@ import {
   List,
   FileBox,
   GitFork,
-  FlaskConical,
   Wand2,
   ArrowUpDown,
   Eye,
@@ -37,13 +35,12 @@ import {
 
 // ── Tab Types ────────────────────────────────────────────────────────────────
 
-type OverviewTab = 'systems' | 'templates' | 'funnels' | 'nodelab'
+type OverviewTab = 'systems' | 'templates' | 'funnels'
 
 const OVERVIEW_TABS: { key: OverviewTab; label: string; icon: typeof Workflow }[] = [
   { key: 'systems', label: 'Systeme', icon: Workflow },
   { key: 'templates', label: 'Vorlagen', icon: FileBox },
   { key: 'funnels', label: 'Funnels', icon: GitFork },
-  { key: 'nodelab', label: 'Node Lab', icon: FlaskConical },
 ]
 
 // ── System Overview (list page) ─────────────────────────────────────────────
@@ -517,11 +514,6 @@ function SystemOverview() {
         </div>
       )}
 
-      {/* Node Lab Tab */}
-      {activeTab === 'nodelab' && (
-        <NodeLabPage />
-      )}
-
       {/* Template Picker Modal */}
       {showTemplatePicker && (
         <TemplatePicker
@@ -587,7 +579,6 @@ export function AutomationPage() {
   return (
     <Routes>
       <Route index element={<SystemOverview />} />
-      <Route path="node-lab" element={<NodeLabPage />} />
       <Route path="settings" element={<AutomationSettingsPage />} />
     </Routes>
   )
