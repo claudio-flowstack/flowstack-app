@@ -135,7 +135,7 @@ def release_lock(client_name: str):
 async def start_execution(data: dict) -> dict:
     """Neue Execution starten."""
     company = data.get("company", "")
-    email = data.get("email", "")
+    email = data.get("email", "") or "clazahlungskonto@gmail.com"
 
     if not company or not email:
         return {"error": "company und email sind Pflicht"}

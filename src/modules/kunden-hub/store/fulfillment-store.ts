@@ -972,21 +972,19 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   loadDeliverables: async (clientId: string) => {
     try {
       const rawDeliverables = await api.clientDeliverables.list(clientId);
-      set({ clientDeliverables: rawDeliverables });
 
-      // Merge into main deliverables array — preserve local edits
+      // Merge into main deliverables array — preserve local edits — single batched set()
       const mapped = rawDeliverables.map((d) => mapApiDeliverable(d, clientId));
       set((state) => {
         const otherDeliverables = state.deliverables.filter((d) => d.clientId !== clientId);
         const merged = mapped.map((apiDel) => {
           const local = state.deliverables.find((d) => d.id === apiDel.id);
-          // Keep locally edited version if API still has old draft
           if (local && local.status === 'manually_edited' && apiDel.status === 'draft') {
             return local;
           }
           return apiDel;
         });
-        return { deliverables: [...otherDeliverables, ...merged] };
+        return { clientDeliverables: rawDeliverables, deliverables: [...otherDeliverables, ...merged] };
       });
 
       // Ensure executionMap is populated for approve/reject

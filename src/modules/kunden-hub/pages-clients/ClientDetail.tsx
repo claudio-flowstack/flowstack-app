@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo, useRef, useCallback, lazy, Suspense, useTransition } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import PageMeta from '../ui/common/PageMeta';
 import PageBreadcrumb from '../ui/common/PageBreadCrumb';
 import { useLanguage } from '../i18n/LanguageContext';
@@ -22,7 +22,7 @@ import type { ApexOptions } from 'apexcharts';
 // Lazy-load react-apexcharts to avoid runtime crash if window/document not ready
 const Chart = lazy(() => import('react-apexcharts'));
 
-type Tab = 'pipeline' | 'deliverables' | 'performance' | 'notes' | 'timeline' | 'errors';
+type Tab = 'pipeline' | 'deliverables' | 'performance' | 'links' | 'notes' | 'timeline' | 'errors';
 
 function TabErrorCard({ tab, onRetry }: { tab: string; onRetry: (tab: string) => void }) {
   return (
@@ -46,6 +46,8 @@ export default function ClientDetail() {
   const { t } = useLanguage();
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = (searchParams.get('tab') as Tab) || 'pipeline';
   const { notify } = useNotification();
   const loadClients = useFulfillmentStore((s) => s.loadClients);
   const getClient = useFulfillmentStore((s) => s.getClient);
@@ -58,12 +60,18 @@ export default function ClientDetail() {
   const allDeliverables = useFulfillmentStore((s) => s.deliverables);
   const resetClient = useFulfillmentStore((s) => s.resetClient);
 
-  const [activeTab, setActiveTab] = useState<Tab>('pipeline');
+  const [activeTab, setActiveTabRaw] = useState<Tab>(initialTab);
+  const [, startTransition] = useTransition();
+  const setActiveTab = useCallback((tab: Tab) => {
+    startTransition(() => setActiveTabRaw(tab));
+  }, []);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Connections + Links moved to ClientSettings page
+  // --- API-backed data for Links tab ---
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linksContext, setLinksContext] = useState<Record<string, unknown> | null>(null);
 
   // --- Performance tab: API-loaded KPIs ---
   const [perfLoading, setPerfLoading] = useState(false);
@@ -175,7 +183,23 @@ export default function ClientDetail() {
       });
   }, [activeTab, clientId, loadDeliverables, deliverablesLoaded]);
 
-  // Connections + Links loading moved to ClientSettings page
+  // Links: load execution context from API
+  useEffect(() => {
+    if (activeTab !== 'links' || !clientId) return;
+    if (loadedRef.current[`links-${clientId}`]) return;
+    setLinksLoading(true);
+    api.clientExecution.get(clientId)
+      .then((execStatus) => {
+        loadedRef.current[`links-${clientId}`] = true;
+        setLinksContext(execStatus.context || {});
+      })
+      .catch(() => {
+        setLinksContext(null);
+      })
+      .finally(() => {
+        setLinksLoading(false);
+      });
+  }, [activeTab, clientId]);
 
   // Build merged KPIs: API performance data merged over client.kpis
   const client = clientId ? getClient(clientId) : undefined;
@@ -265,6 +289,7 @@ export default function ClientDetail() {
     { key: 'pipeline', labelKey: 'client.pipeline' },
     { key: 'deliverables', labelKey: 'client.deliverables' },
     { key: 'performance', labelKey: 'client.performance' },
+    { key: 'links', labelKey: 'client.links' },
     { key: 'notes', labelKey: 'client.notes' },
     { key: 'timeline', labelKey: 'client.timeline' },
     ...(failedNodes.length > 0 ? [{ key: 'errors' as Tab, labelKey: 'client.errors' }] : []),
@@ -495,7 +520,21 @@ export default function ClientDetail() {
         </>
       )}
 
-      {/* Connections + Links moved to Client Settings page */}
+      {activeTab === 'links' && clientId && (
+        <>
+          {linksLoading && (
+            <div className="flex items-center justify-center py-10">
+              <svg className="h-8 w-8 animate-spin text-brand-500" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            </div>
+          )}
+          {!linksLoading && (
+            <LinksTab context={linksContext} t={t} />
+          )}
+        </>
+      )}
 
       {activeTab === 'timeline' && clientId && (
         <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">

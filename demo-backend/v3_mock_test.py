@@ -55,7 +55,7 @@ def execute_node(exec_id, node_id, extra_context=None):
 NOVACODE_CLIENT = {
     "company": "Novacode GmbH",
     "contact": "Markus Richter",
-    "email": "m.richter@novacode.dev",
+    "email": "clazahlungskonto@gmail.com",
     "phone": "+49 721 9876543",
     "branche": "IT",
     "website": "https://novacode.dev",

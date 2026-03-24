@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFulfillmentStore } from '../store/fulfillment-store';
-import { useLanguage } from '../i18n/LanguageContext';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -41,9 +40,7 @@ const ICON_MAP = {
 
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
-  const { t } = useLanguage();
   const clients = useFulfillmentStore((s) => s.clients);
-  const deliverables = useFulfillmentStore((s) => s.deliverables);
   const approvals = useFulfillmentStore((s) => s.approvals);
   const [query, setQuery] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);

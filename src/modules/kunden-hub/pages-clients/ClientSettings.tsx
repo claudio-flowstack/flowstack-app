@@ -45,7 +45,7 @@ export default function ClientSettings() {
         setConnections(client?.connections ?? []);
       })
       .finally(() => setConnectionsLoading(false));
-  }, [clientId, client?.connections]);
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async () => {
     if (!clientId) return;

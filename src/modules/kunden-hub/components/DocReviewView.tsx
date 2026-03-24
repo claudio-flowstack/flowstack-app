@@ -79,6 +79,8 @@ const DocReviewView: React.FC<DocReviewViewProps> = ({
   const { t } = useLanguage();
   const [isEditing, setIsEditing] = useState(false);
   const [rejectComment, setRejectComment] = useState('');
+  const [docDropdownOpen, setDocDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [showRejectForm, setShowRejectForm] = useState(false);
 
   const onChangeRef = useRef(onChange);
@@ -119,6 +121,7 @@ const DocReviewView: React.FC<DocReviewViewProps> = ({
 
   const handleToggleEdit = useCallback(() => {
     setIsEditing((prev) => !prev);
+    setDocDropdownOpen(false); // Close dropdown when toggling edit
   }, []);
 
   const handleReject = useCallback(() => {
@@ -129,13 +132,32 @@ const DocReviewView: React.FC<DocReviewViewProps> = ({
     }
   }, [rejectComment, onRequestChanges]);
 
+  // Close doc dropdown on outside click or Escape
+  useEffect(() => {
+    if (!docDropdownOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDocDropdownOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDocDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [docDropdownOpen]);
+
   return (
     <div style={{ fontFamily: FONT, display: 'flex', flexDirection: 'column', borderRadius: 12, overflow: 'hidden', border: `1px solid ${COLORS.titleBarBorder}`, background: '#fff', maxWidth: '100%', width: '100%', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
 
       {/* ============ TITLE BAR ============ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 52, padding: '0 14px 0 12px', background: '#fff', borderBottom: `1px solid ${COLORS.titleBarBorder}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 48, padding: '0 14px', background: '#fff', borderBottom: `1px solid ${COLORS.titleBarBorder}` }}>
         {/* Google Docs icon */}
-        <svg width="20" height="26" viewBox="0 0 24 34" fill="none" style={{ flexShrink: 0 }}>
+        <svg width="18" height="24" viewBox="0 0 24 34" fill="none" style={{ flexShrink: 0 }}>
           <path d="M14.5 0H3C1.34 0 0 1.34 0 3v28c0 1.66 1.34 3 3 3h18c1.66 0 3-1.34 3-3V9.5L14.5 0z" fill="#4285F4" />
           <path d="M14.5 0v6.5c0 1.66 1.34 3 3 3H24L14.5 0z" fill="#A1C2FA" />
           <path d="M6 16h12v1.5H6V16zm0 4h12v1.5H6V20zm0 4h8v1.5H6V24z" fill="#fff" />
@@ -143,26 +165,87 @@ const DocReviewView: React.FC<DocReviewViewProps> = ({
 
         {/* Document title with inline switcher */}
         <div style={{ minWidth: 0, flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', minWidth: 0 }}>
-            <span style={{ fontSize: 15, fontWeight: 400, color: COLORS.menuText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
-              {deliverable.title || 'Untitled document'}
-            </span>
-            {deliverables.length > 1 && onSelectDeliverable && (
-              <>
-                <select
-                  value={deliverable.id}
-                  onChange={(e) => onSelectDeliverable(e.target.value)}
-                  style={{
-                    position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer', width: '100%',
-                  }}
-                  title="Dokument wechseln"
-                />
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={COLORS.iconColorMuted} strokeWidth="2" style={{ marginLeft: 4, flexShrink: 0 }}>
+          {deliverables.length > 0 && onSelectDeliverable ? (
+            <div ref={dropdownRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setDocDropdownOpen(!docDropdownOpen)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  fontSize: 14, fontWeight: 500, color: COLORS.menuText,
+                  background: docDropdownOpen ? '#e8eaed' : 'transparent',
+                  border: `1px solid ${docDropdownOpen ? '#dadce0' : 'transparent'}`,
+                  borderRadius: 8, padding: '6px 10px',
+                  cursor: 'pointer', fontFamily: FONT, transition: 'all 0.15s',
+                  maxWidth: 'min(320px, 50vw)',
+                }}
+                onMouseEnter={(e) => { if (!docDropdownOpen) { (e.currentTarget).style.background = '#f1f3f4'; (e.currentTarget).style.borderColor = '#dadce0'; } }}
+                onMouseLeave={(e) => { if (!docDropdownOpen) { (e.currentTarget).style.background = 'transparent'; (e.currentTarget).style.borderColor = 'transparent'; } }}
+              >
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {deliverable.title || 'Untitled document'}
+                </span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={COLORS.iconColorMuted} strokeWidth="2.5" style={{ flexShrink: 0, transform: docDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>
                   <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </>
-            )}
-          </div>
+              </button>
+              {docDropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                  minWidth: 260, maxWidth: 380, maxHeight: 320, overflowY: 'auto',
+                  background: '#fff', borderRadius: 8, padding: '6px 0',
+                  boxShadow: '0 2px 6px rgba(60,64,67,0.15), 0 8px 24px rgba(60,64,67,0.08)',
+                  zIndex: 50, fontFamily: FONT,
+                  animation: 'dropdownIn 0.12s ease-out',
+                }}>
+                  {deliverables.map((d) => {
+                    const isActive = d.id === deliverable.id;
+                    const statusColor = d.status === 'approved' || d.status === 'live' ? '#34a853'
+                      : d.status === 'rejected' ? '#ea4335'
+                      : d.status === 'generating' ? '#4285f4'
+                      : d.status === 'in_review' ? '#fbbc04'
+                      : '#dadce0';
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => { onSelectDeliverable(d.id); setDocDropdownOpen(false); }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10, width: '100%',
+                          padding: '8px 14px', border: 'none', cursor: 'pointer',
+                          background: isActive ? '#e8f0fe' : 'transparent',
+                          fontSize: 13, color: isActive ? '#1a73e8' : '#3c4043',
+                          fontWeight: isActive ? 500 : 400,
+                          textAlign: 'left', fontFamily: FONT, transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={(e) => { if (!isActive) (e.currentTarget).style.background = '#f1f3f4'; }}
+                        onMouseLeave={(e) => { if (!isActive) (e.currentTarget).style.background = 'transparent'; }}
+                      >
+                        {/* Status dot */}
+                        <span style={{
+                          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                          background: statusColor,
+                          animation: d.status === 'generating' ? 'pulse 1.5s infinite' : 'none',
+                        }} />
+                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.title || d.id}
+                        </span>
+                        {isActive && (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.5" style={{ flexShrink: 0 }}>
+                            <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.menuText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
+              {deliverable.title || 'Untitled document'}
+            </span>
+          )}
           {hasChanges && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#e37400', whiteSpace: 'nowrap', flexShrink: 0 }}>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" /></svg>
@@ -347,6 +430,8 @@ const DocReviewView: React.FC<DocReviewViewProps> = ({
       {/* ============ TIPTAP / PROSEMIRROR STYLE OVERRIDES ============ */}
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes dropdownIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
         .tiptap-editor .ProseMirror {
           outline: none;
           min-height: 600px;

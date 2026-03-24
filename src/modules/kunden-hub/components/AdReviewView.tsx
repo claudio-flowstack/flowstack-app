@@ -226,18 +226,16 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
         <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-white/[0.03]">
           <div className="flex items-center gap-2 min-w-0">
             {deliverables.length > 1 && onSelectDeliverable ? (
-              <div className="relative flex items-center min-w-0">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate max-w-[240px]">{deliverable.title}</span>
-                <select
-                  value={deliverable.id}
-                  onChange={(e) => onSelectDeliverable(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                  title="Ad wechseln"
-                />
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" className="ml-1 shrink-0">
-                  <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <select
+                value={deliverable.id}
+                onChange={(e) => onSelectDeliverable(e.target.value)}
+                className="text-sm font-medium text-gray-700 bg-transparent border-none outline-none cursor-pointer max-w-[260px]"
+                title="Ad wechseln"
+              >
+                {deliverables.map((d) => (
+                  <option key={d.id} value={d.id}>{d.title || d.id}</option>
+                ))}
+              </select>
             ) : (
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{deliverable.title}</span>
             )}

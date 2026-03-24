@@ -212,11 +212,8 @@ async function request<T>(path: string, options?: RequestInit, retries = 3): Pro
       }
       return resp.json() as Promise<T>;
     } catch (err) {
-      // Retry on network errors (fetch throws TypeError on network failure)
-      if (err instanceof TypeError && attempt < retries) {
-        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
-        continue;
-      }
+      // Network errors (backend offline) — fail immediately, don't retry
+      // This allows mock-data fallback to kick in fast
       throw err;
     }
   }
