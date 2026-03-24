@@ -226,7 +226,10 @@ async function request<T>(path: string, options?: RequestInit, retries = 3): Pro
 export const api = {
   // ── Clients ────────────────────────────────────────────
   clients: {
-    list: () => request<ClientFromAPI[]>('/clients'),
+    list: async (): Promise<ClientFromAPI[]> => {
+      const resp = await request<{ clients: ClientFromAPI[] } | ClientFromAPI[]>('/clients');
+      return Array.isArray(resp) ? resp : (resp as { clients: ClientFromAPI[] }).clients || [];
+    },
 
     get: (id: string) => request<ClientFromAPI>(`/clients/${id}`),
 

@@ -13,6 +13,14 @@ interface ContentReviewPanelProps {
   clientId: string;
 }
 
+// Known subtypes per category — unknown subtypes shown in "Sonstige"
+const KNOWN_SUBTYPES = new Set([
+  'zielgruppen_avatar', 'arbeitgeber_avatar', 'messaging_matrix', 'creative_briefing', 'marken_richtlinien',
+  'lp_text', 'form_text', 'danke_text', 'videoskript',
+  'anzeigen_haupt', 'anzeigen_retargeting', 'anzeigen_warmup',
+  'initial_campaign', 'retargeting_campaign', 'warmup_campaign',
+]);
+
 const CATEGORIES = [
   {
     key: 'documents',

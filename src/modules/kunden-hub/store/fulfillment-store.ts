@@ -29,11 +29,38 @@ const VALID_DELIVERABLE_STATUSES: DeliverableStatus[] = [
   'rejected', 'manually_edited', 'outdated', 'blocked',
 ];
 
+// Backend → Frontend status mapping (backend uses different status names)
+const BACKEND_STATUS_MAP: Record<string, DeliverableStatus> = {
+  'completed': 'approved',
+  'waiting_approval': 'in_review',
+  'regenerating': 'generating',
+  'running': 'generating',
+  'blocked': 'blocked',
+  'failed': 'rejected',
+};
+
 function safeDeliverableStatus(status: string | undefined): DeliverableStatus {
-  if (status && VALID_DELIVERABLE_STATUSES.includes(status as DeliverableStatus)) {
+  if (!status) return 'draft';
+  // Direct match
+  if (VALID_DELIVERABLE_STATUSES.includes(status as DeliverableStatus)) {
     return status as DeliverableStatus;
   }
+  // Backend status mapping
+  if (status in BACKEND_STATUS_MAP) {
+    return BACKEND_STATUS_MAP[status]!;
+  }
   return 'draft';
+}
+
+// Timeline event type guard
+const VALID_TIMELINE_TYPES = ['status_change', 'node_completed', 'approval_requested', 'approval_resolved', 'alert', 'manual_edit'] as const;
+type TimelineEventType = (typeof VALID_TIMELINE_TYPES)[number];
+
+function safeTimelineType(type: string | undefined): TimelineEventType {
+  if (type && (VALID_TIMELINE_TYPES as readonly string[]).includes(type)) {
+    return type as TimelineEventType;
+  }
+  return 'status_change';
 }
 
 // ── localStorage persistence for executionMap ──────────────
@@ -132,7 +159,7 @@ function mapApiTimelineEvent(raw: TimelineEventFromAPI, clientId: string): Timel
   return {
     id: raw.id,
     clientId,
-    type: (raw.type as TimelineEvent['type']) || 'status_change',
+    type: safeTimelineType(raw.type),
     title: raw.title || '',
     description: raw.description || undefined,
     timestamp: raw.timestamp || new Date().toISOString(),
@@ -449,9 +476,11 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     // Try to sync via API
     try {
       if (original) {
-        const executionId = get().executionMap[original.clientId];
+        const executionId = get().executionMap[original.clientId] || await get().getExecutionId(original.clientId);
         if (executionId) {
           await api.clientDeliverables.updateContent(executionId, id, content);
+        } else {
+          toastWarning('Keine Verbindung zur Automation');
         }
       }
       // Clear dirty edit on successful save
@@ -541,9 +570,11 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     try {
       const deliverable = get().deliverables.find((d) => d.id === id);
       if (deliverable) {
-        const executionId = get().executionMap[deliverable.clientId];
+        const executionId = get().executionMap[deliverable.clientId] || await get().getExecutionId(deliverable.clientId);
         if (executionId) {
           await api.clientDeliverables.approve(executionId, id, 'Claudio');
+        } else {
+          toastWarning('Keine Verbindung zur Automation');
         }
 
         // Auto Phase-Transition: phase is done when ALL deliverables are decided
@@ -642,9 +673,11 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
     try {
       const deliverable = get().deliverables.find((d) => d.id === id);
       if (deliverable) {
-        const executionId = get().executionMap[deliverable.clientId];
+        const executionId = get().executionMap[deliverable.clientId] || await get().getExecutionId(deliverable.clientId);
         if (executionId) {
           await api.clientDeliverables.reject(executionId, id, comment);
+        } else {
+          toastWarning('Keine Verbindung zur Automation');
         }
       }
     } catch {
