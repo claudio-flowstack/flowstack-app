@@ -611,8 +611,8 @@ def doc_09():
 
 
 def doc_10():
-    LP = 'https://demo-recruiting.vercel.app/demo-landing/'
-    FORM = 'https://demo-recruiting.vercel.app/demo-formular'
+    LP = 'https://www.flowstack-agentur.de/demo'
+    FORM = 'https://www.flowstack-agentur.de/demo-bewerbung'
     sep = '<br><hr style="border:none;border-top:2px solid #e0e0e0;margin:24px 0"><br>'
     section_sep = '<br><hr style="border:none;border-top:4px solid #1a1a1a;margin:36px 0"><br>'
 

@@ -11,7 +11,7 @@ export function TerminalPage() {
         </div>
         <div>
           <h1 className="text-lg font-semibold text-zinc-100">Terminal</h1>
-          <p className="text-xs text-zinc-500">Befehle & Skripte ausfuehren</p>
+          <p className="text-xs text-zinc-500">Befehle & Skripte ausführen</p>
         </div>
       </div>
 

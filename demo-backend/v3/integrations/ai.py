@@ -104,7 +104,7 @@ class AIClient:
         self.model = "groq/llama-3.3-70b"  # Tracking welches Modell zuletzt genutzt wurde
 
     async def generate(self, prompt: str, max_tokens: int = 8000, temperature: float = 0.7, json_mode: bool = False) -> str:
-        """Text generieren. Groq -> Gemini Fallback-Chain. json_mode=True fuer strukturierten JSON-Output."""
+        """Text generieren. Groq -> Gemini Fallback-Chain. json_mode=True für strukturierten JSON-Output."""
         if not self.groq_key and not self.gemini_key:
             raise Exception("Weder GROQ_API_KEY noch GEMINI_API_KEY konfiguriert")
 
@@ -145,11 +145,11 @@ class AIClient:
                     return text
             except urllib.error.HTTPError as e:
                 if e.code == 429:
-                    log.warning(f"{model} -> 429, versuche naechstes Modell")
+                    log.warning(f"{model} -> 429, versuche nächstes Modell")
                     last_error = f"{model}: Rate Limit"
                     continue
                 elif e.code == 503:
-                    log.warning(f"{model} -> 503, versuche naechstes Modell")
+                    log.warning(f"{model} -> 503, versuche nächstes Modell")
                     last_error = f"{model}: 503"
                     continue
                 else:
@@ -165,10 +165,10 @@ class AIClient:
                     continue
                 raise
 
-        raise Exception(f"KI nicht verfuegbar — Groq + alle Gemini-Modelle gescheitert: {last_error}")
+        raise Exception(f"KI nicht verfügbar — Groq + alle Gemini-Modelle gescheitert: {last_error}")
 
     async def extract_json(self, prompt: str) -> dict:
-        """Generiere und parse JSON. Nutzt structured output wenn verfuegbar."""
+        """Generiere und parse JSON. Nutzt structured output wenn verfügbar."""
         raw = await self.generate(prompt, max_tokens=8000, json_mode=True)
         cleaned = raw.strip()
 

@@ -19,21 +19,21 @@ airtable = AirtableClient()
 # ── Ad Copy Texte (aus V1/V2) ───────────────────────────────
 
 AD_COPY_INITIAL = [
-    "{company} sucht Verstaerkung.\n\nDu willst wieder richtig arbeiten.\nNicht nur Dienst nach Vorschrift.\n\nDann lies weiter.\n\nWas dich erwartet:\n- Moderner Arbeitsplatz\n- Ueberdurchschnittliches Gehalt\n- Echte Wertschaetzung\n- Weiterbildungsmoeglichkeiten\n\nKein Assessment-Center.\nKein Anschreiben.\n\nDie Bewerbung dauert unter 3 Minuten.\n\n→ Jetzt bewerben",
+    "{company} sucht Verstärkung.\n\nDu willst wieder richtig arbeiten.\nNicht nur Dienst nach Vorschrift.\n\nDann lies weiter.\n\nWas dich erwartet:\n- Moderner Arbeitsplatz\n- Ueberdurchschnittliches Gehalt\n- Echte Wertschaetzung\n- Weiterbildungsmöglichkeiten\n\nKein Assessment-Center.\nKein Anschreiben.\n\nDie Bewerbung dauert unter 3 Minuten.\n\n→ Jetzt bewerben",
     "Du bist gut in dem was du tust.\nAber wann hat das zuletzt jemand anerkannt?\n\nBei {company} ist das anders.\n\nHier zaehlt Qualitaet. Hier zaehlen die Menschen.\n\nWas wir bieten:\n- Faire Bezahlung\n- Flexible Arbeitszeiten\n- Ein Team das zusammenhaelt\n- Modernste Ausstattung\n\nKein endloses Bewerbungsverfahren.\n60 Sekunden reichen.\n\n→ Jetzt bewerben",
-    "Diese Anzeige ist nichts fuer dich.\n\nNicht wenn du zufrieden bist mit dem Status quo.\nNicht wenn dir egal ist ob deine Arbeit wertgeschaetzt wird.\n\nAber wenn du abends denkst: Da muss doch mehr gehen.\nDann lies weiter.\n\n{company} sucht Leute die anpacken.\nDie Verantwortung wollen.\nDie stolz auf ihre Arbeit sein wollen.\n\n→ Unter 3 Minuten bewerben",
+    "Diese Anzeige ist nichts für dich.\n\nNicht wenn du zufrieden bist mit dem Status quo.\nNicht wenn dir egal ist ob deine Arbeit wertgeschaetzt wird.\n\nAber wenn du abends denkst: Da muss doch mehr gehen.\nDann lies weiter.\n\n{company} sucht Leute die anpacken.\nDie Verantwortung wollen.\nDie stolz auf ihre Arbeit sein wollen.\n\n→ Unter 3 Minuten bewerben",
 ]
 
 AD_COPY_RETARGETING = [
-    "Du hast dir die Stelle bei {company} angeschaut.\nAber du hast dich noch nicht beworben.\n\nWarum nicht?\n\nHier sind die Fakten:\n- Faire Bezahlung\n- Moderner Arbeitsplatz\n- Echte Wertschaetzung\n\nDer Bewerbungsprozess dauert nur 60 Sekunden.\nKein Anschreiben noetig.\n\n→ Jetzt bewerben",
+    "Du hast dir die Stelle bei {company} angeschaut.\nAber du hast dich noch nicht beworben.\n\nWarum nicht?\n\nHier sind die Fakten:\n- Faire Bezahlung\n- Moderner Arbeitsplatz\n- Echte Wertschaetzung\n\nDer Bewerbungsprozess dauert nur 60 Sekunden.\nKein Anschreiben nötig.\n\n→ Jetzt bewerben",
     "Bin ich gut genug?\n\nDas denken viele.\nUnd genau die sind oft die Besten.\n\nBei {company} suchen wir keine Zertifikate-Sammler.\nWir suchen Macher.\n\nDu warst schon auf unserer Seite.\nGib deiner Neugier eine Chance.\n60 Sekunden. Kein Risiko.",
     "Du warst auf unserer Karriereseite.\nAber du bist noch unentschlossen?\n\n{company} ist kein Grosskonzern.\nHier bist du kein Mitarbeiter Nr. 847.\nHier bist du Teil eines Teams.\n\n→ Die Stelle ist noch offen.\n60 Sekunden reichen.",
 ]
 
 AD_COPY_WARMUP = [
     "Die meisten Unternehmen reden von Wertschaetzung.\nBei {company} lebt man sie.\n\nWir bauen auf Qualitaet. Nicht auf Masse.\nJeder kennt jeden. Entscheidungen fallen schnell.\n\nWillst du sehen wie wir arbeiten?\n→ Mehr erfahren",
-    "Freitag 14:30 Uhr bei {company}:\n\nDas Team hat die Woche sauber abgeschlossen.\nKein Stress. Keine Ueberstunden.\nNur Arbeit auf die man stolz sein kann.\n\n{company} — wo Qualitaet zaehlt.\n\n→ Mehr ueber uns erfahren",
-    "Wusstest du? Die meisten Fachkraefte denken ueber einen Wechsel nach.\nAber nur wenige bewerben sich.\n\nWarum? Weil jede Stellenanzeige gleich klingt.\n\nWir bei {company} sagen dir lieber was wir NICHT bieten:\nKein Grossraumbuero. Keine 5 Interview-Runden. Keine veraltete Ausstattung.\n\nWas wir bieten? Findest du raus.\n→ Mehr erfahren",
+    "Freitag 14:30 Uhr bei {company}:\n\nDas Team hat die Woche sauber abgeschlossen.\nKein Stress. Keine Überstunden.\nNur Arbeit auf die man stolz sein kann.\n\n{company} — wo Qualitaet zaehlt.\n\n→ Mehr über uns erfahren",
+    "Wusstest du? Die meisten Fachkraefte denken über einen Wechsel nach.\nAber nur wenige bewerben sich.\n\nWarum? Weil jede Stellenanzeige gleich klingt.\n\nWir bei {company} sagen dir lieber was wir NICHT bieten:\nKein Grossraumbüro. Keine 5 Interview-Runden. Keine veraltete Ausstattung.\n\nWas wir bieten? Findest du raus.\n→ Mehr erfahren",
 ]
 
 # ── Targeting Templates ──────────────────────────────────────

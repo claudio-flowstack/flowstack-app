@@ -289,8 +289,17 @@ export function PresentationMode({
               <div className="max-h-60 overflow-y-auto p-2 space-y-0.5">
                 {outputs.map((out) => {
                   const TypeIcon = getOutputIcon(out.type)
+                  const link = (out as { link?: string }).link
+                  const handleClick = () => {
+                    if (link && link !== '#') window.open(link, '_blank', 'noopener,noreferrer')
+                  }
                   return (
-                    <div key={out.id} className="flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors cursor-pointer">
+                    <div
+                      key={out.id}
+                      onClick={handleClick}
+                      className={`flex items-center gap-2 px-2.5 py-2 rounded-xl hover:bg-white/10 transition-colors ${link && link !== '#' ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
+                      title={link && link !== '#' ? link : 'Kein Link verfügbar'}
+                    >
                       <TypeIcon size={13} className="text-white/50 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[11px] text-white/90 font-medium truncate">{out.title}</p>

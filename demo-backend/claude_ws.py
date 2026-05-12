@@ -61,7 +61,7 @@ def _load_project_knowledge() -> str:
             pass
 
     # 2. Available skills/commands
-    skills = """# Verfuegbare Skills & Commands
+    skills = """# Verfügbare Skills & Commands
 
 Du hast Zugriff auf folgende Flowstack-Skripte (alle via Doppler mit Credentials):
 
@@ -89,7 +89,7 @@ Du hast Zugriff auf folgende Flowstack-Skripte (alle via Doppler mit Credentials
 ## Credentials
 Alle Credentials kommen automatisch aus Doppler (fulfillment-automation / dev_claudio).
 Du hast Zugriff auf Google APIs, ClickUp, Slack, Airtable, Close CRM etc. via Environment Variables.
-Frag nicht nach API Keys — sie sind bereits als ENV verfuegbar.
+Frag nicht nach API Keys — sie sind bereits als ENV verfügbar.
 
 ## Cross-Tab Kontext
 Wenn der User mehrere Claude-Tabs offen hat, bekommst du den Kontext aus den anderen Tabs

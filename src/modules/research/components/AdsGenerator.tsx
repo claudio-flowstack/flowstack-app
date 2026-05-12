@@ -18,14 +18,14 @@ const AD_FRAMEWORKS: Record<string, AdFramework> = {
   'pas': {
     name: 'PAS',
     short: 'Problem → Agitate → Solution',
-    structure: ['Problem benennen', 'Schmerz verstaerken', 'Loesung zeigen'],
+    structure: ['Problem benennen', 'Schmerz verstärken', 'Loesung zeigen'],
     bestFor: 'Coaching, B2B, Dienstleistungen',
-    promptGuide: `Schritt 1 PROBLEM: Nenne das groesste Problem der Zielgruppe in einem Satz. Sei spezifisch — keine generischen Floskeln. Nutze die Sprache die die Zielgruppe selbst benutzt.
-Schritt 2 AGITATE: Verstaerke den Schmerz. Was passiert wenn sie NICHTS aendern? Welche Konsequenzen drohen? Male das Worst-Case-Szenario. Nutze "Stell dir vor..." oder "Du weisst genau...".
-Schritt 3 SOLUTION: Praesentiere die Loesung als logischen naechsten Schritt. Kein Hard-Sell. Zeige das Ergebnis, nicht das Produkt. Spezifische Zahlen > vage Versprechen.`,
+    promptGuide: `Schritt 1 PROBLEM: Nenne das größte Problem der Zielgruppe in einem Satz. Sei spezifisch — keine generischen Floskeln. Nutze die Sprache die die Zielgruppe selbst benutzt.
+Schritt 2 AGITATE: Verstärke den Schmerz. Was passiert wenn sie NICHTS aendern? Welche Konsequenzen drohen? Male das Worst-Case-Szenario. Nutze "Stell dir vor..." oder "Du weisst genau...".
+Schritt 3 SOLUTION: Praesentiere die Loesung als logischen nächsten Schritt. Kein Hard-Sell. Zeige das Ergebnis, nicht das Produkt. Spezifische Zahlen > vage Versprechen.`,
     exampleAd: `Du postest 5x die Woche — aber deine DMs bleiben leer.
 
-Das Problem ist nicht dein Content. Es ist dein System. Ohne klare Strategie verbrennst du Stunden fuer Likes die nie zu Kunden werden. Und jeden Monat ziehen Mitbewerber an dir vorbei die halb so gut sind.
+Das Problem ist nicht dein Content. Es ist dein System. Ohne klare Strategie verbrennst du Stunden für Likes die nie zu Kunden werden. Und jeden Monat ziehen Mitbewerber an dir vorbei die halb so gut sind.
 
 In 12 Wochen bauen wir dein Akquise-System das 15-30 qualifizierte Anfragen pro Monat bringt. Ohne taegliches Posten. Ohne Kaltakquise.
 
@@ -39,7 +39,7 @@ In 12 Wochen bauen wir dein Akquise-System das 15-30 qualifizierte Anfragen pro 
     promptGuide: `Schritt 1 ATTENTION: Stoppe den Scroll. Nutze eine kontroverse Aussage, eine ueberraschende Zahl, oder eine direkte Frage die den Nerv trifft. KEIN generisches "Entdecke jetzt".
 Schritt 2 INTEREST: Erklaere das Warum. Warum ist das relevant? Welche Erkenntnis fehlt den meisten? Nutze "Hier ist warum:" oder "Was die meisten nicht wissen:".
 Schritt 3 DESIRE: Zeige das Ergebnis. Konkrete Zahlen, Testimonials, vorher/nachher. Der Leser muss denken "Das will ich auch".
-Schritt 4 ACTION: Eindeutiger naechster Schritt. Keine Auswahl. Ein CTA. Dringlichkeit nur wenn echt (limitierte Plaetze, Deadline).`,
+Schritt 4 ACTION: Eindeutiger nächster Schritt. Keine Auswahl. Ein CTA. Dringlichkeit nur wenn echt (limitierte Plätze, Deadline).`,
     exampleAd: `87% der Agenturen unter 50k/Monat machen den gleichen Fehler.
 
 Sie versuchen mehr Kunden zu gewinnen — statt die richtigen. 3 meiner Kunden haben ihren Umsatz verdoppelt, nicht durch mehr Leads, sondern durch bessere Positionierung.
@@ -47,7 +47,7 @@ Sie versuchen mehr Kunden zu gewinnen — statt die richtigen. 3 meiner Kunden h
 Max: Von 23k auf 61k/Monat in 4 Monaten.
 Sarah: Erstmals 6-stellig — mit weniger Kunden als vorher.
 
-Begrenzt auf 5 Plaetze im Maerz.
+Begrenzt auf 5 Plätze im Maerz.
 
 [Jetzt Strategie-Call sichern]`,
   },
@@ -57,9 +57,9 @@ Begrenzt auf 5 Plaetze im Maerz.
     structure: ['Vorher (Schmerz)', 'Nachher (Wunsch)', 'Bruecke (Angebot)'],
     bestFor: 'Transformation — Coaching, Fitness, Business',
     promptGuide: `Schritt 1 BEFORE: Beschreibe die aktuelle Realitaet der Zielgruppe. Nutze "Du"-Ansprache. Sei ehrlich und konkret — der Leser muss denken "Das bin ich".
-Schritt 2 AFTER: Male das Wunschbild. Was waere moeglich? Nutze sensorische Sprache — was sieht, fuehlt, erlebt die Person? Mach es greifbar, nicht abstrakt.
-Schritt 3 BRIDGE: Zeige den Weg. Dein Angebot ist die Bruecke von A nach B. Erklaere in 1-2 Saetzen wie. Dann CTA.`,
-    exampleAd: `Gerade sitzt du abends am Laptop, schreibst Angebote fuer Kunden die eh nicht zahlen, und fragst dich ob das so weitergeht.
+Schritt 2 AFTER: Male das Wunschbild. Was waere möglich? Nutze sensorische Sprache — was sieht, fuehlt, erlebt die Person? Mach es greifbar, nicht abstrakt.
+Schritt 3 BRIDGE: Zeige den Weg. Dein Angebot ist die Bruecke von A nach B. Erklaere in 1-2 Sätzen wie. Dann CTA.`,
+    exampleAd: `Gerade sitzt du abends am Laptop, schreibst Angebote für Kunden die eh nicht zahlen, und fragst dich ob das so weitergeht.
 
 Stell dir vor: Du arbeitest mit 8-10 Premium-Kunden, hast planbar 40k+ im Monat, und dein Kalender hat wieder Luft. Deine Agentur laeuft — auch wenn du mal eine Woche frei nimmst.
 
@@ -88,17 +88,17 @@ Ergebnis: 3h weniger Admin pro Tag. 40% hoehere Abschlussquote. Ab dem ersten Mo
     short: 'Promise → Picture → Proof → Push',
     structure: ['Versprechen', 'Bild malen', 'Beweis', 'Push/CTA'],
     bestFor: 'High-Ticket, Webinare, Premium-Angebote',
-    promptGuide: `Schritt 1 PROMISE: Ein grosses, spezifisches Versprechen. Mit Zahl oder Zeitrahmen. "In X Wochen Y erreichen" — aber nur wenn glaubwuerdig.
+    promptGuide: `Schritt 1 PROMISE: Ein grosses, spezifisches Versprechen. Mit Zahl oder Zeitrahmen. "In X Wochen Y erreichen" — aber nur wenn glaubwürdig.
 Schritt 2 PICTURE: Male ein Bild im Kopf. Nutze "Stell dir vor..." und beschreibe einen konkreten Moment im neuen Leben. Sensorisch.
 Schritt 3 PROOF: Belege das Versprechen. Kundenergebnis, Zahl, Testimonial, Methode. Etwas Konkretes das Vertrauen schafft.
 Schritt 4 PUSH: Dringlichkeit + CTA. Warum jetzt? Limitierung, Zeitfenster, oder einfach: Der Schmerz geht nicht von allein weg.`,
     exampleAd: `Deine Agentur auf 100k/Monat — ohne neue Mitarbeiter.
 
-Stell dir vor: Du oeffnest Montag morgen dein Dashboard. 4 neue Anfragen ueber Nacht. Alle vorqualifiziert. Du waehlst aus wem du ein Angebot schickst.
+Stell dir vor: Du oeffnest Montag morgen dein Dashboard. 4 neue Anfragen über Nacht. Alle vorqualifiziert. Du wählst aus wem du ein Angebot schickst.
 
 Genau das passiert bei 73% unserer Kunden innerhalb von 60 Tagen. Kein Zufall — ein bewiesenes System das seit 2019 funktioniert.
 
-Naechste Runde startet am 1. April. 8 Plaetze.
+Nächste Runde startet am 1. April. 8 Plätze.
 
 [Platz sichern — Bewerbung in 2 Min]`,
   },
@@ -110,12 +110,12 @@ Naechste Runde startet am 1. April. 8 Plaetze.
     promptGuide: `Schritt 1 STAR: Stelle den Helden vor. Das kann ein Kunde oder der Anbieter sein. Ein Satz: Wer, was, wann. Der Leser muss sich identifizieren.
 Schritt 2 STORY: Erzaehle den Kampf. Was war das Problem? Was hat nicht funktioniert? Welcher Moment war der Tiefpunkt? Emotionen > Fakten hier.
 Schritt 3 SOLUTION: Die Wende. Was hat sich geaendert? Konkretes Ergebnis mit Zahlen. Dann: "Willst du das auch?" → CTA.
-WICHTIG: Erzaehle die Story in Ich-Form oder erster Person. Nutze kurze Saetze. Umgangssprache ist OK.`,
+WICHTIG: Erzaehle die Story in Ich-Form oder erster Person. Nutze kurze Sätze. Umgangssprache ist OK.`,
     exampleAd: `Vor 8 Monaten wollte Lisa ihre Agentur schliessen.
 
-3 Jahre aufgebaut. 14-Stunden-Tage. Trotzdem kam am Monatsende kaum was rum. Kunden die auf Rabatt draengen. Pitches die ins Leere laufen.
+3 Jahre aufgebaut. 14-Stunden-Tage. Trotzdem kam am Monatsende kaum was rum. Kunden die auf Rabatt drängen. Pitches die ins Leere laufen.
 
-Dann hat sie ihr Angebot umgestellt. Weg vom Bauchladen. Hin zu einem Ergebnis-Paket fuer eine Nische.
+Dann hat sie ihr Angebot umgestellt. Weg vom Bauchladen. Hin zu einem Ergebnis-Paket für eine Nische.
 
 Heute: 47k/Monat. 6 Premium-Kunden. Freitags frei.
 
@@ -144,10 +144,10 @@ const AD_PLATFORMS: Record<string, AdPlatform> = {
     formatInstruction: `Gib jede Ad EXAKT in diesem Format aus:
 
 PRIMARY TEXT:
-[Der Haupttext der Ad. Darf mehrere Zeilen haben. Die ersten 125 Zeichen muessen den Hook enthalten weil nur die sichtbar sind vor "Mehr anzeigen".]
+[Der Haupttext der Ad. Darf mehrere Zeilen haben. Die ersten 125 Zeichen müssen den Hook enthalten weil nur die sichtbar sind vor "Mehr anzeigen".]
 
 HEADLINE: [Max 40 Zeichen. Kurz, knackig. Das Kernangebot oder Ergebnis.]
-DESCRIPTION: [Max 30 Zeichen. Untertitel oder Verstaerker.]
+DESCRIPTION: [Max 30 Zeichen. Untertitel oder Verstärker.]
 CTA-BUTTON: [Einer von: Mehr erfahren | Jetzt anmelden | Termin buchen | Kontaktieren | Herunterladen | Jetzt kaufen]`,
   },
   'google-search': {
@@ -173,10 +173,10 @@ WICHTIG: Zaehle die Zeichen. Wenn eine Headline >30 Zeichen hat, kuerze sie. Goo
     formatInstruction: `Gib jede Ad EXAKT in diesem Format aus:
 
 INTRO TEXT:
-[Die ersten 150 Zeichen muessen stark sein — nur die sind sichtbar. Dann kann es laenger werden. Professioneller Ton. Kein Emoji-Spam. Zahlen und Ergebnisse nutzen.]
+[Die ersten 150 Zeichen müssen stark sein — nur die sind sichtbar. Dann kann es laenger werden. Professioneller Ton. Kein Emoji-Spam. Zahlen und Ergebnisse nutzen.]
 
 HEADLINE: [Max 70 Zeichen — klarer Nutzen oder Frage]
-DESCRIPTION: [Max 100 Zeichen — Verstaerker + was passiert beim Klick]
+DESCRIPTION: [Max 100 Zeichen — Verstärker + was passiert beim Klick]
 CTA-BUTTON: [Einer von: Mehr erfahren | Anmelden | Herunterladen | Bewerben | Kontaktieren]`,
   },
   'tiktok': {
@@ -187,8 +187,8 @@ CTA-BUTTON: [Einer von: Mehr erfahren | Anmelden | Herunterladen | Bewerben | Ko
     formatInstruction: `Gib jede Ad EXAKT in diesem Format aus:
 
 HOOK (erste 2 Sekunden): [Was sagt/zeigt man um den Scroll zu stoppen? Muss sofort greifen.]
-SCRIPT: [Kurzes Skript, 15-30 Sek. Umgangssprache. Kein Corporate-Deutsch. So wie ein Creator reden wuerde.]
-AD TEXT: [Max 100 Zeichen — wird ueber dem Video angezeigt]
+SCRIPT: [Kurzes Skript, 15-30 Sek. Umgangssprache. Kein Corporate-Deutsch. So wie ein Creator reden würde.]
+AD TEXT: [Max 100 Zeichen — wird über dem Video angezeigt]
 CTA: [Kurz und direkt]
 
 TON: Authentisch, schnell, direkt. Wie ein Freund der einen Tipp gibt. Keine Werbung die sich wie Werbung anfuehlt.`,
@@ -200,14 +200,14 @@ TON: Authentisch, schnell, direkt. Wie ein Freund der einen Tipp gibt. Keine Wer
     bestFor: 'Brand, Coaching, Webinare',
     formatInstruction: `Gib jede Ad EXAKT in diesem Format aus:
 
-HOOK (0-5 Sek) — Muss vor "Skip" ueberzeugen:
+HOOK (0-5 Sek) — Muss vor "Skip" überzeugen:
 [Erste 5 Sekunden Script. Der Zuschauer entscheidet hier ob er bleibt. Frage, Schock-Aussage, oder Pattern-Interrupt.]
 
 BODY (5-25 Sek):
-[Hauptteil. Problem → Loesung → Beweis. Kurze Saetze. Sprich den Zuschauer direkt an.]
+[Hauptteil. Problem → Loesung → Beweis. Kurze Sätze. Sprich den Zuschauer direkt an.]
 
 CTA (letzte 5 Sek):
-[Was soll der Zuschauer tun? Klarer naechster Schritt. URL oder Aktion.]
+[Was soll der Zuschauer tun? Klarer nächster Schritt. URL oder Aktion.]
 
 GESAMT-LAENGE: Schreibe das Script so dass es laut gesprochen ca. 30 Sekunden dauert.`,
   },
@@ -273,9 +273,9 @@ export function AdsGenerator() {
       const hookDesc = HOOK_TYPES.find(h => h.value === hookType)
       const toneDesc = TONES.find(t => t.value === tone)
       const lengthMap: Record<AdLength, string> = {
-        kurz: 'KURZ: Maximal 2-4 Saetze. Jedes Wort muss sitzen. Kein Filler.',
-        mittel: 'MITTEL: 1 Absatz, 4-8 Saetze. Genug Platz fuer Framework-Struktur.',
-        lang: 'LANG: Ausfuehrlich, 2-4 Absaetze. Story erzaehlen, Details, Social Proof.',
+        kurz: 'KURZ: Maximal 2-4 Sätze. Jedes Wort muss sitzen. Kein Filler.',
+        mittel: 'MITTEL: 1 Absatz, 4-8 Sätze. Genug Platz für Framework-Struktur.',
+        lang: 'LANG: Ausführlich, 2-4 Absätze. Story erzaehlen, Details, Social Proof.',
       }
 
       const prompt = `Du schreibst Ads die konvertieren. Nicht generische Marketing-Texte — sondern Ads die Leute dazu bringen zu klicken, zu kaufen, sich anzumelden.
@@ -306,7 +306,7 @@ Anzahl Varianten: ${variants}
 - KEINE leeren Versprechen ohne Substanz
 - KEINE Corporate-Sprache: "Wir bieten Ihnen erstklassige Loesungen"
 - KEINE Emojis ausser bei TikTok/Instagram (dort sparsam)
-- STATTDESSEN: Konkrete Zahlen, spezifische Ergebnisse, echte Sprache, kurze Saetze, aktive Verben
+- STATTDESSEN: Konkrete Zahlen, spezifische Ergebnisse, echte Sprache, kurze Sätze, aktive Verben
 - Schreibe "Du/Dein" nicht "Sie/Ihr"
 - Jede Variante MUSS einen anderen Hook/Angle haben
 
@@ -365,7 +365,7 @@ Keine Erklaerungen, keine Kommentare. NUR die Ads.`
           <div>
             <label className="block text-xs text-muted-foreground mb-1">Produkt / Angebot <span className="text-red-400">*</span></label>
             <textarea value={product} onChange={(e) => setProduct(e.target.value)}
-              placeholder="z.B. 12-Wochen Coaching fuer Agenturinhaber die auf 50k+/Monat skalieren wollen. 1:1 Betreuung, bewiesenes System, 73% Erfolgsquote."
+              placeholder="z.B. 12-Wochen Coaching für Agenturinhaber die auf 50k+/Monat skalieren wollen. 1:1 Betreuung, bewiesenes System, 73% Erfolgsquote."
               rows={2}
               className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 transition-colors resize-none" />
           </div>
@@ -495,7 +495,7 @@ Keine Erklaerungen, keine Kommentare. NUR die Ads.`
       {loading && (
         <div className="flex items-center justify-center py-10">
           <Loader2 className="h-6 w-6 animate-spin text-primary mr-2" />
-          <span className="text-sm text-muted-foreground">Schreibt {variants} {fw.name}-Ads fuer {pl.name}...</span>
+          <span className="text-sm text-muted-foreground">Schreibt {variants} {fw.name}-Ads für {pl.name}...</span>
         </div>
       )}
 

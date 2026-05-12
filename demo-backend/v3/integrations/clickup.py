@@ -128,7 +128,7 @@ class ClickUpClient:
                 "Messaging Matrix geprüft",
             ])
         except Exception as e:
-            log.warning(f"Checklist fuer Bausteine-Task fehlgeschlagen: {e}")
+            log.warning(f"Checklist für Bausteine-Task fehlgeschlagen: {e}")
 
         # Task 2: Strategie-Docs reviewen
         t2 = await self.create_task(
@@ -146,7 +146,7 @@ class ClickUpClient:
                 "Marken-Richtlinien",
             ])
         except Exception as e:
-            log.warning(f"Checklist fuer Strategie-Docs fehlgeschlagen: {e}")
+            log.warning(f"Checklist für Strategie-Docs fehlgeschlagen: {e}")
 
         # Task 3: Copy-Texte reviewen
         t3 = await self.create_task(
@@ -166,7 +166,7 @@ class ClickUpClient:
                 "Videoskript",
             ])
         except Exception as e:
-            log.warning(f"Checklist fuer Copy-Texte fehlgeschlagen: {e}")
+            log.warning(f"Checklist für Copy-Texte fehlgeschlagen: {e}")
 
         # Task 4: Pixel einbauen (Anak)
         t4 = await self.create_task(
@@ -181,9 +181,9 @@ class ClickUpClient:
     async def create_review_task(self, list_id: str, company: str, details: str = "") -> dict:
         """Review-Task nach Launch erstellen."""
         return await self.create_task(
-            list_id, f"Review: {company} — Alle Sachen pruefen",
+            list_id, f"Review: {company} — Alle Sachen prüfen",
             assignee=CLICKUP_CLAUDIO, priority=2, due_days=2,
-            description=details or f"Client ist live. Bitte alle Deliverables, Funnel und Kampagnen pruefen.",
+            description=details or f"Client ist live. Bitte alle Deliverables, Funnel und Kampagnen prüfen.",
         )
 
     async def health_check(self) -> dict:

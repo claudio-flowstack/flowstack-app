@@ -104,7 +104,7 @@ class AirtableClient:
             "demografie": "A. Demografie", "beruflich": "B. Beruflich",
             "schmerzpunkte": "C. Schmerzpunkte", "psychologie": "D. Psychologie",
             "benefits": "E. Benefits", "sprache": "F. Sprache",
-            "einwaende": "G. Einwaende", "arbeitgeber": "H. Arbeitgeber",
+            "einwaende": "G. Einwände", "arbeitgeber": "H. Arbeitgeber",
             "messaging": "I. Messaging", "markt": "J. Markt",
         }
 

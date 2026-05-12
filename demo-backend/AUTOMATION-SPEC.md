@@ -214,9 +214,9 @@ Die Anzeigentexte muessen:
 | fn03 | Bilder vorbereiten | Logo, Teamfotos, OG-Image (parallel zu fn01-02) |
 | fn04 | Design anpassen | Brand Colors, Fonts, Layout |
 | fn05 | Website bauen | 5 Seiten zusammenfuegen & deployen |
-| fn06 | **Landingpage** | https://demo-recruiting.vercel.app/demo-landing/ |
-| fn07 | **Bewerbungsseite** | https://demo-recruiting.vercel.app/demo-formular |
-| fn08 | **Dankeseite** | https://demo-recruiting.vercel.app/demo-danke |
+| fn06 | **Landingpage** | https://www.flowstack-agentur.de/demo |
+| fn07 | **Bewerbungsseite** | https://www.flowstack-agentur.de/demo-bewerbung |
+| fn08 | **Dankeseite** | https://www.flowstack-agentur.de/demo-danke |
 | fn09 | Datenschutz & Impressum | Rechtliche Seiten |
 | fn10 | Pixel- & Event-Setup | Meta Pixel: ViewContent (LP), AddToCart (Form), Lead (Danke) |
 | fn11 | Funnel-Review | Auto-Approved |

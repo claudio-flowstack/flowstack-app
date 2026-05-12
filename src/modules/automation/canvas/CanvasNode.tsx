@@ -529,6 +529,33 @@ function CanvasNodeInner({
         </button>
       )}
 
+      {/* External URL badge (bottom-right) — opens demoConfig.artifacts URLs in new tab */}
+      {(() => {
+        const externalUrls = (node.demoConfig?.artifacts ?? [])
+          .filter((a) => a?.url && a.url !== '#' && /^https?:\/\//.test(a.url))
+        if (externalUrls.length === 0) return null
+        return (
+          <div className="absolute -bottom-1.5 -right-1.5 z-20 flex gap-1">
+            {externalUrls.map((art, idx) => (
+              <button
+                key={`ext-${idx}-${art.url}`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  window.open(art.url, '_blank', 'noopener,noreferrer')
+                }}
+                className="h-5 px-1.5 rounded-full bg-blue-100 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-500/30 flex items-center gap-1 hover:bg-blue-200 dark:hover:bg-blue-500/30 transition-colors cursor-pointer"
+                title={`${art.label}: ${art.url}`}
+              >
+                <Globe size={9} className="text-blue-600 dark:text-blue-400" />
+                <span className="text-[8px] font-semibold text-blue-600 dark:text-blue-400 max-w-[80px] truncate">
+                  {art.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )
+      })()}
+
       {/* Subsystem drill-down button */}
       {node.type === 'subsystem' && node.linkedSubSystemId && onDrillDown && (
         <button

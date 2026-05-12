@@ -80,7 +80,7 @@ def _load_framework(nr: int) -> str:
             with open(os.path.join(FRAMEWORKS_DIR, fname)) as f:
                 return f.read()
     log.warning(f"Framework {nr:02d} nicht gefunden in {FRAMEWORKS_DIR}")
-    return "Erstelle professionellen deutschen Marketing-Text fuer eine Recruiting-Agentur. Verwende klare Struktur, ueberzeugende Sprache und konkrete Beispiele."
+    return "Erstelle professionellen deutschen Marketing-Text für eine Recruiting-Agentur. Verwende klare Struktur, überzeugende Sprache und konkrete Beispiele."
 
 
 async def _generate_copy_doc(context: dict, state, framework_nr: int, doc_name: str, doc_key: str, prev_keys: list) -> dict:
@@ -107,7 +107,7 @@ async def _generate_copy_doc(context: dict, state, framework_nr: int, doc_name: 
         generated[f"{doc_key}_url"] = gd.get(f"{doc_key}_url", f"https://docs.google.com/document/d/{staged_id}/edit")
         return {"url": generated[f"{doc_key}_url"], "doc_id": staged_id, "content_length": len(existing_content), "generated_docs": generated, "skipped": True}
 
-    prompt = f"""Erstelle "{doc_name}" fuer "{state.client_name}".
+    prompt = f"""Erstelle "{doc_name}" für "{state.client_name}".
 
 FRAMEWORK:
 {framework[:4000]}
@@ -119,7 +119,7 @@ VORHERIGE DOKUMENTE:
 {prev_text[:3000] if prev_text else "Keine"}
 
 REGELN:
-1. Keine generischen Phrasen - alles spezifisch fuer das Unternehmen
+1. Keine generischen Phrasen - alles spezifisch für das Unternehmen
 2. DACH-konform: Keine diskriminierenden Begriffe
 3. Qualitaet wie Premium-Agentur
 4. Alle Platzhalter ([FIRMENNAME] etc.) durch echte Werte ersetzen"""
@@ -292,7 +292,7 @@ async def cc02a(context: dict, state) -> dict:
             continue
 
         try:
-            prompt = f"""Pruefe diesen Text auf Rechtschreibfehler, Grammatikfehler und stilistische Fehler.
+            prompt = f"""Prüfe diesen Text auf Rechtschreibfehler, Grammatikfehler und stilistische Fehler.
 Antworte NUR als JSON-Array: [{{"fehler": "...", "korrektur": "...", "kontext": "..."}}]
 Wenn keine Fehler: leeres Array []
 
@@ -369,7 +369,7 @@ async def brand_check(context: dict, state) -> dict:
                     if diff == 1:
                         inconsistencies.append({
                             "doc": doc_key,
-                            "issue": f"Moeglicher Tippfehler: '{word}' statt '{company}'",
+                            "issue": f"Möglicher Tippfehler: '{word}' statt '{company}'",
                         })
 
     return {

@@ -522,7 +522,7 @@ export function ClaudeChat({ tabId, isActive }: ClaudeChatProps) {
 
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognitionAPI) {
-      setRecordingError('Spracheingabe wird in diesem Browser nicht unterstuetzt (Chrome empfohlen)')
+      setRecordingError('Spracheingabe wird in diesem Browser nicht unterstützt (Chrome empfohlen)')
       return
     }
 
@@ -832,7 +832,7 @@ export function ClaudeChat({ tabId, isActive }: ClaudeChatProps) {
           </div>
 
           <p className="text-center text-[10px] text-zinc-700 mt-2">
-            Claude kann Fehler machen. Ausgabe bitte pruefen.
+            Claude kann Fehler machen. Ausgabe bitte prüfen.
           </p>
         </div>
       </div>

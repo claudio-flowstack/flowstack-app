@@ -10,7 +10,7 @@ export function ScoreBreakdown({ breakdown, total }: Props) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-muted-foreground">Score-Aufschluesselung</span>
+        <span className="text-sm font-medium text-muted-foreground">Score-Aufschlüsselung</span>
         <span className="text-lg font-bold text-foreground">{total}/100</span>
       </div>
       {SCORE_CATEGORIES.map(({ key, label, max }) => {

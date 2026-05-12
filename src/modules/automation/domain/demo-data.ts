@@ -1,7 +1,7 @@
 import type { AutomationSystem, WorkflowTemplate } from './types'
 
 /**
- * Grid position helper — accounts for largest node sizes (subsystem: 320×130).
+ * Grid position helper - accounts for largest node sizes (subsystem: 320×130).
  *
  * x = 40 + column * 380  (320px max width + 60px gap)
  * y: 40 + row    * 160  (130px max height + 30px gap)
@@ -13,20 +13,32 @@ const p = (col: number, row: number) => ({
 
 // ── Demo Automation Systems ────────────────────────────────────────────────
 
+// ══════════════════════════════════════════════════════════════════════════════
+// V1 LIVE — Novacode Recruiting (AKTIV für Demo-Video-Shoot)
+//
+//   IDs (ohne Prefix):  nc-t*, is*, kc*, st*, cc*, fn*, ca*, rl*
+//   Backend:            demo-backend/server.py (V1-Block, ca. Z. 893-3946)
+//   Side-Effects:       application/side-effects.ts → V1_SIDE_EFFECT_NODES
+//   Display-Prefix:     "LIVE: …"
+//
+//   ⚠️ HIER ÄNDERN wenn etwas am Demo-Run angepasst werden soll.
+//   ⚠️ NICHT verwechseln mit V2 (Archiv, Z. 343 ff.) oder V3 (Archiv, Z. 482 ff.)
+// ══════════════════════════════════════════════════════════════════════════════
+
 export const DEMO_SYSTEMS: AutomationSystem[] = [
-  // ── 0. Novacode Recruiting Automation (Master with Sub-Systems) ─────────────
+  // ── 0. [V1 LIVE] Novacode Recruiting Automation (Master with Sub-Systems) ───
   {
     id: 'demo-novacode',
     user_id: 'local-user',
     isDemo: true,
-    name: 'Novacode Recruiting Automation',
-    description: 'Agentur-Fulfillment-Automation: Vom Onboarding-Formular über Infrastruktur-Setup, Kickoff, Strategie, Text-Erstellung, Funnel, Kampagnen bis zum Go-Live — mit echten API-Integrationen (Close CRM, Google Workspace, Slack, Meta Ads).',
+    name: 'LIVE: Novacode (komplett)',
+    description: 'Agentur-Fulfillment-Automation: Vom Onboarding-Formular über Infrastruktur-Setup, Kickoff, Strategie, Text-Erstellung, Funnel, Kampagnen bis zum Go-Live - mit echten API-Integrationen (Close CRM, Google Workspace, Slack, Meta Ads).',
     category: 'Recruiting',
     icon: 'building-2',
     status: 'active',
     webhookUrl: '',
     nodes: [
-      { id: 'nc-t1', label: 'Onboarding-Formular', description: 'Offizieller Trigger: Alle Client-Daten erfasst', icon: 'clipboard-check', type: 'trigger', x: 60, y: 200, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Onboarding-Formular eingegangen', url: '#', contentPreview: 'Onboarding-Formular eingegangen — Novacode GmbH' }] } },
+      { id: 'nc-t1', label: 'Onboarding-Formular', description: 'Offizieller Trigger: Alle Client-Daten erfasst', icon: 'clipboard-check', type: 'trigger', x: 60, y: 200, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Onboarding-Formular eingegangen', url: '#', contentPreview: 'Onboarding-Formular eingegangen - Novacode GmbH' }] } },
       { id: 'nc-t2', label: 'Daten validieren', description: 'Formulardaten prüfen und bereinigen', icon: 'git-merge', type: 'process', x: 340, y: 200, demoConfig: { delay: 4000, artifacts: [{ type: 'text', label: 'Daten validiert', url: '#', contentPreview: 'Daten validiert: Firma, Ansprechpartner, Servicetyp, Termin' }] } },
     ],
     connections: [
@@ -52,41 +64,42 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     isDemo: true,
     parentId: 'demo-novacode',
     subSystemOrder: 0,
-    name: 'Infrastruktur-Setup',
-    description: 'Close CRM Pipeline, Google Drive Ordner, Calendar Event, Willkommens-E-Mail, Slack & ClickUp — komplettes Client-Setup.',
+    name: 'LIVE: 1) Onboarding & Setup',
+    description: 'Close CRM Pipeline, Google Drive Ordner, Calendar Event, Willkommens-E-Mail, Slack & ClickUp - komplettes Client-Setup.',
     category: 'Recruiting',
     icon: 'folder-open',
     status: 'active',
     webhookUrl: '',
     nodes: [
       { id: 'is01', label: 'Handover-Daten', description: 'Formular-Daten übernommen', icon: 'clipboard-check', type: 'trigger', x: 40, y: 198, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Handover-Daten empfangen', url: '#', contentPreview: 'Handover-Formulardaten für Novacode GmbH empfangen und bereit zur Verarbeitung' }] } },
-      { id: 'is02', label: 'Close: Lead erstellen', description: 'Lead + Fulfillment Pipeline + Stage \'Onboarding gestartet\'', icon: 'logo-close', type: 'process', x: 380, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Close CRM: Lead erstellt', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Lead \'Novacode GmbH\' erstellt, Pipeline Fulfillment, Phase Onboarding gestartet' }] } },
-      { id: 'is03', label: 'Setup: Client-Start', description: 'Projekt-Übersicht erstellt, Slack Channel + Ops-Einzeiler', icon: 'logo-slack', type: 'output', x: 720, y: 18, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Setup: Client-Start', url: 'https://app.slack.com/client/T0AAEHFN8GH/C0AAEHG30NM', contentPreview: 'Projekt-Übersicht Spreadsheet erstellt, Slack Channel + Ops-Einzeiler gesendet' }] } },
-      { id: 'is04', label: 'Willkommens-E-Mail', description: 'Kickoff-Info, Vorbereitung, Upload-Link', icon: 'logo-gmail', type: 'output', x: 720, y: 198, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Willkommens-E-Mail gesendet', url: 'https://mail.google.com/', contentPreview: 'Willkommens-E-Mail an clazahlungskonto@gmail.com gesendet' }] } },
-      { id: 'is05', label: 'Kickoff-Termin', description: 'Google Calendar + Meet Link', icon: 'logo-google-calendar', type: 'output', x: 720, y: 378, demoConfig: { delay: 7000, artifacts: [{ type: 'url', label: 'Kickoff-Termin erstellt', url: 'https://calendar.google.com/calendar/u/0/r', contentPreview: 'Kickoff-Termin: Google Calendar Event mit Google Meet erstellt' }] } },
-      { id: 'is06', label: 'Drive: Ordnerstruktur', description: '8 Hauptordner + Unterordner laut Spec', icon: 'logo-google-drive', type: 'output', x: 1060, y: 18, demoConfig: { delay: 15000, artifacts: [{ type: 'url', label: 'Google Drive: Ordnerstruktur', url: 'https://drive.google.com/drive/my-drive', contentPreview: '8 Ordner erstellt: 01_Verwaltung bis 08_Transkripte' }] } },
-      { id: 'is07', label: 'Drive: Templates', description: 'Tracking Dashboard + Onboarding Brief dupliziert', icon: 'logo-google-docs', type: 'output', x: 1400, y: 18, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Drive: Templates dupliziert', url: 'https://drive.google.com/drive/my-drive', contentPreview: 'Templates dupliziert: Tracking Dashboard + Onboarding Brief' }] } },
-      { id: 'is08', label: 'ClickUp: Projekt', description: 'Novacode – Recruiting Projekt anlegen', icon: 'logo-clickup', type: 'process', x: 1060, y: 378, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'ClickUp: Projekt erstellt', url: 'https://app.clickup.com/90182362705/v/li', contentPreview: 'ClickUp: Projekt \'Novacode – Recruiting\' in Client Projects erstellt' }] } },
-      { id: 'is09', label: 'ClickUp: Tasks', description: 'Zugang prüfen + Kickoff vorbereiten + Checklisten', icon: 'logo-clickup', type: 'process', x: 1400, y: 378, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'ClickUp: Tasks erstellt', url: 'https://app.clickup.com/90182362705/v/li', contentPreview: 'ClickUp: Tasks mit Checklisten erstellt (Zugänge + Kickoff)' }] } },
-      { id: 'is10', label: 'Close: Kickoff geplant', description: 'Phase → Kickoff geplant, Status → Warte auf Kickoff', icon: 'logo-close', type: 'process', x: 1740, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Kickoff geplant, Automations-Status → Warte auf Kickoff' }] } },
-      { id: 'is11', label: 'Miro: Kampagnen-Board', description: 'Strategie-Board mit Zielgruppe, Messaging, Kampagnen-Struktur, Creatives, Timeline', icon: 'logo-miro', type: 'output', x: 1400, y: 558, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Miro: Kampagnen-Board', url: 'https://miro.com/app/board/', contentPreview: 'Miro Board erstellt: 5 Frames mit Zielgruppe, Messaging, Kampagnen-Struktur, Creatives, Timeline' }] } },
+      { id: 'is02', label: 'Close: Lead erstellen', description: 'Lead + Fulfillment Pipeline + Stage \'Onboarding gestartet\'', icon: 'logo-close', type: 'process', x: 380, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Close CRM: Lead erstellt', url: '#', contentPreview: 'Close CRM: Lead \'Novacode GmbH\' erstellt, Pipeline Fulfillment, Phase Onboarding gestartet' }] } },
+      { id: 'is03', label: 'Setup: Client-Start', description: 'Projekt-Übersicht erstellt, Slack Channel + Ops-Einzeiler', icon: 'logo-slack', type: 'output', x: 720, y: 18, demoConfig: { delay: 5000, artifacts: [{ type: 'text', label: 'Setup: Client-Start', url: '#', contentPreview: 'Projekt-Übersicht Spreadsheet erstellt, Slack Channel + Ops-Einzeiler gesendet' }] } },
+      { id: 'is04', label: 'Willkommens-E-Mail', description: 'Kickoff-Info, Vorbereitung, Upload-Link', icon: 'logo-gmail', type: 'output', x: 720, y: 198, demoConfig: { delay: 6000, artifacts: [{ type: 'text', label: 'Willkommens-E-Mail gesendet', url: '#', contentPreview: 'Willkommens-E-Mail an clazahlungskonto@gmail.com gesendet' }] } },
+      { id: 'is05', label: 'Kickoff-Termin', description: 'Google Calendar + Meet Link', icon: 'logo-google-calendar', type: 'output', x: 720, y: 378, demoConfig: { delay: 7000, artifacts: [{ type: 'text', label: 'Kickoff-Termin erstellt', url: '#', contentPreview: 'Kickoff-Termin: Google Calendar Event mit Google Meet erstellt' }] } },
+      { id: 'is06', label: 'Drive: Ordnerstruktur', description: '8 Hauptordner + Unterordner laut Spec', icon: 'logo-google-drive', type: 'output', x: 1060, y: 18, demoConfig: { delay: 15000, artifacts: [{ type: 'text', label: 'Google Drive: Ordnerstruktur', url: '#', contentPreview: '8 Ordner erstellt: 01_Verwaltung bis 08_Transkripte' }] } },
+      { id: 'is07', label: 'Drive: Templates', description: 'Tracking Dashboard + Onboarding Brief dupliziert', icon: 'logo-google-docs', type: 'output', x: 1400, y: 18, demoConfig: { delay: 8000, artifacts: [{ type: 'text', label: 'Drive: Templates dupliziert', url: '#', contentPreview: 'Templates dupliziert: Tracking Dashboard + Onboarding Brief' }] } },
+      { id: 'is08', label: 'ClickUp: Projekt', description: 'Novacode Recruiting Projekt anlegen', icon: 'logo-clickup', type: 'process', x: 1060, y: 378, demoConfig: { delay: 10000, artifacts: [{ type: 'text', label: 'ClickUp: Projekt erstellt', url: '#', contentPreview: 'ClickUp: Projekt Novacode Recruiting in Client Projects erstellt' }] } },
+      { id: 'is09', label: 'ClickUp: Tasks', description: 'Zugang prüfen + Kickoff vorbereiten + Checklisten', icon: 'logo-clickup', type: 'process', x: 1400, y: 378, demoConfig: { delay: 12000, artifacts: [{ type: 'text', label: 'ClickUp: Tasks erstellt', url: '#', contentPreview: 'ClickUp: Tasks mit Checklisten erstellt (Zugänge + Kickoff)' }] } },
+      { id: 'is10', label: 'Close: Kickoff geplant', description: 'Phase → Kickoff geplant, Status → Warte auf Kickoff', icon: 'logo-close', type: 'process', x: 1740, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Kickoff geplant, Automations-Status → Warte auf Kickoff' }] } },
     ],
     connections: [
       { from: 'is01', to: 'is02' },
-      { from: 'is02', to: 'is03' }, { from: 'is02', to: 'is05' },
-      { from: 'is02', to: 'is06' },
+      { from: 'is02', to: 'is03' },
+      // is03 erstellt das Projekt-Übersicht-Sheet und muss VOR is05/is06/is08 fertig sein,
+      // damit deren _append_sheet_row Calls die spreadsheet_id im Context haben.
+      { from: 'is03', to: 'is05' },
+      { from: 'is03', to: 'is06' },
+      { from: 'is03', to: 'is08' },
       { from: 'is06', to: 'is04' },  // Email NACH Ordner-Erstellung (upload_link braucht folder_root_id)
-      { from: 'is02', to: 'is08' },
       { from: 'is06', to: 'is07' },
       { from: 'is06', to: 'is09' },  // folder_root_id muss vor Task-Erstellung da sein
       { from: 'is08', to: 'is09' },
-      { from: 'is08', to: 'is11' },  // Miro Board nach ClickUp Projekt
-      { from: 'is07', to: 'is10' }, { from: 'is09', to: 'is10' }, { from: 'is11', to: 'is10' },
+      { from: 'is07', to: 'is10' }, { from: 'is09', to: 'is10' },
     ],
     groups: [
       { id: 'gis1', label: 'Eingang', x: 15, y: 138, width: 720, height: 148, color: 'blue' },
       { id: 'gis2', label: 'Kommunikation', x: 735, y: 0, width: 260, height: 450, color: 'blue' },
-      { id: 'gis3', label: 'Dateien & Projekt', x: 1035, y: 0, width: 720, height: 630, color: 'purple' },
+      { id: 'gis3', label: 'Dateien & Projekt', x: 1035, y: 0, width: 720, height: 450, color: 'purple' },
       { id: 'gis4', label: 'Abschluss', x: 1755, y: 138, width: 330, height: 148, color: 'green' },
     ],
     outputs: [],
@@ -100,7 +113,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     isDemo: true,
     parentId: 'demo-novacode',
     subSystemOrder: 1,
-    name: 'Kickoff & Transkript',
+    name: 'LIVE: 2) Kickoff',
     description: 'Kickoff Call durchführen, aufzeichnen, KI-Transkription erstellen und als strategischen Input speichern.',
     category: 'Recruiting',
     icon: 'video',
@@ -109,10 +122,10 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     nodes: [
       { id: 'kc01', label: 'Kickoff starten', description: 'Onboarding-Call mit Client starten', icon: 'video', type: 'trigger', x: 40, y: 198, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Kickoff gestartet', url: '#', contentPreview: 'Kickoff-Call mit Novacode GmbH gestartet' }] } },
       { id: 'kc02', label: 'Call aufzeichnen', description: 'Aufzeichnung + Notizen erstellen', icon: 'video', type: 'process', x: 380, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'text', label: 'Call-Aufzeichnung', url: '#', contentPreview: 'Call aufgezeichnet: 47 Min, Themen: Kandidatenprofil, Recruiting-Probleme, USPs, Brand & Design' }] } },
-      { id: 'kc03', label: 'KI-Transkription', description: 'Transkribieren, strukturieren, Themen identifizieren', icon: 'logo-openai', type: 'ai', x: 720, y: 198, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'KI-Transkription', url: 'https://docs.google.com/document/d/1ZO6yLLW18GLjJd1xuCc8jytaGwPi0jedoSkUR8LO-eM/edit', contentPreview: 'KI-Transkription: 8.432 Wörter, 23 Schlüsselthemen' }] } },
-      { id: 'kc04', label: 'Transkript speichern', description: 'In 08_Transkripte ablegen', icon: 'logo-google-docs', type: 'output', x: 1060, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Transkript gespeichert', url: 'https://docs.google.com/document/d/1ZO6yLLW18GLjJd1xuCc8jytaGwPi0jedoSkUR8LO-eM/edit', contentPreview: 'Transkript in 08_Transkripte gespeichert' }] } },
-      { id: 'kc05', label: 'Close: Kickoff abgeschlossen', description: 'Phase → Kickoff abgeschlossen, Status → Strategie in Arbeit', icon: 'logo-close', type: 'process', x: 1060, y: 298, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Kickoff abgeschlossen, Automations-Status → Strategie in Arbeit' }] } },
-      { id: 'kc06', label: 'Slack: Kickoff erledigt', description: 'Ops-Einzeiler: Kickoff abgeschlossen', icon: 'logo-slack', type: 'output', x: 1400, y: 198, demoConfig: { delay: 4000, artifacts: [{ type: 'url', label: 'Slack: Kickoff erledigt', url: 'https://app.slack.com/', contentPreview: 'Ops-Einzeiler: Kickoff wurde abgeschlossen' }] } },
+      { id: 'kc03', label: 'KI-Transkription', description: 'Transkribieren, strukturieren, Themen identifizieren', icon: 'logo-openai', type: 'ai', x: 720, y: 198, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'Kickoff-Protokoll Novacode', url: '#', contentPreview: 'Kickoff-Protokoll: Transkript, Zusammenfassung, Entscheidungen und Next Steps' }] } },
+      { id: 'kc04', label: 'Transkript speichern', description: 'In 08_Transkripte ablegen', icon: 'logo-google-docs', type: 'output', x: 1060, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Kickoff-Protokoll abgelegt', url: '#', contentPreview: 'Kickoff-Protokoll im Drive-Ordner 08_Transkripte abgelegt' }] } },
+      { id: 'kc05', label: 'Close: Kickoff abgeschlossen', description: 'Phase → Kickoff abgeschlossen, Status → Strategie in Arbeit', icon: 'logo-close', type: 'process', x: 1060, y: 298, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Kickoff abgeschlossen, Automations-Status → Strategie in Arbeit' }] } },
+      { id: 'kc06', label: 'Slack: Kickoff erledigt', description: 'Ops-Einzeiler: Kickoff abgeschlossen', icon: 'logo-slack', type: 'output', x: 1400, y: 198, demoConfig: { delay: 4000, artifacts: [{ type: 'text', label: 'Slack: Kickoff erledigt', url: '#', contentPreview: 'Ops-Einzeiler: Kickoff wurde abgeschlossen' }] } },
     ],
     connections: [
       { from: 'kc01', to: 'kc02' },
@@ -137,7 +150,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     isDemo: true,
     parentId: 'demo-novacode',
     subSystemOrder: 2,
-    name: 'Strategie & Markenentwicklung',
+    name: 'LIVE: 3) Strategie',
     description: 'KI-Analyse des Transkripts, strategische Dokumente erstellen: Zielgruppe, Arbeitgeber-Avatar, Messaging, Creative Brief, Brand Guidelines.',
     category: 'Recruiting',
     icon: 'sparkles',
@@ -145,15 +158,15 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     webhookUrl: '',
     nodes: [
       { id: 'st01', label: 'Transkript-Analyse', description: 'Schlüsselthemen, Sentiment, Kernaussagen', icon: 'logo-openai', type: 'ai', x: 40, y: 238, demoConfig: { delay: 18000, artifacts: [{ type: 'text', label: 'Transkript-Analyse', url: '#', contentPreview: 'Transkript-Analyse: Schlüsselthemen, Sentiment, Kernaussagen identifiziert' }] } },
-      { id: 'st02', label: 'Daten extrahieren', description: 'Pain Points, Benefits, Sprachmuster', icon: 'logo-claude', type: 'ai', x: 380, y: 238, demoConfig: { delay: 22000, artifacts: [{ type: 'url', label: 'Pain-Point-Matrix', url: 'https://docs.google.com/document/d/1RfNMSovKZx43uHrKDNa8G6iBCi_ouRTfShVuoLcuUac/edit', contentPreview: '8 Pain Points, 12 Benefits, 5 Sprachmuster extrahiert' }] } },
-      { id: 'st03', label: 'Zielgruppen-Avatar', description: 'Detailliertes Kandidatenprofil', icon: 'logo-google-docs', type: 'output', x: 720, y: 58, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Kandidatenprofil – Novacode', url: 'https://docs.google.com/document/d/1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY/edit', contentPreview: 'Detailliertes Kandidatenprofil erstellt: Senior Developer, 28-40 Jahre, sucht Remote & moderne Stacks' }] } },
-      { id: 'st04', label: 'Arbeitgeber-Avatar', description: 'Arbeitgeber-Positionierung', icon: 'logo-google-docs', type: 'output', x: 720, y: 198, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Arbeitgeber-Strategie – Novacode', url: 'https://docs.google.com/document/d/1de1XU5ykeIw36kKSiorQqzPAGkHfsceflnTCBpVY26Q/edit', contentPreview: 'Arbeitgeber-Positionierung: Remote-First, moderner Stack, flache Hierarchien' }] } },
-      { id: 'st05', label: 'Messaging-Matrix', description: 'Kern-Botschaften und Positionierung', icon: 'logo-google-docs', type: 'output', x: 720, y: 338, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'Messaging Matrix – Novacode', url: 'https://docs.google.com/document/d/1HLMrDn_p1aqL7nnfB09e0mPakj-m0BSIhQwTdkoX03E/edit', contentPreview: 'Messaging-Framework: Hauptbotschaft, USPs, Tonalität definiert' }] } },
-      { id: 'st06', label: 'Creative Briefing', description: 'Formatvorgaben, Bildsprache, Mood', icon: 'logo-google-docs', type: 'output', x: 1060, y: 58, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Creative Briefing – Novacode', url: 'https://docs.google.com/document/d/1sxB6R6l4DUn10hYEhY5xCEkNxZ4dvE9EUFvgT0hmCz8/edit', contentPreview: 'Formatvorgaben, Bildsprache, Farbschema, Mood-Board-Referenzen' }] } },
-      { id: 'st07', label: 'Marken-Richtlinien', description: 'Logo, Farben, Fonts, Dos & Don\'ts', icon: 'logo-google-docs', type: 'output', x: 1060, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Arbeitgeber-Narrativ – Novacode', url: 'https://docs.google.com/document/d/1Xp0y_liDQ43AMdH3cjEwxdo9ZSZOP1AlVr8r-pn2Cps/edit', contentPreview: 'Kern-Narrativ: Bei Novacode baust du nicht nur Software — du gestaltest die Zukunft mit.' }] } },
+      { id: 'st02', label: 'Daten extrahieren', description: 'Pains, Trigger, Sprachmuster', icon: 'logo-claude', type: 'ai', x: 380, y: 238, demoConfig: { delay: 22000, artifacts: [{ type: 'url', label: 'Strategie und Zielgruppe Novacode', url: '#', contentPreview: 'Pains, Jobwechsel-Trigger und Sprachmuster extrahiert und in der Strategie-Doc verdichtet' }] } },
+      { id: 'st03', label: 'Kandidaten-Persona', description: 'Tobias, 34 als Referenz-Persona', icon: 'logo-google-docs', type: 'output', x: 720, y: 58, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Kandidaten-Persona Tobias', url: '#', contentPreview: 'Persona Tobias, 34, Senior Backend Engineer: Legacy-Flucht, Office-Frust, Autonomie-Verlust' }] } },
+      { id: 'st04', label: 'Arbeitgeber-Profil', description: 'USPs und Wettbewerbs-Abgrenzung', icon: 'logo-google-docs', type: 'output', x: 720, y: 198, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Arbeitgeber-Profil Novacode', url: '#', contentPreview: 'Sechs USPs: Remote-First, moderner Stack, flache Hierarchien, transparentes Gehalt, 32 Urlaubstage, 3.000 Euro Lernbudget' }] } },
+      { id: 'st05', label: 'Messaging-Matrix', description: 'Kern-Botschaft und 5 Angles', icon: 'logo-google-docs', type: 'output', x: 720, y: 338, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'Messaging und Positionierung', url: '#', contentPreview: 'Kern-Botschaft plus 5 Angles: Legacy-Flucht, Office-Freiheit, Technische Autonomie, Scale-Anreiz, Transparenz' }] } },
+      { id: 'st06', label: 'Creative Briefing', description: 'Brand-Basics, Mood, Format-Specs', icon: 'logo-google-docs', type: 'output', x: 1060, y: 58, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Creative Briefing Novacode', url: '#', contentPreview: 'Anthrazit plus Mint, Inter und JetBrains Mono, Vercel und Linear als Referenz, keine Stockfotos' }] } },
+      { id: 'st07', label: 'Tonalität und Dos', description: 'Sprach-Regeln und No-Gos', icon: 'logo-google-docs', type: 'output', x: 1060, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Tonalität und Dos und Donts', url: '#', contentPreview: 'Direkt, tech-savvy, knapp, Du-Ansprache, keine Buzzwords, keine Ausrufezeichen, keine Emojis' }] } },
       { id: 'st08', label: 'Zusammenführen', description: 'Alle Dokumente als Single Source of Truth', icon: 'git-merge', type: 'process', x: 1400, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'text', label: 'Single Source of Truth', url: '#', contentPreview: 'Alle Dokumente als Single Source of Truth zusammengeführt' }] } },
       { id: 'st09', label: 'Strategie- & Marken-Review', description: 'Claudio: Strategie prüfen & freigeben', icon: 'shield-check', type: 'approval', x: 1740, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'text', label: 'Strategie- & Marken-Review', url: '#', contentPreview: 'Strategie- & Marken-Review: Freigabe erteilt' }] } },
-      { id: 'st10', label: 'Close: Strategie erstellt', description: 'Phase → Strategie erstellt', icon: 'logo-close', type: 'process', x: 2080, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Strategie erstellt' }] } },
+      { id: 'st10', label: 'Close: Strategie erstellt', description: 'Phase → Strategie erstellt', icon: 'logo-close', type: 'process', x: 2080, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Strategie erstellt' }] } },
     ],
     connections: [
       { from: 'st01', to: 'st02' },
@@ -186,11 +199,11 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     status: 'active',
     webhookUrl: '',
     nodes: [
-      { id: 'cc01', label: 'KI: Landingpage-Texte', description: 'LP, Formular, Danke-Seite Texte', icon: 'logo-claude', type: 'ai', x: 40, y: 118, demoConfig: { delay: 25000, artifacts: [{ type: 'url', label: 'Landingpage-Texte – Novacode', url: 'https://docs.google.com/document/d/1CEZAzrioyaqn7PMfc0ARadG1Jw5ic-uXTV4tE1aX2PU/edit', contentPreview: 'Hero, Benefits, Team, Testimonials, CTA-Texte generiert' }, { type: 'url', label: 'Formularseite-Texte – Novacode', url: 'https://docs.google.com/document/d/1Qe0zXGHVcABIEMTZUn4tMttloGfa14bpCtKU3L95-Qw/edit', contentPreview: 'Formular-Labels, Validierungstexte, Datenschutz-Hinweis' }, { type: 'url', label: 'Dankeseite-Texte – Novacode', url: 'https://docs.google.com/document/d/13M6owsnBTr6OAElN0LvhF5Oz_Ky4l0OdvhSb2dhfQ7g/edit', contentPreview: 'Bestätigungstext, nächste Schritte, Social Proof' }] } },
-      { id: 'cc02', label: 'KI: Anzeigentexte', description: 'Haupttext, Überschriften, Beschreibungen', icon: 'logo-claude', type: 'ai', x: 40, y: 298, demoConfig: { delay: 18000, artifacts: [{ type: 'url', label: 'Anzeigen-Texte – Novacode', url: 'https://docs.google.com/document/d/1lf2U2ZI47-Oz8eTW8OKziGwN_Z_SAssS8DiJAiiJ5SQ/edit', contentPreview: 'Haupttexte, Überschriften, Beschreibungen generiert' }, { type: 'url', label: 'Anzeigentexte Warmup – Novacode', url: 'https://docs.google.com/document/d/1UhYIjW_acVN34w3mmmj1X9v20NWXVH93YRM2LCaxjuE/edit', contentPreview: 'Warmup-Anzeigentexte: Awareness-Angle, Video Views' }, { type: 'url', label: 'Videoskript – Novacode', url: 'https://docs.google.com/document/d/171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs/edit', contentPreview: 'Recruiting-Video 60s: Hook → Problem → Lösung → CTA' }] } },
-      { id: 'cc03', label: 'Variationen', description: '3 Winkel, verschiedene Hooks', icon: 'logo-google-docs', type: 'output', x: 380, y: 298, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Anzeigen-Variationen – Novacode', url: 'https://docs.google.com/document/d/1ITRWWBL9tY-2AUi4CIB6wbPqbk6CGcv5UB6ePtH87j0/edit', contentPreview: 'Retargeting + Warmup Variationen: 3 Winkel, verschiedene Hooks' }] } },
+      { id: 'cc01', label: 'KI: Landingpage-Texte', description: 'LP, Formular, Dankeseite', icon: 'logo-claude', type: 'ai', x: 40, y: 118, demoConfig: { delay: 25000, artifacts: [{ type: 'url', label: 'Landingpage-Copy Novacode', url: '#', contentPreview: 'Hero, Benefits, Team-Zitate und CTA-Texte aus dem Ads-Copy-Doc übernommen' }, { type: 'url', label: 'Formular-Copy Novacode', url: '#', contentPreview: 'Bewerbungsformular: Felder, Validierungstexte, Datenschutz-Hinweis' }, { type: 'url', label: 'Dankeseite-Copy Novacode', url: '#', contentPreview: 'Bestätigung, nächste Schritte, Social Proof mit Team-Zitaten' }] } },
+      { id: 'cc02', label: 'KI: Anzeigentexte', description: 'Kalt, Retargeting, Warmup', icon: 'logo-claude', type: 'ai', x: 40, y: 298, demoConfig: { delay: 18000, artifacts: [{ type: 'url', label: 'Kalt-Kampagne 15 Ads', url: '#', contentPreview: '15 Kalt-Ads, je drei pro Angle, mit Headline, Primary Text, Description und CTA' }, { type: 'url', label: 'Retargeting plus Warmup', url: '#', contentPreview: '5 Retargeting-Ads mit Team-Zitaten plus 5 Warmup-Video-Konzepte' }, { type: 'url', label: 'Videoskripte 15 30 60 Sek', url: '#', contentPreview: '9 Videoskripte szenenweise mit Timecode, Voice-Over, On-Screen-Text, CTA' }] } },
+      { id: 'cc03', label: 'A/B-Test-Matrix', description: '15 Tests auf Creative-, Audience- und Copy-Ebene', icon: 'logo-google-docs', type: 'output', x: 380, y: 298, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'A/B-Test-Matrix Novacode', url: '#', contentPreview: '15 Tests: Hook, Visual, CTA, Audience, Lookalikes, Angle, Länge, Form-Länge' }] } },
       { id: 'cc04', label: 'Text-Review', description: 'Claudio: Texte prüfen & freigeben', icon: 'shield-check', type: 'approval', x: 720, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'text', label: 'Text-Review', url: '#', contentPreview: 'Text-Review: Freigabe erteilt' }] } },
-      { id: 'cc05', label: 'Close: Assets erstellt', description: 'Phase → Assets erstellt', icon: 'logo-close', type: 'process', x: 1060, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Assets erstellt' }] } },
+      { id: 'cc05', label: 'Close: Assets erstellt', description: 'Phase → Assets erstellt', icon: 'logo-close', type: 'process', x: 1060, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Assets erstellt' }] } },
     ],
     connections: [
       { from: 'cc01', to: 'cc04' },
@@ -225,10 +238,10 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
       { id: 'fn03', label: 'Bilder vorbereiten', description: 'Logo, Teamfotos, OG-Image', icon: 'image', type: 'process', x: 380, y: 358, demoConfig: { delay: 10000, artifacts: [{ type: 'text', label: 'Bilder vorbereitet', url: '#', contentPreview: 'Logo optimiert, Teamfotos zugeschnitten, OG-Image generiert' }] } },
       { id: 'fn04', label: 'Design anpassen', description: 'Brand Colors, Fonts, Layout', icon: 'palette', type: 'process', x: 720, y: 198, demoConfig: { delay: 15000, artifacts: [{ type: 'text', label: 'Design angepasst', url: '#', contentPreview: 'Brand Colors, Fonts und Layout an Novacode CI angepasst' }] } },
       { id: 'fn05', label: 'Website bauen', description: '5 Seiten zusammenfügen & deployen', icon: 'globe', type: 'process', x: 1060, y: 198, demoConfig: { delay: 45000, artifacts: [{ type: 'text', label: 'Website gebaut & deployed', url: '#', contentPreview: 'Alle Seiten zusammengefügt und auf Vercel deployed' }] } },
-      { id: 'fn06', label: 'Landingpage', description: 'Hauptseite live', icon: 'globe', type: 'output', x: 1400, y: 18, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Landingpage – Novacode', url: 'https://demo-recruiting.vercel.app/demo-landing/', contentPreview: 'Landingpage live auf Vercel' }] } },
-      { id: 'fn07', label: 'Bewerbungsseite', description: 'Bewerbungsformular', icon: 'globe', type: 'output', x: 1400, y: 158, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Bewerbungsformular – Novacode', url: 'https://demo-recruiting.vercel.app/demo-formular', contentPreview: 'Bewerbungsformular live auf Vercel' }] } },
-      { id: 'fn08', label: 'Dankeseite', description: 'Bestätigungsseite', icon: 'globe', type: 'output', x: 1400, y: 298, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Dankeseite – Novacode', url: 'https://demo-recruiting.vercel.app/demo-danke', contentPreview: 'Bestätigungsseite live auf Vercel' }] } },
-      { id: 'fn09', label: 'Datenschutz & Impressum', description: 'Datenschutz & Impressum', icon: 'shield', type: 'output', x: 1400, y: 438, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Datenschutz & Impressum', url: '#', contentPreview: 'Datenschutz & Impressum live' }] } },
+      { id: 'fn06', label: 'Landingpage', description: 'Hauptseite live', icon: 'globe', type: 'output', x: 1400, y: 18, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Landingpage Novacode', url: 'https://www.flowstack-agentur.de/demo', contentPreview: 'Landingpage live: Hero, Benefits, Team, CTA — Senior Engineer (m/w/d), Berlin oder voll remote in der EU' }] } },
+      { id: 'fn07', label: 'Bewerbungsseite', description: 'Bewerbungsformular', icon: 'globe', type: 'output', x: 1400, y: 158, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Bewerbungsformular Novacode', url: 'https://www.flowstack-agentur.de/demo-bewerbung', contentPreview: 'Bewerbungsformular live: Vier Fragen plus Code-Link, Antwort innerhalb von 48 Stunden' }] } },
+      { id: 'fn08', label: 'Dankeseite', description: 'Bestätigungsseite', icon: 'globe', type: 'output', x: 1400, y: 298, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Dankeseite Novacode', url: 'https://www.flowstack-agentur.de/demo-danke', contentPreview: 'Bestätigungsseite live: Bewerbung erhalten, nächste Schritte, Antwort in 48 Stunden' }] } },
+      { id: 'fn09', label: 'Datenschutz & Impressum', description: 'Datenschutz & Impressum', icon: 'shield', type: 'output', x: 1400, y: 438, demoConfig: { delay: 3000, artifacts: [{ type: 'url', label: 'Datenschutz', url: 'https://www.flowstack-agentur.de/demo-datenschutz', contentPreview: 'Datenschutzerklärung live' }, { type: 'url', label: 'Impressum', url: 'https://www.flowstack-agentur.de/demo-impressum', contentPreview: 'Impressum live' }] } },
       { id: 'fn10', label: 'Pixel- & Event-Setup', description: 'Meta Pixel + ViewContent, AddToCart, Lead', icon: 'target', type: 'process', x: 1740, y: 118, demoConfig: { delay: 10000, artifacts: [{ type: 'text', label: 'Meta Pixel installiert', url: '#', contentPreview: 'Meta Pixel installiert, Events: ViewContent, AddToCart, Lead konfiguriert' }] } },
       { id: 'fn11', label: 'Funnel- & Pixel-Review', description: 'Anak: Alle Seiten + Tracking prüfen', icon: 'shield-check', type: 'approval', x: 1740, y: 298, demoConfig: { delay: 8000, artifacts: [{ type: 'text', label: 'Funnel- & Pixel-Review', url: '#', contentPreview: 'Funnel- & Pixel-Review: Freigabe erteilt' }] } },
     ],
@@ -267,15 +280,15 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     status: 'active',
     webhookUrl: '',
     nodes: [
-      { id: 'ca01', label: 'Alle Besucher', description: 'Custom Audience: Website-Besucher (30 Tage)', icon: 'logo-meta', type: 'process', x: 40, y: 18, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/audiences?act=1282595205992969', contentPreview: 'Custom Audience: AllVisitors_30d erstellt' }] } },
-      { id: 'ca02', label: 'LP ohne Bewerbung', description: 'Custom Audience: LP-Besucher ohne Bewerbung (7d)', icon: 'logo-meta', type: 'process', x: 40, y: 178, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/audiences?act=1282595205992969', contentPreview: 'Custom Audience: LP_Visitors_NoApplication_7d erstellt' }] } },
-      { id: 'ca03', label: 'Formular ohne Lead', description: 'Custom Audience: Formular ohne Abschluss (7d)', icon: 'logo-meta', type: 'process', x: 40, y: 338, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/audiences?act=1282595205992969', contentPreview: 'Custom Audience: Application_Visitors_NoLead_7d erstellt' }] } },
-      { id: 'ca04', label: 'Initial-Kampagne', description: 'Neue Zielgruppen ansprechen — Objective: Leads', icon: 'logo-meta', type: 'process', x: 380, y: 18, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Initial-Kampagne erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: 'Kampagne Initial_Novacode GmbH_Recruiting_Leads erstellt, Objective: Leads' }] } },
-      { id: 'ca05', label: 'Initial Ad Sets', description: 'Broad + Interest Targeting, je 30\u20AC/Tag', icon: 'logo-meta', type: 'process', x: 720, y: 18, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Initial Ad Sets erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: '3 Anzeigengruppen: DE_Broad, DE_Interest_Recruiting, DE_Interest_Management (je 30\u20AC/Tag)' }] } },
-      { id: 'ca06', label: 'Retargeting-Kampagne', description: 'Besucher erneut ansprechen — Objective: Leads', icon: 'logo-meta', type: 'process', x: 380, y: 178, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Retargeting-Kampagne erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: 'Kampagne Retargeting_Novacode GmbH_Recruiting_Leads erstellt' }] } },
-      { id: 'ca07', label: 'Retargeting Ad Sets', description: 'Alle Besucher + LP + Formular ohne Lead', icon: 'logo-meta', type: 'process', x: 720, y: 178, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Retargeting Ad Sets erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: '3 Retargeting-Anzeigengruppen: DE_RT_AllVisitors_30d, DE_RT_LP_NoApplication_7d, DE_RT_Application_NoLead_7d' }] } },
-      { id: 'ca08', label: 'Warmup-Kampagne', description: 'Video Views für Markenbekanntheit', icon: 'logo-meta', type: 'process', x: 380, y: 338, demoConfig: { delay: 7000, artifacts: [{ type: 'url', label: 'Warmup-Kampagne erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: 'Kampagne Warmup_Novacode GmbH_Recruiting_Views erstellt, Objective: Video Views' }] } },
-      { id: 'ca09', label: 'Warmup Ad Sets', description: 'Video Views in Feeds, Stories & Reels', icon: 'logo-meta', type: 'process', x: 720, y: 338, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'Warmup Ad Sets erstellt', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969', contentPreview: 'Warmup-Anzeigengruppen: DE_Warmup_Views_30d' }] } },
+      { id: 'ca01', label: 'Alle Besucher', description: 'Custom Audience: Website-Besucher (30 Tage)', icon: 'logo-meta', type: 'process', x: 40, y: 18, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: '#', contentPreview: 'Custom Audience: AllVisitors_30d erstellt' }] } },
+      { id: 'ca02', label: 'LP ohne Bewerbung', description: 'Custom Audience: LP-Besucher ohne Bewerbung (7d)', icon: 'logo-meta', type: 'process', x: 40, y: 178, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: '#', contentPreview: 'Custom Audience: LP_Visitors_NoApplication_7d erstellt' }] } },
+      { id: 'ca03', label: 'Formular ohne Lead', description: 'Custom Audience: Formular ohne Abschluss (7d)', icon: 'logo-meta', type: 'process', x: 40, y: 338, demoConfig: { delay: 6000, artifacts: [{ type: 'url', label: 'Custom Audience erstellt', url: '#', contentPreview: 'Custom Audience: Application_Visitors_NoLead_7d erstellt' }] } },
+      { id: 'ca04', label: 'Initial-Kampagne', description: 'Neue Zielgruppen ansprechen - Objective: Leads', icon: 'logo-meta', type: 'process', x: 380, y: 18, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Initial-Kampagne erstellt', url: '#', contentPreview: 'Kampagne Initial_Novacode GmbH_Recruiting_Leads erstellt, Objective: Leads' }] } },
+      { id: 'ca05', label: 'Initial Ad Sets', description: 'Broad + Interest Targeting, je 30\u20AC/Tag', icon: 'logo-meta', type: 'process', x: 720, y: 18, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Initial Ad Sets erstellt', url: '#', contentPreview: '3 Anzeigengruppen: DE_Broad, DE_Interest_Recruiting, DE_Interest_Management (je 30\u20AC/Tag)' }] } },
+      { id: 'ca06', label: 'Retargeting-Kampagne', description: 'Besucher erneut ansprechen - Objective: Leads', icon: 'logo-meta', type: 'process', x: 380, y: 178, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Retargeting-Kampagne erstellt', url: '#', contentPreview: 'Kampagne Retargeting_Novacode GmbH_Recruiting_Leads erstellt' }] } },
+      { id: 'ca07', label: 'Retargeting Ad Sets', description: 'Alle Besucher + LP + Formular ohne Lead', icon: 'logo-meta', type: 'process', x: 720, y: 178, demoConfig: { delay: 12000, artifacts: [{ type: 'url', label: 'Retargeting Ad Sets erstellt', url: '#', contentPreview: '3 Retargeting-Anzeigengruppen: DE_RT_AllVisitors_30d, DE_RT_LP_NoApplication_7d, DE_RT_Application_NoLead_7d' }] } },
+      { id: 'ca08', label: 'Warmup-Kampagne', description: 'Video Views für Markenbekanntheit', icon: 'logo-meta', type: 'process', x: 380, y: 338, demoConfig: { delay: 7000, artifacts: [{ type: 'url', label: 'Warmup-Kampagne erstellt', url: '#', contentPreview: 'Kampagne Warmup_Novacode GmbH_Recruiting_Views erstellt, Objective: Video Views' }] } },
+      { id: 'ca09', label: 'Warmup Ad Sets', description: 'Video Views in Feeds, Stories & Reels', icon: 'logo-meta', type: 'process', x: 720, y: 338, demoConfig: { delay: 10000, artifacts: [{ type: 'url', label: 'Warmup Ad Sets erstellt', url: '#', contentPreview: 'Warmup-Anzeigengruppen: DE_Warmup_Views_30d' }] } },
       { id: 'ca10', label: 'Zielgruppen & Pixel QA', description: 'Claudio: Zielgruppen verifizieren', icon: 'shield-check', type: 'approval', x: 1060, y: 118, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Zielgruppen & Pixel QA', url: 'https://adsmanager.facebook.com/adsmanager/manage/audiences?act=1282595205992969', contentPreview: 'Zielgruppen & Pixel QA: Alle Zielgruppen verifiziert' }] } },
       { id: 'ca11', label: 'Kampagnen-Review', description: 'Claudio: Alle Kampagnen prüfen', icon: 'shield-check', type: 'approval', x: 1060, y: 278, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Kampagnen-Review', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969&business_id=191333547045260&global_scope_id=191333547045260', contentPreview: 'Kampagnen-Review: Alle 3 Kampagnen geprüft und freigegeben' }] } },
     ],
@@ -316,14 +329,13 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
       { id: 'rl03', label: 'Funnel-Review ✓', description: 'Bestätigt', icon: 'check-circle', type: 'process', x: 40, y: 258, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Funnel-Review bestätigt', url: '#', contentPreview: 'Funnel-Review: Bestätigt' }] } },
       { id: 'rl04', label: 'Zielgruppen-QA ✓', description: 'Bestätigt', icon: 'check-circle', type: 'process', x: 40, y: 378, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Zielgruppen-QA bestätigt', url: '#', contentPreview: 'Zielgruppen-QA: Bestätigt' }] } },
       { id: 'rl05', label: 'Kampagnen-Review ✓', description: 'Bestätigt', icon: 'check-circle', type: 'process', x: 40, y: 498, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'Kampagnen-Review bestätigt', url: '#', contentPreview: 'Kampagnen-Review: Bestätigt' }] } },
-      { id: 'rl06', label: 'Slack: Assets bereit', description: 'Ops-Einzeiler: Asset-Paket ist bereit', icon: 'logo-slack', type: 'output', x: 380, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Slack: Assets bereit', url: 'https://app.slack.com/', contentPreview: 'Ops-Einzeiler: Asset-Paket ist bereit' }] } },
-      { id: 'rl07', label: 'Close: Warte auf Freigabe', description: 'Phase → Warte auf Freigabe', icon: 'logo-close', type: 'process', x: 380, y: 298, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Warte auf Freigabe' }] } },
+      { id: 'rl06', label: 'Slack: Assets bereit', description: 'Ops-Einzeiler: Asset-Paket ist bereit', icon: 'logo-slack', type: 'output', x: 380, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'text', label: 'Slack: Assets bereit', url: '#', contentPreview: 'Ops-Einzeiler: Asset-Paket ist bereit' }] } },
+      { id: 'rl07', label: 'Close: Warte auf Freigabe', description: 'Phase → Warte auf Freigabe', icon: 'logo-close', type: 'process', x: 380, y: 298, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Warte auf Freigabe' }] } },
       { id: 'rl08', label: 'Finale Freigabe', description: 'Internes Go', icon: 'shield-check', type: 'approval', x: 720, y: 198, demoConfig: { delay: 10000, artifacts: [{ type: 'text', label: 'Finale Freigabe', url: '#', contentPreview: 'Finale Freigabe: Internes Go erteilt' }] } },
-      { id: 'rl09', label: 'Close: Bereit für Launch', description: 'Phase → Bereit für Launch', icon: 'logo-close', type: 'process', x: 1060, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Bereit für Launch' }] } },
+      { id: 'rl09', label: 'Close: Bereit für Launch', description: 'Phase → Bereit für Launch', icon: 'logo-close', type: 'process', x: 1060, y: 198, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Status aktualisiert', url: '#', contentPreview: 'Close CRM: Phase → Bereit für Launch' }] } },
       { id: 'rl10', label: 'Kampagnen aktivieren', description: 'Status → Aktiv in Meta', icon: 'logo-meta', type: 'process', x: 1400, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Meta Ads: Kampagnen aktiv', url: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1282595205992969&business_id=191333547045260&global_scope_id=191333547045260', contentPreview: 'Kampagnen-Status → Aktiv' }] } },
-      { id: 'rl11', label: 'Close: Live', description: 'Phase → Live', icon: 'logo-close', type: 'process', x: 1740, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Live', url: 'https://app.close.com/pipeline/pipe_2TVzpzEm61EWx44ChCXZtx/', contentPreview: 'Close CRM: Phase → Live, Automations-Status → Live' }] } },
-      { id: 'rl12', label: 'Slack: Wir sind live', description: 'Finale Nachricht mit Link zur Projekt-Übersicht', icon: 'logo-slack', type: 'output', x: 1740, y: 298, demoConfig: { delay: 4000, artifacts: [{ type: 'url', label: 'Slack: Live-Benachrichtigung', url: 'https://app.slack.com/', contentPreview: 'Finale Slack-Nachricht mit Link zur Projekt-Übersicht' }] } },
-      { id: 'rl13', label: 'Airtable: Performance-Sync', description: 'Meta Ads Performance → Airtable Dashboard (taeglicher Sync)', icon: 'logo-airtable', type: 'process', x: 2080, y: 198, demoConfig: { delay: 8000, artifacts: [{ type: 'url', label: 'Airtable: Performance-Dashboard', url: '#', contentPreview: 'Meta Ads Performance synchronisiert: Impressions, Clicks, CTR, CPL, Spend → Airtable Dashboard fuer Kunde' }] } },
+      { id: 'rl11', label: 'Close: Live', description: 'Phase → Live', icon: 'logo-close', type: 'process', x: 1740, y: 118, demoConfig: { delay: 5000, artifacts: [{ type: 'url', label: 'Close CRM: Live', url: '#', contentPreview: 'Close CRM: Phase → Live, Automations-Status → Live' }] } },
+      { id: 'rl12', label: 'Slack: Wir sind live', description: 'Finale Nachricht mit Link zur Projekt-Übersicht', icon: 'logo-slack', type: 'output', x: 1740, y: 298, demoConfig: { delay: 4000, artifacts: [{ type: 'text', label: 'Slack: Live-Benachrichtigung', url: '#', contentPreview: 'Finale Slack-Nachricht mit Link zur Projekt-Übersicht' }] } },
     ],
     connections: [
       { from: 'rl01', to: 'rl06' }, { from: 'rl02', to: 'rl06' }, { from: 'rl03', to: 'rl06' },
@@ -333,8 +345,6 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
       { from: 'rl09', to: 'rl10' },
       { from: 'rl10', to: 'rl11' },
       { from: 'rl10', to: 'rl12' },
-      { from: 'rl11', to: 'rl13' },
-      { from: 'rl12', to: 'rl13' },
     ],
     groups: [
       { id: 'grl1', label: 'Review-Status', x: 15, y: 0, width: 380, height: 568, color: 'orange' },
@@ -346,7 +356,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
   },
 
   // ══════════════════════════════════════════════════════════════════════════
-  // V2 — AI-generierte Recruiting Automation (echte Claude/GPT Calls)
+  // V2 - AI-generierte Recruiting Automation (echte Claude/GPT Calls)
   // ══════════════════════════════════════════════════════════════════════════
 
   // ── V2 Master System ──────────────────────────────────────────────────────
@@ -354,25 +364,21 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     id: 'demo-novacode-v2',
     user_id: 'local-user',
     isDemo: true,
-    name: 'V2: AI Recruiting Automation',
-    description: 'Echte KI-generierte Dokumente via OpenRouter (Claude/GPT-4o). Jedes Dokument wird live von AI erstellt und als Google Doc gespeichert.',
+    name: 'V2: AI Content Pipeline',
+    description: 'Eigenständige AI-Pipeline: Airtable-Baustein-Extraktion, 5 Strategie-Dokumente, 5 Copy-Dokumente - alles live generiert via OpenRouter. Isoliert von V1/V3.',
     category: 'Recruiting',
     icon: 'sparkles',
     status: 'active',
     webhookUrl: '',
     nodes: [
       { id: 'v2-t1', label: 'Onboarding-Formular', description: 'Client-Daten erfasst', icon: 'clipboard-check', type: 'trigger', x: 60, y: 200, demoConfig: { delay: 3000, artifacts: [{ type: 'text', label: 'V2: Onboarding', url: '#', contentPreview: 'V2 Onboarding-Formular eingegangen' }] } },
-      { id: 'v2-t2', label: 'Daten validieren', description: 'Formulardaten pruefen', icon: 'git-merge', type: 'process', x: 340, y: 200, demoConfig: { delay: 4000, artifacts: [{ type: 'text', label: 'Daten validiert', url: '#', contentPreview: 'V2: Daten validiert' }] } },
+      { id: 'v2-t2', label: 'Daten validieren', description: 'Formulardaten prüfen', icon: 'git-merge', type: 'process', x: 340, y: 200, demoConfig: { delay: 4000, artifacts: [{ type: 'text', label: 'Daten validiert', url: '#', contentPreview: 'V2: Daten validiert' }] } },
     ],
     connections: [
       { from: 'v2-t1', to: 'v2-t2' },
-      { from: 'v2-t2', to: 'sub-demo-novacode-infra' },
-      { from: 'sub-demo-novacode-infra', to: 'sub-demo-novacode-kickoff' },
-      { from: 'sub-demo-novacode-kickoff', to: 'sub-demo-novacode-v2-extraction' },
+      { from: 'v2-t2', to: 'sub-demo-novacode-v2-extraction' },
       { from: 'sub-demo-novacode-v2-extraction', to: 'sub-demo-novacode-v2-strategy' },
       { from: 'sub-demo-novacode-v2-strategy', to: 'sub-demo-novacode-v2-copy' },
-      { from: 'sub-demo-novacode-v2-copy', to: 'sub-demo-novacode-campaigns' },
-      { from: 'sub-demo-novacode-campaigns', to: 'sub-demo-novacode-launch' },
     ],
     groups: [],
     outputs: [],
@@ -388,7 +394,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     parentId: 'demo-novacode-v2',
     subSystemOrder: 1.5,
     name: 'V2: Airtable & Baustein-Extraktion',
-    description: 'Client in Airtable anlegen, Transkript analysieren und 88 modulare Bausteine via AI extrahieren — die Basis fuer alle weiteren Dokumente.',
+    description: 'Client in Airtable anlegen, Transkript analysieren und 88 modulare Bausteine via AI extrahieren - die Basis für alle weiteren Dokumente.',
     category: 'Recruiting',
     icon: 'database',
     status: 'active',
@@ -418,7 +424,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     parentId: 'demo-novacode-v2',
     subSystemOrder: 2,
     name: 'V2: AI Strategie-Dokumente',
-    description: 'Echte KI-Generierung: Zielgruppen-Avatar, Arbeitgeber-Avatar, Messaging-Matrix, Stellenanzeige, Karriereseiten-Konzept — via OpenRouter API.',
+    description: 'Echte KI-Generierung: Zielgruppen-Avatar, Arbeitgeber-Avatar, Messaging-Matrix, Stellenanzeige, Karriereseiten-Konzept - via OpenRouter API.',
     category: 'Recruiting',
     icon: 'sparkles',
     status: 'active',
@@ -463,7 +469,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
     nodes: [
       { id: 'v2-cc01', label: 'AI: Landingpage-Texte', description: 'Hero, Benefits, Team, CTA-Texte generieren', icon: 'logo-claude', type: 'ai', x: 40, y: 58, demoConfig: { delay: 50000, artifacts: [{ type: 'url', label: 'V2: Landingpage-Texte', url: '#', contentPreview: 'AI-generierte Landingpage-Texte' }] } },
       { id: 'v2-cc02', label: 'AI: Formularseite', description: 'Bewerbungsformular-Texte generieren', icon: 'logo-claude', type: 'ai', x: 40, y: 238, demoConfig: { delay: 40000, artifacts: [{ type: 'url', label: 'V2: Formularseite', url: '#', contentPreview: 'AI-generierte Formularseite-Texte' }] } },
-      { id: 'v2-cc03', label: 'AI: Dankeseite', description: 'Bestaetigung und naechste Schritte', icon: 'logo-claude', type: 'ai', x: 40, y: 418, demoConfig: { delay: 35000, artifacts: [{ type: 'url', label: 'V2: Dankeseite', url: '#', contentPreview: 'AI-generierte Dankeseite-Texte' }] } },
+      { id: 'v2-cc03', label: 'AI: Dankeseite', description: 'Bestätigung und nächste Schritte', icon: 'logo-claude', type: 'ai', x: 40, y: 418, demoConfig: { delay: 35000, artifacts: [{ type: 'url', label: 'V2: Dankeseite', url: '#', contentPreview: 'AI-generierte Dankeseite-Texte' }] } },
       { id: 'v2-cc04', label: 'AI: Anzeigentexte TOF', description: 'Hauptkampagne-Texte generieren', icon: 'logo-claude', type: 'ai', x: 380, y: 58, demoConfig: { delay: 45000, artifacts: [{ type: 'url', label: 'V2: Anzeigentexte TOF', url: '#', contentPreview: 'AI-generierte Anzeigentexte Hauptkampagne' }] } },
       { id: 'v2-cc05', label: 'AI: Anzeigentexte RT', description: 'Retargeting-Variationen generieren', icon: 'logo-claude', type: 'ai', x: 380, y: 238, demoConfig: { delay: 40000, artifacts: [{ type: 'url', label: 'V2: Anzeigentexte RT', url: '#', contentPreview: 'AI-generierte Retargeting-Anzeigentexte' }] } },
       { id: 'v2-cc06', label: 'AI: Anzeigentexte WU', description: 'Warmup-Texte generieren', icon: 'logo-claude', type: 'ai', x: 380, y: 418, demoConfig: { delay: 35000, artifacts: [{ type: 'url', label: 'V2: Anzeigentexte WU', url: '#', contentPreview: 'AI-generierte Warmup-Anzeigentexte' }] } },
@@ -489,7 +495,7 @@ export const DEMO_SYSTEMS: AutomationSystem[] = [
   },
 
   // ══════════════════════════════════════════════════════════════════════════
-  // V3 — Resilience, Approval Gates, Quality Checks, Post-Launch Monitoring
+  // V3 - Resilience, Approval Gates, Quality Checks, Post-Launch Monitoring
   // ══════════════════════════════════════════════════════════════════════════
 
   // ── V3 Master System ──────────────────────────────────────────────────────

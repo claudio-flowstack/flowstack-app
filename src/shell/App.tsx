@@ -5,6 +5,8 @@ import { LanguageProvider } from '@/core/i18n/context'
 // Prefetch Drive & Gmail data on app start (runs on import)
 import '@/core/drive-cache'
 import { DashboardLayout } from './DashboardLayout'
+import { HoverInspector } from '@/shared/dev/HoverInspector'
+import { useInspectorToggle } from '@/shared/dev/useInspectorToggle'
 
 // Lazy-loaded modules — only loaded when user navigates to them
 const DashboardPage = lazy(() =>
@@ -75,11 +77,17 @@ function PageLoader() {
   )
 }
 
+function DevInspectorMount() {
+  const active = useInspectorToggle()
+  return <HoverInspector active={active} />
+}
+
 export function App() {
   return (
     <ThemeProvider>
       <LanguageProvider>
         <BrowserRouter>
+          {import.meta.env.DEV && <DevInspectorMount />}
           <Suspense fallback={<PageLoader />}>
             <Routes>
               {/* Kunden-Hub — own layout, contexts, sidebar */}

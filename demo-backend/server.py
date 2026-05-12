@@ -1,7 +1,25 @@
 """
-Flowstack Demo Backend — Echte API-Calls für die Novacode Recruiting Automation.
+Flowstack Demo Backend — V1 - Novacode Recruiting.
 
-Gestartet mit: doppler run --project fulfillment-automation --config dev_claudio -- python server.py
+═══════════════════════════════════════════════════════════════════════════════
+AUTOMATION-VERSIONEN (Format: V# - Name):
+  • V1 - Novacode Recruiting   → diese Datei (server.py). AKTIV für Demo.
+                                  Demo-Automation für den Sales-Pitch.
+                                  Endpoint: /api/execute-node, node-IDs ohne Prefix.
+  • V2 - Recruiting Engine     → automations/recruiting/ (Production-Ready).
+                                  Eigenständige Implementation, keine Demo-Daten.
+                                  Endpoint: /api/recruiting/execute-node.
+                                  Aktuell Strangler-Bridge zu V1 — wird später unabhängig.
+  • V3 - Recruiting Modular    → v3/ (alter Prototyp, NICHT aktiv).
+                                  Phase-orientierte Architektur mit Resilience-Layer,
+                                  3 Indent-Bugs, halb-fertig.
+═══════════════════════════════════════════════════════════════════════════════
+
+Migrationsziel: V1 schrittweise durch V2 ersetzen (Strangler-Pattern).
+Das alte V2 (Leadflow Marketing) wurde am 2026-04-30 gelöscht. Der V2-Begriff
+bezieht sich jetzt auf die neue Recruiting Engine.
+
+Gestartet mit: doppler run --project flowstack-claudio --config dev -- python server.py
 Alle Credentials kommen aus Doppler Environment Variables.
 """
 from __future__ import annotations
@@ -10,7 +28,9 @@ import os
 import json
 import logging
 import random
+import urllib.parse
 from datetime import datetime, timedelta
+from logging.handlers import TimedRotatingFileHandler
 from typing import Any, Optional
 
 import httpx
@@ -21,8 +41,27 @@ from claude_ws import router as claude_router
 from whisper_api import router as whisper_router
 from prompt_optimizer import router as optimizer_router
 
-logging.basicConfig(level=logging.INFO)
+# ── Logging: Stdout (wie bisher) PLUS Datei-Rotation pro Tag ──────────────────
+_LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(_LOG_DIR, exist_ok=True)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
 log = logging.getLogger("demo-backend")
+
+_file_handler = TimedRotatingFileHandler(
+    filename=os.path.join(_LOG_DIR, "server.log"),
+    when="midnight",
+    backupCount=14,
+    encoding="utf-8",
+)
+_file_handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+log.addHandler(_file_handler)
+# Auch das Root-Logger-Output (von uvicorn etc.) in dieselbe Datei
+logging.getLogger().addHandler(_file_handler)
+log.info(f"File-Logging aktiv: {os.path.join(_LOG_DIR, 'server.log')} (rotiert täglich, 14 Tage Retention)")
 
 app = FastAPI(title="Flowstack Demo Backend", version="1.0")
 app.add_middleware(
@@ -35,6 +74,10 @@ app.include_router(terminal_router)
 app.include_router(claude_router)
 app.include_router(whisper_router)
 app.include_router(optimizer_router)
+
+# Elite Architecture: per-domain automation routers (parallel to V1 endpoints)
+from automations.recruiting.api import router as recruiting_router
+app.include_router(recruiting_router)
 
 # ── Credentials aus Environment (Doppler) ─────────────────────────────────────
 
@@ -50,13 +93,13 @@ META_PAGE_ID = os.environ.get("META_PAGE_ID")
 # Close V2 (separate Org "Leadflow Marketing")
 CLOSE_API_KEY_V2 = os.environ.get("CLOSE_API_KEY_V2", "")
 
-# OpenRouter (AI-Generierung fuer V2 — NICHT für V3 nutzen, gehört Anak)
+# OpenRouter (AI-Generierung für V2 - NICHT für V3 nutzen, gehört Anak)
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
 
-# Gemini (AI-Generierung fuer V3 — kostenlos)
+# Gemini (AI-Generierung für V3 - kostenlos)
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
-# Google OAuth Token (JSON string) — Flowstack Account
+# Google OAuth Token (JSON string) - Flowstack Account
 _google_raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
 try:
     _google_creds = json.loads(_google_raw)
@@ -68,7 +111,7 @@ GOOGLE_REFRESH_TOKEN = _google_creds.get("refresh_token", "")
 GOOGLE_CLIENT_ID = _google_creds.get("client_id", "")
 GOOGLE_CLIENT_SECRET = _google_creds.get("client_secret", "")
 
-# Google OAuth Token — Leadflow Marketing Account
+# Google OAuth Token - Leadflow Marketing Account
 _leadflow_raw = os.environ.get("LEADFLOW_MARKETING_GOOGLE_OAUTH_TOKEN", "{}")
 try:
     _leadflow_creds = json.loads(_leadflow_raw)
@@ -84,32 +127,19 @@ LEADFLOW_CLIENT_SECRET = _leadflow_creds.get("client_secret", "")
 CLICKUP_SPACE_ID = "90189542355"  # Client Projects
 CLICKUP_TEAM_ID = "90182362705"   # Flowstack-systems Workspace
 
-# Close Pipeline (Leadflow Marketing)
-CLOSE_PIPELINE_ID = "pipe_2TVzpzEm61EWx44ChCXZtx"  # Fulfillment
+# Close Pipeline (Test Account / Trial — Fulfillment)
+CLOSE_PIPELINE_ID = "pipe_29QVKx39dnXZrEdmC3Ea6v"
 
-# Close Custom Field IDs (Leadflow Marketing)
+# Close Custom Field IDs (Test Account / Trial)
 CLOSE_FIELDS = {
-    "service_type": "cf_jEk9N9Gt16fSfE4QCaQaSr6x9tFepVW10RhiimbAMWx",
-    "account_manager": "cf_pAyQcAn0Je6P6zG8Z4MhRt7fR5SqChLrZShxn2zKRLf",
-    "onboarding_date": "cf_E5xlvPH9AJSAydUh0e3iNW6dzkG1FEudfe09t9i4IMw",
-    "automation_status": "cf_KwGpEW5HIhJBG5aOKFpM7pj4HnvXtzMOH9HdM4jSeLE",
+    "service_type": "cf_bihJnLLxKxpvjYAVZ9AqdWnzNH5S7O7rC1WFhgrs6xO",
+    "account_manager": "cf_oNqqlOPL0AAZfowUSrkx5nFMbyKTVJxUxtAetXJtVAY",
+    "onboarding_date": "cf_rCeI7tH70274qaBzeaCmtpSdqX6ofARBnolyWd08sA6",
+    "automation_status": "cf_Lufb065GVOQWlWwIloY3sdO9sVc8HCAVLdIjnYkcXwZ",
 }
 
 # Close Stage IDs (will be populated on startup)
 CLOSE_STAGES: dict[str, str] = {}
-
-# Close V2 Pipeline (neue Org "Leadflow Marketing")
-_v2_config_path = os.path.join(os.path.dirname(__file__), "close-v2-config.json")
-if os.path.exists(_v2_config_path):
-    with open(_v2_config_path) as _f:
-        _v2_cfg = json.load(_f)
-    CLOSE_V2_PIPELINE_ID = _v2_cfg["pipeline"]["id"]
-    CLOSE_V2_STAGES = _v2_cfg["pipeline"]["stages"]
-    CLOSE_V2_FIELDS = {k: v["id"] for k, v in _v2_cfg["custom_fields"].items()}
-else:
-    CLOSE_V2_PIPELINE_ID = ""
-    CLOSE_V2_STAGES = {}
-    CLOSE_V2_FIELDS = {}
 
 # ClickUp Member IDs
 CLICKUP_CLAUDIO = 306633165  # Marketer
@@ -129,29 +159,50 @@ AIRTABLE_BASE_ID = os.environ.get("AIRTABLE_BASE_ID", "")
 MIRO_ACCESS_TOKEN = os.environ.get("MIRO_ACCESS_TOKEN", "")
 
 
-# Vorbereitete Dokument-Links (Google Docs)
-STRATEGY_DOCS = {
-    "Zielgruppen-Avatar": "https://docs.google.com/document/d/1TOLqoqvEYy_DTxMb1zSUeq-cmXmNHmmUQe9EG2B1vEY/edit",
-    "Arbeitgeber-Avatar": "https://docs.google.com/document/d/1de1XU5ykeIw36kKSiorQqzPAGkHfsceflnTCBpVY26Q/edit",
-    "Messaging-Matrix": "https://docs.google.com/document/d/1HLMrDn_p1aqL7nnfB09e0mPakj-m0BSIhQwTdkoX03E/edit",
-    "Creative Briefing": "https://docs.google.com/document/d/1sxB6R6l4DUn10hYEhY5xCEkNxZ4dvE9EUFvgT0hmCz8/edit",
-    "Marken-Richtlinien": "https://docs.google.com/document/d/1Xp0y_liDQ43AMdH3cjEwxdo9ZSZOP1AlVr8r-pn2Cps/edit",
+# Master-Template-Docs (jedes mit Tabs) - werden in is07 pro Kunde dupliziert
+MASTER_DOCS = {
+    "Doc 1 Strategie": "https://docs.google.com/document/d/1kxjSIWDIN-ssN_i466a4dPX4TEluijaPm9J2ywLmB-M/edit",
+    "Doc 2 Messaging": "https://docs.google.com/document/d/1pprK5yG15Vjbx7AmE7b-FMGZXxhHrXMjryB_cKbpGmo/edit",
+    "Doc 3 Creative Briefing": "https://docs.google.com/document/d/1l6zo_I-Sb_PxbSdzbpoTeIGesuuHXvu7CiRcFOI9Yuw/edit",
+    "Doc 4 Ads-Copy": "https://docs.google.com/document/d/1py5_IHRsst707gKzBnnEYjRkQO4SCixeZFAR8DUnPlo/edit",
+    "Doc 5 Kickoff": "https://docs.google.com/document/d/1lKO8VjuYp47uOpWVl1Rh6dU_57Vx1DzRAwrcgJZonpo/edit",
+    "Doc 6 Webseiten-Texte": "https://docs.google.com/document/d/1IMt8W5zKZrrJW6dOj6OfuZn5xA_iQjrwnAGj28h3c4M/edit",
+    "Doc 7 Videoskript": "https://docs.google.com/document/d/171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs/edit",
 }
-COPY_DOCS = {
-    "Landingpage-Texte": "https://docs.google.com/document/d/1CEZAzrioyaqn7PMfc0ARadG1Jw5ic-uXTV4tE1aX2PU/edit",
-    "Formularseite-Texte": "https://docs.google.com/document/d/1Qe0zXGHVcABIEMTZUn4tMttloGfa14bpCtKU3L95-Qw/edit",
-    "Dankeseite-Texte": "https://docs.google.com/document/d/13M6owsnBTr6OAElN0LvhF5Oz_Ky4l0OdvhSb2dhfQ7g/edit",
-    "Anzeigentexte": "https://docs.google.com/document/d/1lf2U2ZI47-Oz8eTW8OKziGwN_Z_SAssS8DiJAiiJ5SQ/edit",
-    "Videoskript": "https://docs.google.com/document/d/171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs/edit",
+# Client-seitige Anzeigenamen: "<Typ> - <Firma>" statt "Doc 1/2/..."
+DOC_DISPLAY_NAME = {
+    "Doc 1 Strategie": "Strategie",
+    "Doc 2 Messaging": "Messaging-Matrix",
+    "Doc 3 Creative Briefing": "Creative-Briefing",
+    "Doc 4 Ads-Copy": "Ads-Copy",
+    "Doc 5 Kickoff": "Kickoff-Transkript",
+    "Doc 6 Webseiten-Texte": "Webseiten-Texte",
+    "Doc 7 Videoskript": "Videoskript",
 }
-TRANSCRIPT_DOC = "https://docs.google.com/document/d/1ZO6yLLW18GLjJd1xuCc8jytaGwPi0jedoSkUR8LO-eM/edit"
+# Gruppen-Aliase für Handler (konsumieren kundenspezifische Kopien aus context, falls vorhanden)
+STRATEGY_DOCS = {k: MASTER_DOCS[k] for k in ("Doc 1 Strategie", "Doc 2 Messaging", "Doc 3 Creative Briefing")}
+COPY_DOCS = {"Doc 4 Ads-Copy": MASTER_DOCS["Doc 4 Ads-Copy"]}
+TRANSCRIPT_DOC = MASTER_DOCS["Doc 5 Kickoff"]
+
+
+def _client_docs(context: dict[str, Any]) -> dict[str, str]:
+    """Gibt die kundenspezifischen Doc-Kopien zurueck, sonst Master-Docs als Fallback."""
+    return context.get("client_docs") or MASTER_DOCS
+
+
+def _resolve_docs(context: dict[str, Any], keys: list[str]) -> dict[str, str]:
+    """Liefert Teil-Dict der client_docs (oder Master-Fallback) für angegebene Keys."""
+    docs = _client_docs(context)
+    return {k: docs[k] for k in keys if k in docs}
 FUNNEL_LINKS = {
-    "Landingpage": "https://demo-recruiting.vercel.app/demo-landing/",
-    "Bewerbungsseite": "https://demo-recruiting.vercel.app/demo-formular",
-    "Dankeseite": "https://demo-recruiting.vercel.app/demo-danke",
+    "Landingpage": "https://www.flowstack-agentur.de/demo",
+    "Bewerbungsseite": "https://www.flowstack-agentur.de/demo-bewerbung",
+    "Dankeseite": "https://www.flowstack-agentur.de/demo-danke",
+    "Impressum": "https://www.flowstack-agentur.de/demo-impressum",
+    "Datenschutz": "https://www.flowstack-agentur.de/demo-datenschutz",
 }
 TRACKING_SHEET = "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"
-TRACKING_DASHBOARD = "https://demo-recruiting.vercel.app/recruiting"
+TRACKING_DASHBOARD = "https://www.flowstack-agentur.de/demo-recruiting"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -206,20 +257,6 @@ async def close_api(method: str, path: str, data: Optional[dict] = None) -> dict
     )
     if resp.status_code >= 400:
         log.error(f"Close API error: {resp.status_code} {resp.text}")
-        raise HTTPException(status_code=resp.status_code, detail=resp.text)
-    return resp.json()
-
-
-async def close_api_v2(method: str, path: str, data: Optional[dict] = None) -> dict:
-    """Close CRM API call fuer V2 Org (Leadflow Marketing)."""
-    resp = await _http.request(
-        method,
-        f"https://api.close.com/api/v1{path}",
-        json=data,
-        auth=(CLOSE_API_KEY_V2, ""),
-    )
-    if resp.status_code >= 400:
-        log.error(f"Close V2 API error: {resp.status_code} {resp.text}")
         raise HTTPException(status_code=resp.status_code, detail=resp.text)
     return resp.json()
 
@@ -285,8 +322,27 @@ async def _create_project_overview_sheet(company: str) -> dict:
     """Erstellt ein Google Spreadsheet als zentrale Projekt-Übersicht.
     Gibt {"spreadsheet_id": ..., "url": ...} zurück.
     """
+    sheet_title = f"{company} - Projekt-Übersicht"
+
+    # Dedupe-Check: Existiert bereits ein Sheet mit diesem Titel?
+    try:
+        safe_title = sheet_title.replace("'", "\\'")
+        q = f"name = '{safe_title}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false"
+        existing = await google_api(
+            "GET",
+            f"https://www.googleapis.com/drive/v3/files?q={urllib.parse.quote(q)}&fields=files(id,name)&pageSize=1",
+        )
+        existing_files = existing.get("files", []) if isinstance(existing, dict) else []
+        if existing_files:
+            dup_id = existing_files[0]["id"]
+            url = f"https://docs.google.com/spreadsheets/d/{dup_id}/edit"
+            log.info(f"Projekt-Übersicht '{sheet_title}' wiederverwendet (Dedupe): {dup_id}")
+            return {"spreadsheet_id": dup_id, "url": url}
+    except Exception as e:
+        log.warning(f"Overview-Sheet Dedupe-Check fehlgeschlagen (fahre mit Create fort): {e}")
+
     body = {
-        "properties": {"title": f"{company} - Projekt-Übersicht"},
+        "properties": {"title": sheet_title},
         "sheets": [{
             "properties": {
                 "title": "Übersicht",
@@ -327,7 +383,7 @@ async def _create_project_overview_sheet(company: str) -> dict:
 async def _append_sheet_row(spreadsheet_id: str, row: list) -> None:
     """Hängt eine Zeile an die Projekt-Übersicht an."""
     if not spreadsheet_id:
-        log.warning("_append_sheet_row: Keine spreadsheet_id — übersprungen")
+        log.warning("_append_sheet_row: Keine spreadsheet_id - übersprungen")
         return
     await google_api(
         "POST",
@@ -360,9 +416,9 @@ def _slack_blocks_message(
     buttons: list[tuple] | None = None,
     footer: str = "",
 ) -> list[dict]:
-    """Block Kit Message — V5 Design (Color Bar, Fields mit Spacing, ein Divider).
+    """Block Kit Message - V5 Design (Color Bar, Fields mit Spacing, ein Divider).
 
-    sections: Flexibel — jede Section kann enthalten:
+    sections: Flexibel - jede Section kann enthalten:
       - "text": str → einfacher mrkdwn Text
       - "fields": [("Label", "Value"), ...] → 2-Spalten mit *Label:*\\nValue (Newline!)
       - "title": str → fetter Titel vor Items
@@ -438,9 +494,9 @@ def _slack_blocks_message(
 SLACK_OPS_CHANNEL = "C0AAEHG30NM"  # #alle-in-flowstack-system
 
 # Farben für Color-Bar (links am Message-Rand)
-SLACK_COLOR_SUCCESS = "#36a64f"   # Grün — abgeschlossen
-SLACK_COLOR_INFO = "#1264a3"      # Blau — informational
-SLACK_COLOR_WARNING = "#ff9900"   # Gelb — warte auf Aktion
+SLACK_COLOR_SUCCESS = "#36a64f"   # Grün - abgeschlossen
+SLACK_COLOR_INFO = "#1264a3"      # Blau - informational
+SLACK_COLOR_WARNING = "#ff9900"   # Gelb - warte auf Aktion
 
 async def slack_message(text: str, blocks: Optional[list] = None, color: Optional[str] = None) -> bool:
     """Slack Nachricht im Ops-Channel senden (via Bot API, damit löschbar).
@@ -483,13 +539,13 @@ async def slack_bot_api(method: str, payload: dict) -> dict:
 
 
 def _meta_acct() -> str:
-    """Ad Account ID mit act_ Prefix (fuer API calls)."""
+    """Ad Account ID mit act_ Prefix (für API calls)."""
     if not META_AD_ACCOUNT:
         return ""
     return META_AD_ACCOUNT if META_AD_ACCOUNT.startswith("act_") else f"act_{META_AD_ACCOUNT}"
 
 def _meta_acct_numeric() -> str:
-    """Ad Account ID ohne act_ Prefix (fuer Ads Manager URLs)."""
+    """Ad Account ID ohne act_ Prefix (für Ads Manager URLs)."""
     if not META_AD_ACCOUNT:
         return ""
     return META_AD_ACCOUNT.removeprefix("act_")
@@ -526,35 +582,37 @@ async def meta_api(method: str, endpoint: str, data: dict | None = None) -> dict
 
 AD_IMAGE_DIR = os.path.join(os.path.dirname(__file__), "ad-images")
 
-# Anzeigentexte — 3 Varianten (Meta-formatiert: kein Markdown, Zeilenumbrueche via \n)
+# Anzeigentexte - 3 Varianten (Meta-formatiert: kein Markdown, Zeilenumbrueche via \n)
 AD_COPY_INITIAL = [
     # Variante 1: Klassisch/Strukturiert
-    "{company} sucht: Senior Fullstack Developer (m/w/d) – Düsseldorf / Hybrid\n\nDu willst wieder entwickeln.\nNicht nur Tickets schieben.\n\nDann lies weiter.\n\nWir sind {company}.\n19 Leute.\nEin Softwareunternehmen aus Düsseldorf.\n\nWir bauen individuelle Lösungen für den Mittelstand.\nKeine Agentur.\nKein Bauchladen.\nEchtes Product Engineering.\n\nDein Stack:\nReact. TypeScript. Node.js. PostgreSQL. AWS. Docker. GitHub Actions.\n\nDein Arbeitsmodell:\n2 Tage Büro in Düsseldorf.\n3 Tage remote.\nKernzeit: 10–15 Uhr.\n\nDas bieten wir dir:\n• 65.000–85.000 € Jahresgehalt.\n• 30 Urlaubstage.\n• 3.000 € Weiterbildungsbudget pro Jahr.\n• Hardware deiner Wahl.\n• Eigene Projektverantwortung.\n• Direkter Kundenkontakt.\n\nDas bringst du mit:\n• Mindestens 4 Jahre Erfahrung als Fullstack Developer.\n• Sicher in React, Node.js und TypeScript.\n• Architekturverständnis und eigenständige Arbeitsweise.\n• Fließend Deutsch.\n\nUnser Bewerbungsprozess:\n20 Minuten Kennenlernen.\nTech-Gespräch mit einem Senior Dev.\nEntscheidung in 14 Tagen.\n\nKein Anschreiben.\nKein 6-Stunden-Coding-Test.\n\n6 Jahre am Markt.\nBootstrapped.\nProfitabel.\nKein Startup-Chaos.\n\nDie Bewerbung dauert unter 3 Minuten.\n\n→ Jetzt bewerben",
+    "{company} sucht: Senior Engineer (m/w/d) - Ledger und Reconciler\n\nDu willst wieder echte Engineering-Probleme lösen.\nNicht nur Tickets schieben.\n\nDann lies weiter.\n\nWir bauen Ledger- und Reconciler-Systeme.\nHochskalierende Finanzdaten-Infrastruktur. Strikte Konsistenz, hohe Last, harte Audit-Anforderungen.\n\nDein Stack:\nTypeScript für Services. Rust für die kritischen Pfade. PostgreSQL. Kafka. AWS.\n\nDein Arbeitsmodell:\nVoll remote in der EU oder Office in Berlin. Du entscheidest.\nAsynchron-First. Kernzeit nur wenn nötig.\n\nDas bekommst du:\n- 105-180k Jahresgehalt, transparent\n- 32 Urlaubstage\n- 3.000 Euro Lernbudget pro Jahr\n- Hardware deiner Wahl\n- Eigene Architektur-Verantwortung\n- Flache Hierarchien, kein Approval-Theater\n\nDas bringst du mit:\n- Mindestens 5 Jahre Erfahrung in Backend-Engineering\n- Solides Verständnis verteilter Systeme und Daten-Konsistenz\n- Erfahrung mit Finanzdaten oder regulierten Domänen ist Plus, kein Muss\n- Du schreibst Tests bevor sie eingefordert werden\n\nUnser Bewerbungsprozess:\nVier Fragen plus Code-Link. Kein Anschreiben.\nTech-Gespräch mit einem Senior Engineer.\nAntwort innerhalb von 48 Stunden.\n\nWir sind kein Startup. Kein Konzern. Profitabel seit Tag 1.\n\nBewerbung dauert unter 2 Minuten.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
     # Variante 2: Schmerzpunkt/Emotional
-    "Du bist Entwickler.\nDu bist verdammt gut in dem, was du tust.\n\nAber jetzt mal ehrlich:\n\nWann hast du das letzte Mal ein Feature gebaut, das wirklich live gegangen ist?\n\nWann hast du das letzte Mal eine Architekturentscheidung selbst getroffen – ohne dass ein Manager sie zerredet hat?\n\nWann hast du das letzte Mal das Gefühl gehabt, dass du dich weiterentwickelst?\n\nWenn du jetzt überlegen musstest, dann weißt du, was das bedeutet.\n\nEs ist Zeit.\n\nNicht, weil dein Job schlecht ist.\nNicht, weil deine Kollegen schlecht sind.\n\nSondern, weil du aufgehört hast, Entwickler zu sein.\n\nWir sind {company}.\n\nEin Softwareunternehmen aus Düsseldorf.\n19 Mitarbeiter.\nWir bauen individuelle Software für den Mittelstand.\n\nKeine Agentur.\nKein Bauchladen.\nEchtes Engineering.\n\nUnser Stack?\nReact. TypeScript. Node.js. PostgreSQL. AWS.\n\nWir suchen einen Senior Fullstack Developer (m/w/d), der wieder coden will.\nDer wieder entscheiden will.\nDer wieder deployen will.\n\nWas dich erwartet:\n\n✅ Eigene Projektverantwortung ab Tag 1.\n✅ Direkter Kundenkontakt – du bist nicht der Letzte in der Kette.\n✅ Moderner Stack, kein Legacy.\n✅ Hybrid: 2 Tage Büro, 3 Tage remote.\n✅ 65.000–85.000 € Jahresgehalt.\n✅ 30 Urlaubstage.\n✅ 3.000 € Weiterbildungsbudget pro Jahr.\n✅ Hardware deiner Wahl.\n\nKein Coding-Marathon im Bewerbungsprozess.\nKein Assessment-Center.\nDu sprichst direkt mit einem unserer Senior Devs – auf Augenhöhe.\n\n6 Jahre am Markt.\nProfitabel.\nKein VC.\nKein Startup-Chaos.\n\nDie Bewerbung dauert unter 3 Minuten.\nKein Anschreiben nötig.\n\n→ Jetzt bewerben",
+    "Du bist Senior Engineer.\nDu hast was drauf.\n\nAber jetzt mal ehrlich:\n\nWann hast du das letzte Mal an einem System gearbeitet, das wirklich nontrivial war?\n\nWann hast du das letzte Mal eine Architekturentscheidung getroffen, ohne dass drei Manager ihren Senf dazugeben?\n\nWann hat dein Code zum letzten Mal mehr getan als ein hübscheres Dashboard zu rendern?\n\nWenn du jetzt überlegen musst, weißt du wovon ich rede.\n\nWir bauen Ledger- und Reconciler-Systeme bei {company}.\nStrikte Konsistenz. Hohe Last. Echte Engineering-Probleme.\n\nStack:\nTypeScript für Services. Rust für die kritischen Pfade. PostgreSQL, Kafka, AWS.\n\nWas du bekommst:\n- 105-180k transparent\n- Voll remote in der EU oder Berlin Office, deine Wahl\n- 32 Urlaubstage\n- 3.000 Euro Lernbudget pro Jahr\n- Eigene Architektur-Verantwortung\n- Flache Hierarchien, kein Approval-Theater\n\nBewerbungsprozess:\nVier Fragen, ein Code-Link.\nTech-Gespräch mit einem Senior Engineer.\nAntwort in 48 Stunden.\n\nKein Anschreiben.\nKein Coding-Marathon.\nKein Assessment-Center.\n\nBewerbung in 2 Minuten.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
     # Variante 3: Contrarian/Pattern Interrupt
-    "Diese Anzeige ist nichts für dich.\n\nNicht, wenn du glücklich bist mit endlosen Meetings.\nNicht, wenn du okay damit bist, dass deine Features nie live gehen.\nNicht, wenn du mit einem Tech-Stack aus 2016 zufrieden bist.\n\nAber wenn du abends denkst: «Ich will wieder bauen.»\nDann lies weiter.\n\nWir sind {company}.\n\n19 Leute. 14 Entwickler. Durchschnittsalter: 32.\nWir entwickeln individuelle Software für den Mittelstand.\nInterne Tools. Prozessautomatisierung. Plattformen.\n\nKein Agentur-Bauchladen.\nKein «Wir machen alles».\nReines Custom Development.\n\nUnser Stack?\nReact. TypeScript. Node.js. Go. PostgreSQL. AWS. Docker.\nCI/CD via GitHub Actions.\n\nWas bei uns anders ist?\nDu triffst Architekturentscheidungen.\nDu sprichst direkt mit Kunden.\nDu deployst Code, der in Produktion läuft.\nNicht Code, der auf dem Feature-Friedhof verrottet.\n\nWir sagen nicht «flache Hierarchien».\nWir sagen: 19 Leute. Keine Hierarchie. Punkt.\n\nWir sagen nicht «Startup-Mentalität».\nWir sagen: 6 Jahre profitabel. Kein VC. Kein Chaos.\n\nWir sagen nicht «wie eine Familie».\nWir sagen: Profis, die abliefern. Und um 17 Uhr Feierabend machen.\n\nHybrid: 2 Tage Düsseldorf. 3 Tage remote.\nKernzeit: 10–15 Uhr.\n\n65.000–85.000 €.\n30 Tage Urlaub.\n3.000 € Weiterbildungsbudget.\n\nBewerbungsprozess?\n20 Minuten Call.\nTech-Talk mit einem Engineer.\nArchitektur-Diskussion.\n\nKein Whiteboard. Kein Assessment-Center.\nEntscheidung in 14 Tagen.\n\nUnter 3 Minuten.\nKein Anschreiben.\n\n→ Jetzt bewerben",
+    "Diese Anzeige ist nichts für dich.\n\nNicht wenn du okay bist mit Stand-ups die zu Stand-ups bleiben.\nNicht wenn dein Code in den letzten 6 Monaten dreimal die JIRA-Umstrukturierung überlebt hat.\nNicht wenn du dir vorstellen kannst, weiter Tickets aus einem Backlog zu schieben in dem 800 stehen.\n\nWenn du aber abends denkst: «Ich will wieder bauen.»\nDann lies weiter.\n\nWir bauen bei {company} Ledger- und Reconciler-Systeme.\nHochskalierende Finanzdaten-Infrastruktur. Strikte Konsistenz. Echte Engineering-Probleme.\n\nBei uns triffst du Architekturentscheidungen.\nDu shippst Code in Produktion, nicht ins Approval-Theater.\nDu arbeitest mit Engineers die wissen was sie tun.\n\nWas bei uns anders ist:\n\nWir sagen nicht «flache Hierarchien».\nWir sagen: keine.\n\nWir sagen nicht «Startup-Mentalität».\nWir sagen: profitabel seit Tag 1, kein VC, keine Hype-Pitches.\n\nWir sagen nicht «Wir sind wie eine Familie».\nWir sagen: Profis die abliefern. Asynchron. Voll remote oder Berlin.\n\nKonkret:\n- 105-180k transparent\n- Voll remote in der EU oder Berlin Office\n- 32 Urlaubstage\n- 3.000 Euro Lernbudget\n\nBewerbungsprozess:\nVier Fragen, ein Code-Link.\nTech-Gespräch mit einem Senior Engineer.\n\nKein Anschreiben.\nKein Whiteboard.\nEntscheidung in 14 Tagen.\n\nBewerbung in 2 Minuten.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
 ]
 AD_COPY_RETARGETING = [
     # Variante 1: Direkt/Erinnerung
-    "Du hast dir die Stelle bei {company} angeschaut.\nAber du hast dich noch nicht beworben.\n\nWarum nicht?\n\nFragst du dich, ob es wirklich passt?\n\nHier sind die Fakten:\n\n✅ Keine langweilige 9-to-5-Mühle. Flexible Arbeitszeiten, die zu deinem Leben passen.\n✅ 100 % Remote oder Hybrid in Düsseldorf. Du entscheidest.\n✅ Ein moderner Tech-Stack. Kein veralteter Kram aus 2015.\n✅ Ein Weiterbildungsbudget, das du wirklich nutzen kannst.\n\nUnd das Beste?\n\nDer Bewerbungsprozess dauert nur 60 Sekunden.\nKein Anschreiben. Kein Lebenslauf-Upload.\n\n→ Beantworte ein paar Fragen und wir melden uns innerhalb von 48 Stunden.",
+    "Du hast dir die Stelle bei {company} angeschaut.\nAber du hast dich noch nicht beworben.\n\nWas hält dich auf?\n\nHier ein paar Dinge die du wissen solltest:\n- 105-180k transparent, kein «wir reden im Gespräch drüber»\n- Voll remote in der EU oder Berlin Office, deine Wahl\n- 32 Urlaubstage und 3.000 Euro Lernbudget pro Jahr\n- Ledger- und Reconciler-Systeme, kein Legacy-Frickeln\n- Flache Hierarchien, keine Approval-Theater\n\nUnd das Beste: die Bewerbung dauert 60 Sekunden.\nVier Fragen plus Code-Link. Kein Anschreiben, kein CV-Upload.\n\nAntwort in 48 Stunden.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
     # Variante 2: Einwand-Killer
-    "«Bin ich gut genug?»\n\nDas denken 90 % der Entwickler.\nUnd genau die sind oft die Besten.\n\nBei {company} suchen wir keine Entwickler mit 47 Zertifikaten.\nWir suchen echte Macher.\n\nLeute, die:\n• Sauberen Code schreiben wollen – nicht nur schnellen.\n• Probleme lösen statt nur Tickets abzuarbeiten.\n• Verantwortung übernehmen wollen.\n\nDu warst schon auf unserer Seite.\nDas zeigt, dass du neugierig bist.\n\nGib deiner Neugier eine Chance.\n60 Sekunden. Kein Risiko.",
+    "«Bin ich gut genug?»\n\nDas denken die meisten Senior Engineers.\nUnd genau die sind oft die, die wir suchen.\n\nBei {company} suchen wir keine Engineer mit 47 Zertifikaten.\nWir suchen Leute die:\n\n- Sauberen Code schreiben wollen, nicht nur schnellen\n- Probleme lösen statt Tickets abzuarbeiten\n- Architektur-Verantwortung übernehmen wollen\n- Tests schreiben bevor sie eingefordert werden\n\nDu warst schon auf unserer Bewerbungsseite.\nDas zeigt, dass du neugierig bist.\n\nGib deiner Neugier eine Chance.\n60 Sekunden. Kein Anschreiben.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
     # Variante 3: Social Proof/Knappheit
-    "Du warst auf unserer Karriereseite.\nAber du bist noch unentschlossen?\n\nHier ein Update:\n\nIn den letzten 2 Wochen haben wir über 40 Bewerbungen erhalten.\n\nWas Bewerber am häufigsten sagen:\n«Endlich mal ein Prozess, der nicht nervt.»\n«Ich wusste nach 2 Minuten, dass ich mich bewerben will.»\n\n{company} ist kein Konzern.\nHier bist du nicht Entwickler #847.\nHier bist du Teil eines Teams, das zusammen etwas Großes baut.\n\n→ Die Stelle ist noch offen. Aber nicht mehr lange.\n60 Sekunden reichen.",
+    "Du warst auf unserer Bewerbungsseite.\nAber du bist noch unentschlossen?\n\nHier ein Update.\n\nIn der letzten Woche haben wir 23 Bewerbungen erhalten.\n\nWas Bewerber am häufigsten sagen:\n«Endlich mal ein Prozess der nicht nervt.»\n«Ich wusste nach 5 Minuten dass ich passe.»\n\n{company} ist kein Konzern.\nHier bist du nicht Engineer #847.\nHier baust du an Systemen die Geld bewegen, mit Leuten die wissen wie das geht.\n\nDie Stelle ist noch offen.\n60 Sekunden reichen.\n\n→ Jetzt in nur 2 Minuten bewerben - ohne Anschreiben und ohne Lebenslauf\n{destination_url}",
 ]
 AD_COPY_WARMUP = [
     # Variante 1: Werte/Kultur
-    "Die meisten Unternehmen labern von flachen Hierarchien.\nBei {company} gibt es einfach keine.\n\n14 Leute. Jeder kennt jeden.\nEntscheidungen? Fallen in Minuten, nicht in Meetings.\n\nWir bauen Software, die den Mittelstand digitalisiert.\nKein Startup-Gehype. Kein Konzern-Geschwafel.\nNur echte Ergebnisse mit Profis, die wissen, was sie tun.\n\nWillst du sehen, wie wir arbeiten?\n→ Mehr erfahren",
+    "Die meisten Tech-Firmen labern von flachen Hierarchien.\nBei {company} gibt es einfach keine.\n\nWir bauen Ledger- und Reconciler-Systeme.\nHochskalierende Finanzdaten-Infrastruktur. Echte Engineering-Probleme.\n\nEntscheidungen fallen in Minuten, nicht in Meetings.\nCode geht in Produktion, nicht ins Approval-Theater.\nEngineers shippen, Manager dokumentieren nicht.\n\nVoll remote in der EU oder Berlin Office.\nProfitabel seit Tag 1.\n\n→ Mehr erfahren",
     # Variante 2: Storytelling/Behind the Scenes
-    "Freitag, 14:30 Uhr bei {company}:\n\nTim hat sein Feature gerade live gebracht.\nLisa checkt den letzten PR vom Sprint.\nMax? Seit 12 Uhr im Deep Work – und niemand stört ihn.\n\nUm 15 Uhr: Weekly. 20 Minuten. Nicht länger.\nDanach? Wochenende.\n\nKein Crunch. Keine Überstunden.\nNur Code, auf den du stolz sein kannst.\n\n{company} baut digitale Lösungen für den Mittelstand.\nMit einem Team, das Qualität über alles stellt.\n\n→ Mehr über uns erfahren",
+    "Freitag 14:30 Uhr bei {company}.\n\nTim hat sein Reconciler-Modul gerade live gebracht.\nLisa reviewt den letzten PR vom Sprint.\nMax ist seit 12 Uhr im Deep Work und niemand stört ihn.\n\nUm 15 Uhr: Weekly. 20 Minuten. Keine Status-Updates die niemand braucht.\nDanach: Wochenende.\n\nKein Crunch. Keine Überstunden.\nNur Code auf den du stolz sein kannst.\n\n{company} baut Ledger- und Reconciler-Systeme für regulierte Finanzdaten.\nVoll remote in der EU oder Berlin Office.\n\n→ Mehr erfahren",
     # Variante 3: Provokant/Aufmerksamkeit
-    "73 % der Entwickler in Deutschland denken über einen Jobwechsel nach.\nAber nur 12 % bewerben sich.\n\nWarum? Weil jede Stellenanzeige gleich klingt.\n«Dynamisches Team», «spannende Projekte», «attraktives Gehalt».\n\nWir bei {company} sagen dir lieber, was wir NICHT bieten:\n❌ Kein Großraumbüro\n❌ Keine 5 Interview-Runden\n❌ Keine Legacy-Systeme aus den 2000ern\n❌ Keinen Chef, der ständig «kurz mal schauen» will\n\nWas wir bieten?\nDas findest du auf unserer Karriereseite.\n\nAber nur, wenn du neugierig genug bist.",
+    "73 % der Senior Engineers in Europa denken über einen Jobwechsel nach.\nAber nur 12 % bewerben sich.\n\nWarum? Weil jede Stellenanzeige gleich klingt.\n«Dynamisches Team», «spannende Projekte», «attraktives Gehalt».\n\nWir bei {company} sagen dir lieber, was wir nicht bieten:\n\nKein Großraumbüro.\nKeine fünf Interview-Runden.\nKeine Legacy-Systeme aus den 2000ern.\nKeinen Chef der ständig «kurz mal schauen» will.\n\nWas wir bieten?\nLedger- und Reconciler-Systeme. 105-180k transparent. Voll remote oder Berlin.\n\n→ Mehr erfahren",
 ]
 
 
-async def upload_meta_images() -> list[str]:
-    """Bilder aus ad-images/ zu Meta hochladen, gibt Liste von Image-Hashes zurück."""
+async def upload_meta_images(drive_target_folder_id: Optional[str] = None) -> list[str]:
+    """Bilder aus ad-images/ zu Meta hochladen, gibt Liste von Image-Hashes zurück.
+    Falls drive_target_folder_id angegeben ist, werden dieselben Bilder zusätzlich in den
+    angegebenen Drive-Ordner hochgeladen (z.B. 04_Creatives/Bilder des Kundenordners)."""
     if not os.path.isdir(AD_IMAGE_DIR):
         log.warning(f"Ad-Images Ordner nicht gefunden: {AD_IMAGE_DIR}")
         return []
@@ -579,11 +637,86 @@ async def upload_meta_images() -> list[str]:
                     log.info(f"Meta Bild hochgeladen: {fname} → {h}")
         else:
             log.error(f"Meta Bild-Upload fehlgeschlagen ({fname}): {resp.status_code} {resp.text}")
+
+        if drive_target_folder_id:
+            try:
+                await _drive_upload_file(fpath, fname, drive_target_folder_id)
+            except Exception as e:
+                log.warning(f"Drive-Upload für {fname} fehlgeschlagen (non-critical): {e}")
     return hashes
+
+
+async def _drive_upload_file(fpath: str, fname: str, parent_id: str) -> Optional[str]:
+    """Multipart-Upload einer Datei in einen Drive-Ordner. Gibt Datei-ID zurueck."""
+    token = await _refresh_google_token()
+    mime = "image/png" if fname.lower().endswith(".png") else "image/jpeg"
+    metadata = {"name": fname, "parents": [parent_id]}
+    with open(fpath, "rb") as f:
+        file_bytes = f.read()
+    boundary = "fs_mpart_boundary"
+    body = (
+        f"--{boundary}\r\n"
+        "Content-Type: application/json; charset=UTF-8\r\n\r\n"
+        f"{json.dumps(metadata)}\r\n"
+        f"--{boundary}\r\n"
+        f"Content-Type: {mime}\r\n\r\n"
+    ).encode("utf-8") + file_bytes + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    resp = await _http.post(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": f"multipart/related; boundary={boundary}",
+        },
+        content=body,
+    )
+    if resp.status_code >= 400:
+        raise RuntimeError(f"Drive upload {fname} failed: {resp.status_code} {resp.text}")
+    return resp.json().get("id")
 
 
 _AD_CONCEPTS = ["PainPoint", "SocialProof", "Testimonial"]
 _AD_ANGLES = ["Fachkraefte", "Zeitersparnis", "ROI"]
+
+# Headlines & Descriptions pro Funnel-Stage (Meta limitiert Headline ~40 / Description ~30 Zeichen)
+AD_HEADLINES = {
+    "TOF": [
+        "Senior Engineer (m/w/d) — Bewerbung in 2 Min",
+        "Ledger-Engineering — Bewerbung in 2 Min",
+        "Senior Engineer 105-180k — In 2 Min bewerben",
+    ],
+    "RT": [
+        "Senior Engineer — In 2 Min bewerben",
+        "Vier Fragen, fertig — Bewerbung in 2 Min",
+        "Senior Engineer @ {company} — In 2 Min",
+    ],
+    "WARMUP": [
+        "Senior Engineer (m/w/d) — Bewerbung in 2 Min",
+        "Ledger-Engineering — In 2 Min bewerben",
+        "Senior Engineer @ {company} — In 2 Min",
+    ],
+}
+# Alias: ca09 ruft mit funnel_stage="WU" auf
+AD_HEADLINES["WU"] = AD_HEADLINES["WARMUP"]
+
+AD_DESCRIPTIONS = {
+    "TOF": [
+        "Berlin oder voll remote in der EU.",
+        "Bewerbung in zwei Minuten. Antwort 48h.",
+        "Vier Fragen plus Code-Link.",
+    ],
+    "RT": [
+        "Vier Fragen plus Code-Link.",
+        "Antwort innerhalb von 48 Stunden.",
+        "Stelle ist noch offen.",
+    ],
+    "WARMUP": [
+        "Mehr über das Team.",
+        "Wie wir Ledger-Systeme bauen.",
+        "Karriere bei {company}.",
+    ],
+}
+AD_DESCRIPTIONS["WU"] = AD_DESCRIPTIONS["WARMUP"]
+
 
 async def create_meta_ads(
     acct: str,
@@ -597,25 +730,50 @@ async def create_meta_ads(
 ) -> list[str]:
     """Ads erstellen: 1 Ad pro Bild mit DACH Naming Convention."""
     if not META_PAGE_ID:
-        log.warning("Kein META_PAGE_ID — Ads-Erstellung uebersprungen")
+        log.warning("Kein META_PAGE_ID - Ads-Erstellung übersprungen")
         return []
     ad_ids: list[str] = []
     month = datetime.now().strftime("%Y-%m")
-    copy_text = copy_texts[0].format(company=company) if copy_texts else f"Jetzt bewerben bei {company}!"
+
+    # Dedupe: Bestehende Ads in diesem Ad Set per Name-Map einsammeln
+    existing_ads: dict[str, str] = {}
+    try:
+        ads_lookup = await meta_api("GET", f"{adset_id}/ads?fields=id,name,effective_status&limit=200")
+        for a in (ads_lookup.get("data") or []):
+            if a.get("name") and a.get("id") and a.get("effective_status") != "DELETED":
+                existing_ads[a["name"]] = a["id"]
+    except Exception as e:
+        log.warning(f"Meta Ad Dedupe-Lookup fehlgeschlagen: {e}")
+
+    headlines = AD_HEADLINES.get(funnel_stage, AD_HEADLINES["TOF"])
+    descriptions = AD_DESCRIPTIONS.get(funnel_stage, AD_DESCRIPTIONS["TOF"])
+
     for i, img_hash in enumerate(image_hashes):
         concept = _AD_CONCEPTS[i % len(_AD_CONCEPTS)]
         angle = _AD_ANGLES[i % len(_AD_ANGLES)]
         variant = f"V{i+1}"
+        variant_text = (
+            copy_texts[i % len(copy_texts)].format(company=company, destination_url=destination_url)
+            if copy_texts else f"Jetzt bewerben bei {company}: {destination_url}"
+        )
+        headline = headlines[i % len(headlines)].format(company=company)
+        description = descriptions[i % len(descriptions)].format(company=company)
         # DACH Naming: Format | Konzept | Angle | Creator | Variante | Datum
         creative_name = f"Image | {concept} | {angle} | Inhouse | {variant} | {month}"
         ad_name = f"{funnel_stage} | {concept} | {angle} | {variant} | {month}"
+        if ad_name in existing_ads:
+            log.info(f"Meta Ad '{ad_name}' wiederverwendet (Dedupe): {existing_ads[ad_name]}")
+            ad_ids.append(existing_ads[ad_name])
+            continue
         creative = await meta_api("POST", f"{acct}/adcreatives", {
             "name": creative_name,
             "object_story_spec": {
                 "page_id": META_PAGE_ID,
                 "link_data": {
-                    "message": copy_text,
+                    "message": variant_text,
                     "link": destination_url,
+                    "name": headline,
+                    "description": description,
                     "image_hash": img_hash,
                     "call_to_action": {
                         "type": cta_type,
@@ -631,7 +789,7 @@ async def create_meta_ads(
             "status": "PAUSED",
         })
         ad_ids.append(ad["id"])
-    log.info(f"Meta Ads erstellt fuer AdSet {adset_id}: {ad_ids}")
+    log.info(f"Meta Ads erstellt für AdSet {adset_id}: {ad_ids}")
     return ad_ids
 
 
@@ -651,10 +809,10 @@ async def load_close_stages():
 
 @app.on_event("startup")
 async def validate_staged_docs():
-    """Prueft beim Start ob alle vorbereiteten Demo-Docs noch existieren."""
+    """Prüft beim Start ob alle vorbereiteten Demo-Docs noch existieren."""
     manifest_path = os.path.join(os.path.dirname(__file__), "staged-docs-manifest.json")
     if not os.path.exists(manifest_path):
-        log.warning("staged-docs-manifest.json nicht gefunden — Demo-Docs nicht validiert")
+        log.warning("staged-docs-manifest.json nicht gefunden - Demo-Docs nicht validiert")
         return
 
     try:
@@ -664,24 +822,26 @@ async def validate_staged_docs():
         log.error(f"Manifest laden fehlgeschlagen: {e}")
         return
 
-    token = GOOGLE_ACCESS_TOKEN
-    if not token and GOOGLE_REFRESH_TOKEN:
+    token = ""
+    if GOOGLE_REFRESH_TOKEN:
         try:
-            import ssl, certifi, urllib.request
+            import ssl, certifi, urllib.request, urllib.parse
             _ctx = ssl.create_default_context(cafile=certifi.where())
-            data = json.dumps({
+            data = urllib.parse.urlencode({
                 "client_id": GOOGLE_CLIENT_ID, "client_secret": GOOGLE_CLIENT_SECRET,
                 "refresh_token": GOOGLE_REFRESH_TOKEN, "grant_type": "refresh_token",
             }).encode()
-            req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data, headers={"Content-Type": "application/json"})
+            req = urllib.request.Request("https://oauth2.googleapis.com/token", data=data)
             resp = urllib.request.urlopen(req, timeout=10, context=_ctx)
             token = json.loads(resp.read()).get("access_token", "")
-        except Exception:
-            log.warning("Google Token Refresh fuer Doc-Validation fehlgeschlagen")
+        except Exception as e:
+            log.warning(f"Google Token Refresh für Doc-Validation fehlgeschlagen: {e}")
             return
+    if not token:
+        token = GOOGLE_ACCESS_TOKEN
 
     if not token:
-        log.warning("Kein Google Token — Demo-Docs nicht validiert")
+        log.warning("Kein Google Token - Demo-Docs nicht validiert")
         return
 
     missing = []
@@ -700,7 +860,7 @@ async def validate_staged_docs():
     if missing:
         log.error(f"DEMO-DOCS FEHLEN ({len(missing)}/{manifest.get('total', '?')}): {', '.join(missing)}")
     else:
-        log.info(f"Alle {manifest.get('total', 12)} Demo-Docs validiert — bereit fuer Demo")
+        log.info(f"Alle {manifest.get('total', 12)} Demo-Docs validiert - bereit für Demo")
 
 
 @app.get("/health")
@@ -725,40 +885,92 @@ async def health():
 
 @app.post("/api/close/create-lead")
 async def create_close_lead(body: Optional[dict] = None):
-    """is02: Lead in Close erstellen + Pipeline + Custom Fields."""
+    """is02: Lead in Close erstellen + Pipeline + Custom Fields.
+    Dedupe: Wenn Lead mit dieser Email + vorhandener Opportunity schon existiert,
+    wird er wiederverwendet - verhindert Duplikate bei Demo-Rerun ohne sauberen Cleanup.
+    """
     company = (body or {}).get("company", "Novacode GmbH")
     contact_name = (body or {}).get("contact", "Claudio Di Franco")
     contact_email = (body or {}).get("email", "clazahlungskonto@gmail.com")
+    contact_title = (body or {}).get("contact_title", "Head of People & Talent")
+    contact_phone = (body or {}).get("phone", "+49 30 5683 4421")
+    customer_url = (body or {}).get("url", "https://novacode.de")
+    service_type = (body or {}).get("service_type", "Recruiting")
+    description = (body or {}).get("description", "Senior Engineer (m/w/d) — Ledger- und Reconciler-Systeme. Berlin oder voll remote in der EU. 105–180k.")
+    address = (body or {}).get("address") or {
+        "label": "office",
+        "address_1": "Friedrichstraße 76",
+        "city": "Berlin",
+        "zipcode": "10117",
+        "country": "DE",
+    }
     deal_value = (body or {}).get("deal_value", 299700)  # in Cents (2997 EUR)
     deal_period = (body or {}).get("deal_period", "one_time")  # one_time, monthly, annual
 
-    # Lead erstellen
+    # Dedupe-Check: Lead mit dieser Email schon vorhanden?
+    try:
+        existing = await close_api("GET", f'/lead/?query=email:"{contact_email}"&_limit=1')
+        existing_leads = existing.get("data", []) if isinstance(existing, dict) else []
+    except Exception as e:
+        log.warning(f"Close Dedupe-Check fehlgeschlagen (fahre mit Create fort): {e}")
+        existing_leads = []
+
+    if existing_leads:
+        dup = existing_leads[0]
+        dup_id = dup.get("id")
+        dup_opps = dup.get("opportunities") or []
+        if dup_id and dup_opps:
+            log.info(f"Close Lead wiederverwendet (Dedupe): {dup_id}, Opp: {dup_opps[0].get('id')}")
+            return {
+                "lead_id": dup_id,
+                "opportunity_id": dup_opps[0].get("id"),
+                "url": f"https://app.close.com/lead/{dup_id}/",
+                "deduplicated": True,
+            }
+
+    # Lead erstellen (ohne Custom Fields - diese liegen am Opportunity-Objekt)
     lead = await close_api("POST", "/lead/", {
         "name": company,
+        "url": customer_url,
+        "description": description,
+        "addresses": [address],
         "contacts": [{
             "name": contact_name,
+            "title": contact_title,
             "emails": [{"email": contact_email, "type": "office"}],
+            "phones": [{"phone": contact_phone, "type": "office"}],
         }],
-        f"custom.{CLOSE_FIELDS['service_type']}": "Recruiting",
-        f"custom.{CLOSE_FIELDS['account_manager']}": "Claudio Di Franco",
-        f"custom.{CLOSE_FIELDS['automation_status']}": "Running",
     })
     lead_id = lead["id"]
 
-    # Opportunity in Fulfillment Pipeline
+    # Opportunity in Fulfillment Pipeline (Custom Fields gehoeren hier hin)
     opp = await close_api("POST", "/opportunity/", {
         "lead_id": lead_id,
         "pipeline_id": CLOSE_PIPELINE_ID,
         "status_id": CLOSE_STAGES.get("Onboarding gestartet"),
-        "note": f"Fulfillment Automation gestartet für {company}",
+        "note": f"Fulfillment Automation gestartet für {company} · {description}",
         "value": deal_value,
         "value_period": deal_period,
+        f"custom.{CLOSE_FIELDS['service_type']}": service_type,
+        f"custom.{CLOSE_FIELDS['account_manager']}": "Claudio Di Franco",
+        f"custom.{CLOSE_FIELDS['automation_status']}": "Läuft",
     })
 
     # Note
+    addr_str = f"{address.get('address_1','')}, {address.get('zipcode','')} {address.get('city','')}".strip(", ")
     await close_api("POST", "/activity/note/", {
         "lead_id": lead_id,
-        "note": "Onboarding-Formular eingegangen. Fulfillment Automation gestartet.",
+        "note": (
+            "Onboarding-Formular eingegangen. Fulfillment Automation gestartet.\n"
+            f"Firma: {company}\n"
+            f"Ansprechpartner: {contact_name} ({contact_title})\n"
+            f"E-Mail: {contact_email}\n"
+            f"Telefon: {contact_phone}\n"
+            f"Webseite: {customer_url}\n"
+            f"Adresse: {addr_str}\n"
+            f"Service: {service_type}\n"
+            f"Briefing: {description}"
+        ),
     })
 
     log.info(f"Close Lead erstellt: {lead_id}, Opportunity: {opp['id']}")
@@ -773,22 +985,18 @@ async def update_close_stage(body: dict):
         raise HTTPException(400, "opportunity_id fehlt im Context")
     stage = body.get("stage", "")
     automation_status_raw = body.get("automation_status", stage)
-    # Map to valid choices: Pending, Running, Completed, Error
-    automation_status_choice = "Completed" if stage == "Live" else "Running"
+    # Map to valid choices: Wartend, Läuft, Abgeschlossen, Fehler
+    automation_status_choice = "Abgeschlossen" if stage == "Live" else "Läuft"
 
     status_id = CLOSE_STAGES.get(stage)
     if not status_id:
         raise HTTPException(400, f"Unbekannte Stage: {stage}")
 
+    # Stage + Automation Status beide auf die Opportunity (Custom Fields sind Opp-Level)
     await close_api("PUT", f"/opportunity/{opp_id}/", {
         "status_id": status_id,
+        f"custom.{CLOSE_FIELDS['automation_status']}": automation_status_choice,
     })
-
-    # Automation Status auf Lead updaten
-    if "lead_id" in body:
-        await close_api("PUT", f"/lead/{body['lead_id']}/", {
-            f"custom.{CLOSE_FIELDS['automation_status']}": automation_status_choice,
-        })
 
     # Note mit dem detaillierten Status
     await close_api("POST", "/activity/note/", {
@@ -797,7 +1005,11 @@ async def update_close_stage(body: dict):
     })
 
     lead_id = body.get("lead_id", "")
-    return {"ok": True, "stage": stage, "url": f"https://app.close.com/lead/{lead_id}/" if lead_id else "https://app.close.com/"}
+    result = {"ok": True, "stage": stage}
+    if lead_id:
+        # Opportunity-View im Lead öffnen (statt nur Lead-Detail) damit Phase-Update sofort sichtbar
+        result["url"] = f"https://app.close.com/lead/{lead_id}/?opportunityId={opp_id}"
+    return result
 
 
 @app.post("/api/slack/message")
@@ -812,6 +1024,59 @@ async def send_slack_message(body: dict):
 async def create_drive_folders(body: Optional[dict] = None):
     """is06: Google Drive Ordnerstruktur erstellen."""
     company = (body or {}).get("company", "Novacode GmbH")
+
+    # Dedupe-Check: Existiert bereits ein Root-Ordner mit diesem Namen?
+    try:
+        safe_name = company.replace("'", "\\'")
+        q = f"name = '{safe_name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        existing = await google_api(
+            "GET",
+            f"https://www.googleapis.com/drive/v3/files?q={urllib.parse.quote(q)}&fields=files(id,name)&pageSize=1",
+        )
+        existing_files = existing.get("files", []) if isinstance(existing, dict) else []
+    except Exception as e:
+        log.warning(f"Drive Dedupe-Check fehlgeschlagen (fahre mit Create fort): {e}")
+        existing_files = []
+
+    if existing_files:
+        existing_root_id = existing_files[0]["id"]
+        log.info(f"Drive Root-Ordner '{company}' wiederverwendet (Dedupe): {existing_root_id}")
+        # Subfolders im existierenden Ordner auflisten, damit is07 und Downstream sie finden
+        sub_map: dict[str, str] = {}
+        try:
+            sub_q = f"'{existing_root_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+            sub_resp = await google_api(
+                "GET",
+                f"https://www.googleapis.com/drive/v3/files?q={urllib.parse.quote(sub_q)}&fields=files(id,name)&pageSize=50",
+            )
+            for f in (sub_resp.get("files") or []):
+                sub_map[f["name"]] = f["id"]
+        except Exception as e:
+            log.warning(f"Drive Subfolder-Lookup fehlgeschlagen: {e}")
+        # Bilder-Ordner (Upload-Ziel) in 04_Creatives suchen
+        upload_id = None
+        creatives_id = sub_map.get("04_Creatives")
+        if creatives_id:
+            try:
+                img_q = f"'{creatives_id}' in parents and name = 'Bilder' and trashed = false"
+                img_resp = await google_api(
+                    "GET",
+                    f"https://www.googleapis.com/drive/v3/files?q={urllib.parse.quote(img_q)}&fields=files(id)&pageSize=1",
+                )
+                img_files = img_resp.get("files", []) if isinstance(img_resp, dict) else []
+                if img_files:
+                    upload_id = img_files[0]["id"]
+            except Exception as e:
+                log.warning(f"Drive Bilder-Lookup fehlgeschlagen: {e}")
+        share_id = upload_id or creatives_id or existing_root_id
+        return {
+            "root_id": existing_root_id,
+            "upload_folder_id": share_id,
+            "upload_url": f"https://drive.google.com/drive/folders/{share_id}",
+            "url": f"https://drive.google.com/drive/folders/{existing_root_id}",
+            "subfolders": sub_map,
+            "deduplicated": True,
+        }
 
     # Root-Ordner
     root = await google_api("POST", "https://www.googleapis.com/drive/v3/files", {
@@ -867,7 +1132,7 @@ async def create_drive_folders(body: Optional[dict] = None):
         if name == "Bilder":
             upload_folder_id = sub["id"]
 
-    # Nur den Upload-Ordner (Bilder) mit dem Kunden teilen — nicht den ganzen Root
+    # Nur den Upload-Ordner (Bilder) mit dem Kunden teilen - nicht den ganzen Root
     client_email = (body or {}).get("email")
     share_folder_id = upload_folder_id or created.get("04_Creatives") or root_id
     if client_email:
@@ -892,17 +1157,92 @@ async def create_calendar_event(body: Optional[dict] = None):
     """is05: Kickoff-Termin erstellen."""
     company = (body or {}).get("company", "Novacode GmbH")
     contact_email = (body or {}).get("email", "clazahlungskonto@gmail.com")
-    # Random Arbeitszeit innerhalb der nächsten 7 Tage (Mo-Fr, 9-16 Uhr)
+
+    # Dedupe-Check: Existiert bereits ein Kickoff-Event für diese Firma in den nächsten 30 Tagen?
+    expected_summary = f"Kickoff - {company} - Recruiting"
+    try:
+        time_min = datetime.now().isoformat() + "Z"
+        time_max = (datetime.now() + timedelta(days=30)).isoformat() + "Z"
+        search_q = urllib.parse.quote(expected_summary)
+        existing_events = await google_api(
+            "GET",
+            f"https://www.googleapis.com/calendar/v3/calendars/primary/events?q={search_q}&timeMin={urllib.parse.quote(time_min)}&timeMax={urllib.parse.quote(time_max)}&singleEvents=true&maxResults=5",
+        )
+        items = existing_events.get("items", []) if isinstance(existing_events, dict) else []
+        dup = next((ev for ev in items if ev.get("summary") == expected_summary and ev.get("status") != "cancelled"), None)
+    except Exception as e:
+        log.warning(f"Calendar Dedupe-Check fehlgeschlagen (fahre mit Create fort): {e}")
+        dup = None
+
+    if dup:
+        meet_link_existing = dup.get("hangoutLink", "")
+        if not meet_link_existing:
+            for ep in dup.get("conferenceData", {}).get("entryPoints", []):
+                if ep.get("entryPointType") == "video":
+                    meet_link_existing = ep.get("uri", "")
+                    break
+        log.info(f"Calendar Event '{expected_summary}' wiederverwendet (Dedupe): {dup.get('id')}")
+        return {
+            "event_id": dup.get("id"),
+            "link": dup.get("htmlLink"),
+            "meet_link": meet_link_existing,
+            "url": dup.get("htmlLink"),
+            "deduplicated": True,
+        }
+
+    # Freien Slot finden: Mo-Fr, 9-17 Uhr, keine Kollision mit bestehenden Terminen
     if not (body or {}).get("date"):
         now = datetime.now()
-        for _ in range(50):
-            offset_days = random.randint(2, 7)
-            candidate = now + timedelta(days=offset_days)
-            if candidate.weekday() < 5:  # Mo-Fr
-                break
-        date = candidate.strftime("%Y-%m-%d")
-        hour = random.choice([9, 10, 11, 13, 14, 15, 16, 17])
-        time = f"{hour:02d}:00"
+        # Busy-Fenster der nächsten 14 Tage abrufen
+        window_end = now + timedelta(days=14)
+        busy_resp = await google_api(
+            "POST",
+            "https://www.googleapis.com/calendar/v3/freeBusy",
+            {
+                "timeMin": now.isoformat() + "Z",
+                "timeMax": window_end.isoformat() + "Z",
+                "timeZone": "Europe/Berlin",
+                "items": [{"id": "primary"}],
+            },
+        )
+        busy_slots = [
+            (b["start"], b["end"])
+            for b in busy_resp.get("calendars", {}).get("primary", {}).get("busy", [])
+        ]
+
+        def _conflicts(slot_start: datetime, slot_end: datetime) -> bool:
+            s_iso = slot_start.isoformat()
+            e_iso = slot_end.isoformat()
+            for b_start, b_end in busy_slots:
+                # Overlap check with string prefixes works because all are ISO UTC
+                if s_iso < b_end and e_iso > b_start:
+                    return True
+            return False
+
+        date = None
+        time = None
+        candidate_slots = []
+        for offset_days in range(2, 15):
+            day = now + timedelta(days=offset_days)
+            if day.weekday() >= 5:
+                continue
+            for hour in [9, 10, 11, 13, 14, 15, 16]:
+                slot_start = day.replace(hour=hour, minute=0, second=0, microsecond=0)
+                slot_end = slot_start + timedelta(hours=1)
+                if not _conflicts(slot_start, slot_end):
+                    candidate_slots.append((slot_start, slot_end))
+        if candidate_slots:
+            slot_start, slot_end = random.choice(candidate_slots)
+            date = slot_start.strftime("%Y-%m-%d")
+            time = slot_start.strftime("%H:%M")
+        else:
+            # Fallback: nächster Wochentag 10 Uhr
+            for offset_days in range(2, 8):
+                day = now + timedelta(days=offset_days)
+                if day.weekday() < 5:
+                    date = day.strftime("%Y-%m-%d")
+                    time = "10:00"
+                    break
     else:
         date = body["date"]
         time = (body or {}).get("time", "10:00")
@@ -913,7 +1253,7 @@ async def create_calendar_event(body: Optional[dict] = None):
 
     event = await google_api(
         "POST",
-        "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1",
+        "https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all",
         {
             "summary": f"Kickoff - {company} - Recruiting",
             "description": (
@@ -955,14 +1295,16 @@ async def create_calendar_event(body: Optional[dict] = None):
     if meet_link:
         log.info(f"Google Meet Link erstellt: {meet_link}")
     else:
-        log.warning(f"Kein Google Meet Link im Response — conferenceData: {event.get('conferenceData')}")
+        log.warning(f"Kein Google Meet Link im Response - conferenceData: {event.get('conferenceData')}")
 
-    return {
+    result = {
         "event_id": event.get("id"),
         "link": event.get("htmlLink"),
         "meet_link": meet_link,
-        "url": event.get("htmlLink", "https://calendar.google.com/"),
     }
+    if event.get("htmlLink"):
+        result["url"] = event["htmlLink"]
+    return result
 
 
 @app.post("/api/google/send-email")
@@ -996,40 +1338,40 @@ async def send_welcome_email(body: Optional[dict] = None):
     <p style="margin:0 0 16px;color:#18181b;font-size:16px;">Hallo {contact_name},</p>
 
     <p style="margin:0 0 16px;color:#3f3f46;font-size:15px;line-height:1.6;">
-      vielen Dank für Ihr Vertrauen in Flowstack. Wir freuen uns, <strong>{company}</strong>
-      als neuen Kunden zu begrüßen und starten jetzt mit Ihrem Recruiting-Projekt.
+      vielen Dank für dein Vertrauen in Flowstack. Wir freuen uns, <strong>{company}</strong>
+      als neuen Kunden zu begrüßen und starten jetzt mit deinem Recruiting-Projekt.
     </p>
 
     <!-- Timeline -->
     <h2 style="margin:28px 0 16px;color:#18181b;font-size:17px;font-weight:600;">
-      Ihre nächsten Schritte
+      Deine nächsten Schritte
     </h2>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
         <td style="padding:12px 16px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:0 8px 8px 0;margin-bottom:8px;">
           <strong style="color:#166534;">1. Kickoff-Termin</strong>
-          <br><span style="color:#3f3f46;font-size:14px;">Geplant: {kickoff_date} — Sie erhalten eine separate Kalender-Einladung mit Google Meet Link.</span>
+          <br><span style="color:#3f3f46;font-size:14px;">Geplant: {kickoff_date} - du bekommst eine separate Kalender-Einladung mit Google Meet Link.</span>
         </td>
       </tr>
       <tr><td style="height:8px;"></td></tr>
       <tr>
         <td style="padding:12px 16px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:0 8px 8px 0;">
           <strong style="color:#1e40af;">2. Materialien hochladen</strong>
-          <br><span style="color:#3f3f46;font-size:14px;">Bitte laden Sie Ihre Unterlagen über den Button unten hoch (Stellenanzeigen, Logos, Teamfotos, Brand Guidelines).</span>
+          <br><span style="color:#3f3f46;font-size:14px;">Bitte lade deine Unterlagen über den Button unten hoch (Stellenanzeigen, Logos, Teamfotos, Brand Guidelines).</span>
         </td>
       </tr>
       <tr><td style="height:8px;"></td></tr>
       <tr>
         <td style="padding:12px 16px;background:#faf5ff;border-left:4px solid #8b5cf6;border-radius:0 8px 8px 0;">
           <strong style="color:#6b21a8;">3. Strategie &amp; Umsetzung</strong>
-          <br><span style="color:#3f3f46;font-size:14px;">Nach dem Kickoff erstellen wir Ihre Recruiting-Strategie, Funnel, Creatives und Kampagnen.</span>
+          <br><span style="color:#3f3f46;font-size:14px;">Nach dem Kickoff erstellen wir deine Recruiting-Strategie, Funnel, Creatives und Kampagnen.</span>
         </td>
       </tr>
     </table>
 
     <!-- What we create -->
     <h2 style="margin:28px 0 16px;color:#18181b;font-size:17px;font-weight:600;">
-      Was unsere Automation für Sie erstellt
+      Was unsere Automation für dich erstellt
     </h2>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
       <tr>
@@ -1066,21 +1408,21 @@ async def send_welcome_email(body: Optional[dict] = None):
     </ul>
 
     <p style="margin:0 0 8px;color:#3f3f46;font-size:15px;line-height:1.6;">
-      Bei Fragen erreichen Sie uns jederzeit unter
-      <a href="mailto:claudio@flowstack.com" style="color:#6366f1;">claudio@flowstack.com</a>.
+      Bei Fragen erreichst du uns jederzeit unter
+      <a href="mailto:claudio@flowstack-system.de" style="color:#6366f1;">claudio@flowstack-system.de</a>.
     </p>
 
     <p style="margin:24px 0 0;color:#18181b;font-size:15px;">
-      Mit besten Grüßen,<br>
+      Beste Grüße,<br>
       <strong>Claudio Di Franco</strong><br>
-      <span style="color:#6b7280;font-size:14px;">Account Manager — Flowstack</span>
+      <span style="color:#6b7280;font-size:14px;">Account Manager - Flowstack</span>
     </p>
   </td></tr>
 
   <!-- Footer -->
   <tr><td style="padding:24px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;">
     <p style="margin:0;color:#9ca3af;font-size:12px;text-align:center;">
-      Flowstack GmbH — Recruiting Automation Platform<br>
+      Flowstack - Recruiting Automation Platform<br>
       Diese E-Mail wurde automatisch versendet.
     </p>
   </td></tr>
@@ -1090,6 +1432,25 @@ async def send_welcome_email(body: Optional[dict] = None):
 </table>
 </body>
 </html>"""
+    # Dedupe-Check: Wurde in den letzten 24h bereits eine Willkommens-Mail
+    # mit identischem Subject an diese Adresse gesendet?
+    try:
+        safe_subject = subject.replace('"', '\\"')
+        q = f'in:sent to:{to_email} subject:"{safe_subject}" newer_than:1d'
+        existing_sent = await google_api(
+            "GET",
+            f"https://www.googleapis.com/gmail/v1/users/me/messages?q={urllib.parse.quote(q)}&maxResults=1",
+        )
+        sent_messages = existing_sent.get("messages", []) if isinstance(existing_sent, dict) else []
+    except Exception as e:
+        log.warning(f"Gmail Dedupe-Check fehlgeschlagen (fahre mit Send fort): {e}")
+        sent_messages = []
+
+    if sent_messages:
+        dup_id = sent_messages[0].get("id")
+        log.info(f"Gmail Willkommens-Mail an {to_email} wiederverwendet (Dedupe): {dup_id}")
+        return {"message_id": dup_id, "to": to_email, "url": "https://mail.google.com/", "deduplicated": True}
+
     raw = (
         f"To: {to_email}\n"
         f"Subject: {subject}\n"
@@ -1124,7 +1485,7 @@ async def create_clickup_project(body: Optional[dict] = None):
         log.info(f"ClickUp List erstellt: {list_id}")
     except HTTPException as e:
         if "name taken" in str(e.detail).lower():
-            # Liste existiert — wiederverwenden
+            # Liste existiert - wiederverwenden
             lists = await clickup_api("GET", f"/space/{CLICKUP_SPACE_ID}/list")
             for lst in lists.get("lists", []):
                 if lst["name"] == list_name:
@@ -1167,18 +1528,15 @@ async def _create_task(
 
 
 async def _attach_docs_to_task(task_id: str, docs: dict[str, str]) -> None:
-    """Helper: Google Drive Docs als Attachments an ClickUp Task anhängen."""
-    for name, url in docs.items():
-        try:
-            resp = await _http.post(
-                f"https://api.clickup.com/api/v2/task/{task_id}/attachment",
-                headers={"Authorization": CLICKUP_TOKEN},
-                data={"url": url, "filename": name},
-            )
-            if resp.status_code >= 400:
-                log.warning(f"ClickUp Attachment '{name}' fehlgeschlagen: {resp.status_code}")
-        except Exception as e:
-            log.warning(f"ClickUp Attachment '{name}' uebersprungen: {e}")
+    """Helper: Links als ClickUp-Kommentar anhängen (attachment-API erwartet multipart)."""
+    entries = [(n, u) for n, u in docs.items() if u]
+    if not entries:
+        return
+    comment = "Ressourcen:\n" + "\n".join(f"- {n}: {u}" for n, u in entries)
+    try:
+        await clickup_api("POST", f"/task/{task_id}/comment", {"comment_text": comment})
+    except Exception as e:
+        log.warning(f"ClickUp Kommentar mit Ressourcen fehlgeschlagen: {e}")
 
 
 async def _complete_task(task_id: str, comment: str | None = None, docs: dict[str, str] | None = None) -> None:
@@ -1192,7 +1550,7 @@ async def _complete_task(task_id: str, comment: str | None = None, docs: dict[st
 
 @app.post("/api/clickup/create-tasks")
 async def create_clickup_tasks(body: dict):
-    """is09: Initiale ClickUp Tasks — nur echte menschliche Aufgaben, kein Auto-Complete."""
+    """is09: Initiale ClickUp Tasks - nur echte menschliche Aufgaben, kein Auto-Complete."""
     list_id = body["list_id"]
     task_ids: dict[str, str] = {}
     company = body.get("company", "Novacode GmbH")
@@ -1206,20 +1564,37 @@ async def create_clickup_tasks(body: dict):
     upload_url = f"https://drive.google.com/drive/folders/{upload_folder_id}" if upload_folder_id else drive_url
     clickup_url = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}"
 
+    # Dedupe: Bestehende Tasks in der Liste per Name-Map einsammeln
+    existing_by_name: dict[str, str] = {}
+    try:
+        existing_resp = await clickup_api("GET", f"/list/{list_id}/task?archived=false&subtasks=false&include_closed=true")
+        for ex in (existing_resp.get("tasks") or []):
+            n = ex.get("name")
+            if n and ex.get("id"):
+                existing_by_name[n] = ex["id"]
+    except Exception as e:
+        log.warning(f"ClickUp Task Dedupe-Lookup fehlgeschlagen (fahre mit Create fort): {e}")
+
+    async def _create_or_reuse(name: str, *args, **kwargs) -> dict:
+        if name in existing_by_name:
+            log.info(f"ClickUp Task '{name}' wiederverwendet (Dedupe): {existing_by_name[name]}")
+            return {"id": existing_by_name[name], "name": name}
+        return await _create_task(list_id, name, *args, **kwargs)
+
     # Task 1: Pixel besorgen
-    desc = f"Meta Pixel und Ad Account Zugaenge fuer {company} sicherstellen.\n\n"
+    desc = f"Meta Pixel und Ad Account Zugänge für {company} sicherstellen.\n\n"
     desc += "Ressourcen:\n"
     if close_url: desc += f"- Close Deal: {close_url}\n"
     desc += f"- ClickUp Projekt: {clickup_url}\n"
-    t = await _create_task(
-        list_id, f"Pixel besorgen — {company}", desc,
+    t = await _create_or_reuse(
+        f"Pixel besorgen - {company}", desc,
         [CLICKUP_ANAK], 1, 2,  # Urgent, +2 Tage
         [
             "Meta Business Manager Zugang beim Kunden anfragen",
-            "Ad Account Zugriff bestaetigen (Werbekonto-Admin)",
+            "Ad Account Zugriff bestätigen (Werbekonto-Admin)",
             "Pixel-ID vom Kunden erhalten oder neuen Pixel erstellen",
-            "Facebook Seite mit Ad Account verknuepft",
-            "Alle Zugaenge in Close dokumentiert",
+            "Facebook Seite mit Ad Account verknüpft",
+            "Alle Zugänge in Close dokumentiert",
         ],
     )
     task_ids["pixel_besorgen"] = t["id"]
@@ -1229,28 +1604,28 @@ async def create_clickup_tasks(body: dict):
     desc2 += "Ressourcen:\n"
     if close_url: desc2 += f"- Close Deal: {close_url}\n"
     if drive_url: desc2 += f"- Google Drive: {drive_url}\n"
-    t = await _create_task(
-        list_id, f"Kickoff vorbereiten — {company}", desc2,
+    t = await _create_or_reuse(
+        f"Kickoff vorbereiten - {company}", desc2,
         [CLICKUP_CLAUDIO], 2, 3,  # High, +3 Tage
         [
             "Close Deal-Notizen und Opportunity gelesen",
             "Branche und Wettbewerber kurz recherchiert",
             "Kickoff-Leitfaden an Client angepasst",
-            "Kalendereinladung und Meet-Link geprueft",
+            "Kalendereinladung und Meet-Link geprüft",
         ],
     )
     task_ids["kickoff"] = t["id"]
 
     # Task 3: Materialien vom Kunden einsammeln
-    desc3 = f"Alle Materialien von {company} einsammeln fuer Strategie und Creatives.\n\n"
+    desc3 = f"Alle Materialien von {company} einsammeln für Strategie und Creatives.\n\n"
     desc3 += "Ressourcen:\n"
     if upload_url: desc3 += f"- Upload-Ordner (Bilder): {upload_url}\n"
     if drive_url: desc3 += f"- Google Drive: {drive_url}\n"
-    t = await _create_task(
-        list_id, f"Materialien vom Kunden einsammeln — {company}", desc3,
+    t = await _create_or_reuse(
+        f"Materialien vom Kunden einsammeln - {company}", desc3,
         [CLICKUP_CLAUDIO], 2, 5,  # High, +5 Tage
         [
-            "Logo (PNG/SVG hochaufloesend) erhalten",
+            "Logo (PNG/SVG hochauflösend) erhalten",
             "Teamfotos / Arbeitsplatz-Bilder erhalten",
             "Brand Guidelines / CI erhalten (falls vorhanden)",
             "Bestehende Stellenanzeigen erhalten",
@@ -1273,7 +1648,7 @@ async def create_clickup_tasks(body: dict):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Miro Integration — Kampagnen-Board
+# Miro Integration - Kampagnen-Board
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1283,17 +1658,17 @@ async def create_miro_board(body: Optional[dict] = None):
     company = context.get("company", "Novacode GmbH")
 
     if not MIRO_ACCESS_TOKEN:
-        log.warning("MIRO_ACCESS_TOKEN nicht konfiguriert — Miro-Call uebersprungen")
+        log.warning("MIRO_ACCESS_TOKEN nicht konfiguriert - Miro-Call übersprungen")
         return {"url": "https://miro.com/app/board/", "miro_board_id": ""}
 
     # 1. Board erstellen
     board = await miro_api("POST", "/boards", {
-        "name": f"{company} — Kampagnen-Uebersicht",
-        "description": f"Strategie- und Kampagnen-Board fuer {company}. Automatisch erstellt von Flowstack.",
+        "name": f"{company} - Kampagnen-Übersicht",
+        "description": f"Strategie- und Kampagnen-Board für {company}. Automatisch erstellt von Flowstack.",
     })
     board_id = board["id"]
     board_url = board.get("viewLink", f"https://miro.com/app/board/{board_id}/")
-    log.info(f"Miro Board erstellt: {board_id} — {board_url}")
+    log.info(f"Miro Board erstellt: {board_id} - {board_url}")
 
     # 2. Frames erstellen (5 Phasen, nebeneinander)
     frames_config = [
@@ -1325,7 +1700,7 @@ async def create_miro_board(body: Optional[dict] = None):
             ("Hauptbotschaft: Bei Novacode baust du die Zukunft mit", "light_green", 0, -120),
             ("USP 1: 100% Remote-First", "light_green", -120, 40),
             ("USP 2: Moderner Tech-Stack (React, Go, K8s)", "light_green", 120, 40),
-            ("Tonalitaet: Professionell, aber menschlich", "green", 0, 150),
+            ("Tonalität: Professionell, aber menschlich", "green", 0, 150),
         ],
         "Kampagnen-Struktur": [
             ("Hauptkampagne: Awareness + Conversions", "cyan", 0, -120),
@@ -1357,17 +1732,17 @@ async def create_miro_board(body: Optional[dict] = None):
 
     # 4. Cards (Action Items) pro Frame
     cards_config = {
-        "Zielgruppe": [("Zielgruppen-Recherche abschliessen", "Persona-Interviews + Datenanalyse")],
-        "Messaging": [("Messaging-Matrix finalisieren", "USPs priorisieren und Tonalitaet festlegen")],
+        "Zielgruppe": [("Zielgruppen-Recherche abschließen", "Persona-Interviews + Datenanalyse")],
+        "Messaging": [("Messaging-Matrix finalisieren", "USPs priorisieren und Tonalität festlegen")],
         "Kampagnen-Struktur": [
             ("Budget-Verteilung festlegen", "Hauptkampagne vs. Retargeting vs. Warmup"),
-            ("Tracking-Setup pruefen", "Pixel, Events, Conversion-API"),
+            ("Tracking-Setup prüfen", "Pixel, Events, Conversion-API"),
         ],
         "Creatives": [
             ("Creative Briefing an Designer", "Formate, Specs, Deadlines"),
             ("Video-Produktion planen", "Storyboard, Dreh-Location, Schnitt"),
         ],
-        "Timeline": [("Meilensteine in ClickUp uebertragen", "Alle Deadlines synchronisieren")],
+        "Timeline": [("Meilensteine in ClickUp übertragen", "Alle Deadlines synchronisieren")],
     }
 
     for frame_title, cards in cards_config.items():
@@ -1399,7 +1774,7 @@ async def create_miro_board(body: Optional[dict] = None):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# V2 Airtable Integration — Baustein-System
+# V2 Airtable Integration - Baustein-System
 # ══════════════════════════════════════════════════════════════════════════════
 
 _airtable_http = httpx.AsyncClient(timeout=30)
@@ -1408,7 +1783,7 @@ _airtable_http = httpx.AsyncClient(timeout=30)
 async def airtable_request(method: str, path: str, data: Optional[dict] = None) -> dict:
     """Airtable API request."""
     if not AIRTABLE_API_KEY:
-        log.warning("AIRTABLE_API_KEY nicht konfiguriert — Airtable-Calls uebersprungen")
+        log.warning("AIRTABLE_API_KEY nicht konfiguriert - Airtable-Calls übersprungen")
         return {}
     url = f"https://api.airtable.com/v0/{path}"
     resp = await _airtable_http.request(
@@ -1498,7 +1873,7 @@ AIRTABLE_TABLES_CONFIG = [
             {"name": "Kategorie", "type": "singleSelect", "options": {"choices": [
                 {"name": "A. Demografie"}, {"name": "B. Beruflich"}, {"name": "C. Schmerzpunkte"},
                 {"name": "D. Psychologie"}, {"name": "E. Benefits"}, {"name": "F. Sprache"},
-                {"name": "G. Einwaende"}, {"name": "H. Arbeitgeber"}, {"name": "I. Messaging"},
+                {"name": "G. Einwände"}, {"name": "H. Arbeitgeber"}, {"name": "I. Messaging"},
                 {"name": "J. Markt"},
             ]}},
             {"name": "Inhalt", "type": "multilineText"},
@@ -1580,8 +1955,8 @@ AIRTABLE_TABLES_CONFIG = [
 
 # ── Airtable Views (Dashboards) ──────────────────────────────────────────────
 AIRTABLE_VIEWS_CONFIG = [
-    # Airtable Metadata API unterstuetzt nur "grid" und "form" — Kanban/Gallery/Calendar
-    # muessen manuell in der Airtable UI erstellt werden.
+    # Airtable Metadata API unterstützt nur "grid" und "form" - Kanban/Gallery/Calendar
+    # müssen manuell in der Airtable UI erstellt werden.
     # Wir erstellen Grid-Views mit beschreibenden Namen als Ausgangspunkt.
     # ── Clients ──
     {"table": "Clients", "name": "Pipeline nach Status", "type": "grid"},
@@ -1608,7 +1983,7 @@ AIRTABLE_VIEWS_CONFIG = [
 async def setup_airtable_base():
     """Erstellt alle Tabellen in der Airtable Base automatisch via Metadata API."""
     if not AIRTABLE_API_KEY or not AIRTABLE_BASE_ID:
-        raise HTTPException(400, "AIRTABLE_API_KEY und AIRTABLE_BASE_ID muessen in Doppler konfiguriert sein")
+        raise HTTPException(400, "AIRTABLE_API_KEY und AIRTABLE_BASE_ID müssen in Doppler konfiguriert sein")
 
     created_tables = []
     for table_cfg in AIRTABLE_TABLES_CONFIG:
@@ -1694,7 +2069,7 @@ async def setup_airtable_base():
         table_name = view_cfg["table"]
         table_id = table_id_map.get(table_name)
         if not table_id:
-            log.warning(f"Tabelle {table_name} nicht gefunden — View '{view_cfg['name']}' uebersprungen")
+            log.warning(f"Tabelle {table_name} nicht gefunden - View '{view_cfg['name']}' übersprungen")
             continue
         result = await airtable_request(
             "POST",
@@ -1769,7 +2144,7 @@ DOC_BAUSTEIN_MAP = {
 KATEGORIE_MAP = {
     "A": "A. Demografie", "B": "B. Beruflich", "C": "C. Schmerzpunkte",
     "D": "D. Psychologie", "E": "E. Benefits", "F": "F. Sprache",
-    "G": "G. Einwaende", "H": "H. Arbeitgeber", "I": "I. Messaging",
+    "G": "G. Einwände", "H": "H. Arbeitgeber", "I": "I. Messaging",
     "J": "J. Markt",
 }
 
@@ -1779,7 +2154,7 @@ EXTRACTION_JSON_SCHEMA = {
         "geschlecht": "Verteilung oder 'alle'",
         "standort": "Region/Stadt",
         "bildung": "Typischer Abschluss",
-        "familienstand": "Typisch fuer Zielgruppe",
+        "familienstand": "Typisch für Zielgruppe",
         "einkommen": "Gehaltsbereich",
         "berufserfahrung": "Jahre Erfahrung",
         "suchverhalten": "aktiv oder passiv",
@@ -1788,53 +2163,53 @@ EXTRACTION_JSON_SCHEMA = {
         "aktuelle_rolle": "Aktueller Job-Titel",
         "gesuchte_rolle": "Rolle die besetzt werden soll",
         "stack_aktuell": "Technologien die sie aktuell nutzen",
-        "stack_gewuenscht": "Technologien die sie nutzen WOLLEN",
-        "senioritaet": "Junior/Mid/Senior/Lead",
+        "stack_gewünscht": "Technologien die sie nutzen WOLLEN",
+        "seniorität": "Junior/Mid/Senior/Lead",
         "arbeitgeber_typ": "Konzern/Agentur/Startup/Mittelstand",
         "gehalt_aktuell": "Gehaltsrange aktuell",
-        "gehalt_gewuenscht": "Gehaltsrange gewuenscht",
+        "gehalt_gewünscht": "Gehaltsrange gewünscht",
     },
     "schmerzpunkte": {
-        "primaer": "Groesster Schmerzpunkt",
-        "primaer_zitat": "Realistisches Zitat dazu (wie echte Person redet)",
-        "primaer_tiefe": "Schmerz hinter dem Schmerz — tiefere Emotion",
-        "sekundaer_1": "Zweitgroesster Schmerzpunkt",
-        "sekundaer_1_zitat": "Zitat",
-        "sekundaer_1_tiefe": "Tiefere Emotion",
-        "sekundaer_2": "Drittgroesster Schmerzpunkt",
-        "sekundaer_2_zitat": "Zitat",
-        "sekundaer_2_tiefe": "Tiefere Emotion",
-        "sekundaer_3": "Viertgroesster Schmerzpunkt",
-        "sekundaer_3_zitat": "Zitat",
-        "sekundaer_3_tiefe": "Tiefere Emotion",
+        "primär": "Größter Schmerzpunkt",
+        "primär_zitat": "Realistisches Zitat dazu (wie echte Person redet)",
+        "primär_tiefe": "Schmerz hinter dem Schmerz - tiefere Emotion",
+        "sekundär_1": "Zweitgrößter Schmerzpunkt",
+        "sekundär_1_zitat": "Zitat",
+        "sekundär_1_tiefe": "Tiefere Emotion",
+        "sekundär_2": "Drittgrößter Schmerzpunkt",
+        "sekundär_2_zitat": "Zitat",
+        "sekundär_2_tiefe": "Tiefere Emotion",
+        "sekundär_3": "Viertgrößter Schmerzpunkt",
+        "sekundär_3_zitat": "Zitat",
+        "sekundär_3_tiefe": "Tiefere Emotion",
     },
     "psychologie": {
-        "primaere_emotion": "Was fuehlt die Zielgruppe JETZT (z.B. Frustration, Resignation)",
-        "gewuenschte_emotion": "Was will sie FUEHLEN (z.B. Stolz, Kontrolle)",
-        "groesste_angst": "Was haelt sie zurueck (z.B. 'Neuer Job koennte schlimmer sein')",
-        "groesster_wunsch": "Was treibt sie an (z.B. 'Endlich Impact haben')",
+        "primäre_emotion": "Was fühlt die Zielgruppe JETZT (z.B. Frustration, Resignation)",
+        "gewünschte_emotion": "Was will sie FÜHLEN (z.B. Stolz, Kontrolle)",
+        "größte_angst": "Was hält sie zurück (z.B. 'Neuer Job könnte schlimmer sein')",
+        "größter_wunsch": "Was treibt sie an (z.B. 'Endlich Impact haben')",
         "innerer_konflikt": "z.B. 'Sicherheit vs. Wachstum'",
         "selbstbild": "Wie sieht sich die Zielgruppe selbst",
         "fremdbild": "Wie sehen andere sie",
-        "trigger_events": "3-5 konkrete Situationen die den Wechsel ausloesen",
-        "gedanken_nachts": "Worueber gruebeln sie vor dem Einschlafen",
-        "tagtraeume": "Was stellen sie sich vor",
+        "trigger_events": "3-5 konkrete Situationen die den Wechsel auslösen",
+        "gedanken_nachts": "Worüber grübeln sie vor dem Einschlafen",
+        "tagträume": "Was stellen sie sich vor",
     },
     "benefits": {
-        "top_1": "Staerkstes Argument/Benefit",
-        "top_2": "Zweitstaerkstes",
-        "top_3": "Drittstaerkstes",
+        "top_1": "Stärkstes Argument/Benefit",
+        "top_2": "Zweitstärkstes",
+        "top_3": "Drittstärkstes",
         "hygiene": "Was wird ERWARTET (z.B. Gehalt, Vertrag)",
         "differenzierung": "Was macht den echten Unterschied",
         "dealbreaker": "Was geht GAR NICHT",
-        "geheime_wuensche": "Was sie nie laut sagen wuerden",
+        "geheime_wünsche": "Was sie nie laut sagen würden",
         "idealer_tag": "Wie sieht der perfekte Arbeitstag aus",
     },
     "sprache": {
-        "duktus": "Tonalitaet der Zielgruppe (direkt/locker/technisch)",
-        "fachwoerter": "Liste von Fachbegriffen die sie taeglich nutzen",
-        "verbotene_woerter": "Begriffe die sie abstossen (z.B. Rockstar, Ninja)",
-        "redewendungen": "Typische Phrasen und Ausdruecke",
+        "duktus": "Tonalität der Zielgruppe (direkt/locker/technisch)",
+        "fachwörter": "Liste von Fachbegriffen die sie täglich nutzen",
+        "verbotene_wörter": "Begriffe die sie abstoßen (z.B. Rockstar, Ninja)",
+        "redewendungen": "Typische Phrasen und Ausdrücke",
         "kommunikationsstil": "Direkt/indirekt, formell/informell",
         "humor_typ": "Trocken, sarkastisch, kein Humor",
         "informationsquellen": "Wo lesen sie (Blogs, Podcasts, Newsletter)",
@@ -1844,15 +2219,15 @@ EXTRACTION_JSON_SCHEMA = {
     },
     "einwaende": {
         "einwand_1": "Haupteinwand gegen Wechsel",
-        "entkraeftung_1": "Wie man ihn entkraeftet",
+        "entkräftung_1": "Wie man ihn entkräftet",
         "einwand_2": "Zweiter Einwand",
-        "entkraeftung_2": "Entkraeftung",
+        "entkräftung_2": "Entkräftung",
         "einwand_3": "Dritter Einwand",
-        "entkraeftung_3": "Entkraeftung",
+        "entkräftung_3": "Entkräftung",
     },
     "arbeitgeber": {
-        "usp_1": "Staerkstes USP",
-        "usp_1_beweis": "Konkreter Beweis/Beleg dafuer",
+        "usp_1": "Stärkstes USP",
+        "usp_1_beweis": "Konkreter Beweis/Beleg dafür",
         "usp_2": "Zweites USP",
         "usp_2_beweis": "Beweis",
         "usp_3": "Drittes USP",
@@ -1863,16 +2238,16 @@ EXTRACTION_JSON_SCHEMA = {
         "anti_muster": "Was das Unternehmen NICHT ist",
     },
     "messaging": {
-        "kernbotschaft": "1 praegnanter Satz fuer die gesamte Kampagne",
+        "kernbotschaft": "1 prägnanter Satz für die gesamte Kampagne",
         "hook_1": "Emotionalster Hook (<125 Zeichen, Loss Aversion)",
         "hook_2": "Zweiter Hook (andere Emotion)",
         "hook_3": "Dritter Hook (Provokation/Pattern Interrupt)",
         "hook_4": "Vierter Hook (Identity Play)",
-        "hook_5": "Fuenfter Hook (Social Proof/Neugier)",
+        "hook_5": "Fünfter Hook (Social Proof/Neugier)",
         "cta_1": "Niedrigschwelligster CTA",
         "cta_2": "Alternativer CTA",
         "cta_3": "Dritter CTA",
-        "tonalitaetsprofil": "Stimme + Rhythmus + Formatierung",
+        "tonalitätsprofil": "Stimme + Rhythmus + Formatierung",
     },
     "markt": {
         "trend_1": "Relevanter Branchentrend 1",
@@ -1880,7 +2255,7 @@ EXTRACTION_JSON_SCHEMA = {
         "arbeitsmarkt": "Angebot/Nachfrage-Situation",
         "gehaltsbenchmark": "Marktdurchschnitt-Gehalt",
         "wettbewerber": "Top 3 Wettbewerber um Talente",
-        "saisonalitaet": "Beste Zeit fuer Kampagnen",
+        "saisonalitaet": "Beste Zeit für Kampagnen",
     },
 }
 
@@ -1894,19 +2269,19 @@ async def extract_building_blocks(transcript: str, company: str, rolle: str = ""
 AUFGABE: Analysiere das Kickoff-Transkript und extrahiere ALLE relevanten Informationen in das vorgegebene JSON-Schema.
 
 REGELN:
-1. Jedes Feld MUSS befuellt werden — leite logisch ab wenn nicht explizit im Transkript
-2. Zitate muessen klingen wie echte Menschen reden — Fachjargon, kurze Saetze, authentisch
+1. Jedes Feld MUSS befüllt werden - leite logisch ab wenn nicht explizit im Transkript
+2. Zitate müssen klingen wie echte Menschen reden - Fachjargon, kurze Sätze, authentisch
 3. "Schmerz hinter dem Schmerz" = die tiefere EMOTIONALE Ebene:
    - "Veralteter Stack" → "Angst, den Anschluss zu verlieren und irrelevant zu werden"
-   - "Keine Remote-Option" → "Gefuehl, nicht vertraut und respektiert zu werden"
-   - "Schlechte Fuehrung" → "Kontrollverlust ueber die eigene Karriere und Zukunft"
+   - "Keine Remote-Option" → "Gefühl, nicht vertraut und respektiert zu werden"
+   - "Schlechte Führung" → "Kontrollverlust über die eigene Karriere und Zukunft"
 4. Hooks: Max 125 Zeichen, emotional triggern, Loss Aversion > Benefits
    - SCHLECHT: "Wir bieten tolle Jobs" / RICHTIG: "Dein Code landet nie in Produktion?"
-5. CTAs muessen niedrigschwellig sein: "In 60 Sekunden", "Kein Lebenslauf", "Unverbindlich"
-6. VERBOTENE Woerter fuer verbotene_woerter: "Rockstar", "Ninja", "Guru", "Dynamisches Team", "Flache Hierarchien", "Wir suchen dich!"
-7. Fachwoerter: Echte Begriffe die die Zielgruppe TAEGLICH nutzt (z.B. Stack-Namen, Tools, Methodiken)
-8. Psychologie-Felder: Denke wie ein Therapeut — was FUEHLT die Person wirklich?
-9. Trigger-Events: Konkrete Situationen (z.B. "Montag-Meeting wo der Chef die Idee abwuergt")
+5. CTAs müssen niedrigschwellig sein: "In 60 Sekunden", "Kein Lebenslauf", "Unverbindlich"
+6. VERBOTENE Wörter für verbotene_wörter: "Rockstar", "Ninja", "Guru", "Dynamisches Team", "Flache Hierarchien", "Wir suchen dich!"
+7. Fachwörter: Echte Begriffe die die Zielgruppe TÄGLICH nutzt (z.B. Stack-Namen, Tools, Methodiken)
+8. Psychologie-Felder: Denke wie ein Therapeut - was FÜHLT die Person wirklich?
+9. Trigger-Events: Konkrete Situationen (z.B. "Montag-Meeting wo der Chef die Idee abwürgt")
 10. Kernbotschaft: MUSS in einem einzigen Satz die gesamte Kampagne kommunizieren
 
 Antworte NUR mit validem JSON. Kein Markdown, kein Text davor/danach."""
@@ -1917,7 +2292,7 @@ Gesuchte Rolle: {rolle or 'Siehe Transkript'}
 TRANSKRIPT:
 {transcript}
 
-Extrahiere alle Informationen in exakt dieses JSON-Schema (jedes Feld befuellen!):
+Extrahiere alle Informationen in exakt dieses JSON-Schema (jedes Feld befüllen!):
 {schema_str}"""
 
     raw = await openrouter_generate(
@@ -1940,7 +2315,7 @@ Extrahiere alle Informationen in exakt dieses JSON-Schema (jedes Feld befuellen!
         blocks = json.loads(cleaned)
     except json.JSONDecodeError as e:
         log.error(f"Baustein-Extraktion JSON parse error: {e}\nRaw: {raw[:500]}")
-        raise HTTPException(500, f"AI-Extraktion: Ungültiges JSON — {e}")
+        raise HTTPException(500, f"AI-Extraktion: Ungültiges JSON - {e}")
 
     return blocks
 
@@ -1951,7 +2326,7 @@ def flatten_blocks_for_airtable(blocks: dict, client_record_id: str = "") -> lis
         "demografie": "A. Demografie", "beruflich": "B. Beruflich",
         "schmerzpunkte": "C. Schmerzpunkte", "psychologie": "D. Psychologie",
         "benefits": "E. Benefits", "sprache": "F. Sprache",
-        "einwaende": "G. Einwaende", "arbeitgeber": "H. Arbeitgeber",
+        "einwaende": "G. Einwände", "arbeitgeber": "H. Arbeitgeber",
         "messaging": "I. Messaging", "markt": "J. Markt",
     }
     records = []
@@ -1962,7 +2337,7 @@ def flatten_blocks_for_airtable(blocks: dict, client_record_id: str = "") -> lis
         for i, (field_key, value) in enumerate(fields.items()):
             record = {
                 "Kategorie": cat_name,
-                "Feld-Name": f"{cat_name.split('. ')[1] if '. ' in cat_name else cat_name} — {field_key}",
+                "Feld-Name": f"{cat_name.split('. ')[1] if '. ' in cat_name else cat_name} - {field_key}",
                 "Inhalt": str(value) if value else "",
                 "Quelle": "AI-Extraktion",
                 "Sortierung": i + 1,
@@ -1980,12 +2355,12 @@ async def write_blocks_to_airtable(blocks: dict, client_record_id: str) -> int:
     if not records:
         return 0
     created = await airtable_create_records("Bausteine", records)
-    log.info(f"Airtable: {len(created)} Bausteine geschrieben fuer Client {client_record_id}")
+    log.info(f"Airtable: {len(created)} Bausteine geschrieben für Client {client_record_id}")
     return len(created)
 
 
 def filter_blocks_for_doc(all_blocks: dict, doc_number: int) -> dict:
-    """Filtert Bausteine fuer ein bestimmtes Dokument basierend auf DOC_BAUSTEIN_MAP."""
+    """Filtert Bausteine für ein bestimmtes Dokument basierend auf DOC_BAUSTEIN_MAP."""
     mapping = DOC_BAUSTEIN_MAP.get(doc_number)
     if not mapping:
         return all_blocks
@@ -2005,17 +2380,17 @@ def filter_blocks_for_doc(all_blocks: dict, doc_number: int) -> dict:
 
 
 def format_bausteine_for_prompt(bausteine: dict, doc_number: int) -> str:
-    """Formatiert Bausteine als lesbaren Text fuer den AI-Prompt.
-    Filtert automatisch auf die fuer dieses Dokument relevanten Kategorien."""
+    """Formatiert Bausteine als lesbaren Text für den AI-Prompt.
+    Filtert automatisch auf die für dieses Dokument relevanten Kategorien."""
     filtered = filter_blocks_for_doc(bausteine, doc_number)
     NICE_NAMES = {
         "demografie": "Zielgruppen-Demografie",
         "beruflich": "Berufliches Profil",
         "schmerzpunkte": "Schmerzpunkte & Frustrationen",
         "psychologie": "Psychologie & Emotionen",
-        "benefits": "Benefits & Wuensche",
+        "benefits": "Benefits & Wünsche",
         "sprache": "Sprache & Wording",
-        "einwaende": "Einwaende & Bedenken",
+        "einwaende": "Einwände & Bedenken",
         "arbeitgeber": "Arbeitgeber-Daten",
         "messaging": "Messaging-Bausteine",
         "markt": "Markt & Trends",
@@ -2030,432 +2405,6 @@ def format_bausteine_for_prompt(bausteine: dict, doc_number: int) -> str:
             parts.append(f"- **{field_key}:** {value}")
     return "\n".join(parts)
 
-
-@app.post("/api/v2/extract-blocks")
-async def api_extract_blocks(body: dict):
-    """API Endpoint: Bausteine aus Transkript extrahieren (zum Testen)."""
-    transcript = body.get("transcript", "")
-    company = body.get("company", "Unbekannt")
-    rolle = body.get("rolle", "")
-
-    if not transcript:
-        # Falls kein Transkript mitgegeben, aus Google Doc lesen
-        doc_id = body.get("transcript_doc_id", "")
-        if doc_id:
-            transcript = await read_google_doc_content(doc_id)
-        else:
-            raise HTTPException(400, "transcript oder transcript_doc_id erforderlich")
-
-    blocks = await extract_building_blocks(transcript, company, rolle)
-    flat = flatten_blocks_for_airtable(blocks)
-    return {"ok": True, "blocks": blocks, "total_fields": len(flat)}
-
-
-@app.post("/api/v2/reverse-engineer")
-async def api_reverse_engineer():
-    """Liest alle staged docs und analysiert Struktur, Wortzahl, Patterns."""
-    from collections import OrderedDict
-
-    all_docs = {}
-    manifest_path = os.path.join(os.path.dirname(__file__), "staged-docs-manifest.json")
-    with open(manifest_path) as f:
-        manifest = json.load(f)
-
-    analysis = OrderedDict()
-    for doc_info in manifest["documents"]:
-        doc_id = doc_info["id"]
-        name = doc_info["name"]
-        log.info(f"Reverse-Engineering: Lese {name}...")
-        content = await read_google_doc_content(doc_id)
-        words = len(content.split()) if content else 0
-        lines = content.count("\n") + 1 if content else 0
-        all_docs[name] = content
-        analysis[name] = {
-            "doc_id": doc_id,
-            "word_count": words,
-            "line_count": lines,
-            "first_200_chars": content[:200] if content else "",
-        }
-
-    # Transkript lesen
-    transcript_id = TRANSCRIPT_DOC.split("/d/")[1].split("/")[0] if "/d/" in TRANSCRIPT_DOC else ""
-    transcript_content = ""
-    if transcript_id:
-        transcript_content = await read_google_doc_content(transcript_id)
-        analysis["Transkript"] = {
-            "doc_id": transcript_id,
-            "word_count": len(transcript_content.split()) if transcript_content else 0,
-        }
-
-    # Referenz-Ad lesen (manuell erstellte Ad)
-    ref_ad_id = "1w88kntbchIe4RWgFH16mZpKqV9zbhZ7w5jrbmcJcR48"
-    ref_ad_content = await read_google_doc_content(ref_ad_id)
-    if ref_ad_content:
-        analysis["Referenz-Ad (manuell)"] = {
-            "doc_id": ref_ad_id,
-            "word_count": len(ref_ad_content.split()),
-            "char_count": len(ref_ad_content),
-            "content": ref_ad_content,
-        }
-
-    return {"ok": True, "analysis": analysis, "total_docs": len(analysis)}
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# V2 AI-Generierung — OpenRouter + Google Docs Upload
-# ══════════════════════════════════════════════════════════════════════════════
-
-FRAMEWORKS_DIR = os.path.join(os.path.dirname(__file__), "frameworks")
-
-# CSS fuer generierte Docs (aus create-staged-docs.py)
-V2_DOC_STYLE = """
-<style>
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #1a1a2e;
-    line-height: 1.7;
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  h1 {
-    color: #0a1628;
-    font-size: 28px;
-    font-weight: 700;
-    border-bottom: 3px solid #00e5ff;
-    padding-bottom: 12px;
-    margin-bottom: 24px;
-  }
-  h2 {
-    color: #0a1628;
-    font-size: 22px;
-    font-weight: 700;
-    margin-top: 32px;
-    margin-bottom: 16px;
-    border-left: 4px solid #00e5ff;
-    padding-left: 12px;
-  }
-  h3 {
-    color: #0a1628;
-    font-size: 18px;
-    font-weight: 600;
-    margin-top: 24px;
-    margin-bottom: 12px;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin: 16px 0;
-  }
-  th {
-    background-color: #0a1628;
-    color: #ffffff;
-    padding: 10px 14px;
-    text-align: left;
-    font-weight: 600;
-    font-size: 14px;
-  }
-  td {
-    padding: 10px 14px;
-    border: 1px solid #e0e0e0;
-    font-size: 14px;
-  }
-  tr:nth-child(even) { background-color: #f8f9fa; }
-  blockquote {
-    border-left: 4px solid #00e5ff;
-    margin: 16px 0;
-    padding: 12px 20px;
-    background-color: #f0fafe;
-    font-style: italic;
-    color: #333;
-  }
-  ul { margin: 12px 0; padding-left: 24px; }
-  li { margin-bottom: 6px; }
-  hr {
-    border: none;
-    border-top: 2px solid #e0e0e0;
-    margin: 28px 0;
-  }
-  .accent { color: #00e5ff; font-weight: 600; }
-  .highlight {
-    background-color: #f0fafe;
-    padding: 16px;
-    border-radius: 8px;
-    margin: 16px 0;
-    border: 1px solid #00e5ff;
-  }
-  .tag {
-    display: inline-block;
-    background-color: #0a1628;
-    color: #00e5ff;
-    padding: 2px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 600;
-    margin-right: 6px;
-  }
-  .meta {
-    color: #888;
-    font-size: 13px;
-    margin-bottom: 24px;
-  }
-</style>
-"""
-
-
-def _load_framework(doc_number: int) -> str:
-    """Lade Framework-Datei fuer ein Dokument (01-12)."""
-    pattern = f"{doc_number:02d}-"
-    for fname in os.listdir(FRAMEWORKS_DIR):
-        if fname.startswith(pattern) and fname.endswith(".md"):
-            with open(os.path.join(FRAMEWORKS_DIR, fname), "r") as f:
-                return f.read()
-    raise FileNotFoundError(f"Framework {doc_number:02d} nicht gefunden in {FRAMEWORKS_DIR}")
-
-
-_DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
-
-async def openrouter_generate(
-    system_prompt: str,
-    user_prompt: str,
-    model: str = _DEFAULT_MODEL,
-    max_tokens: int = 8000,
-) -> str:
-    """AI-Text via OpenRouter generieren."""
-    if not OPENROUTER_API_KEY:
-        raise HTTPException(503, "OPENROUTER_API_KEY nicht konfiguriert")
-
-    resp = await _http.post(
-        "https://openrouter.ai/api/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": model,
-            "max_tokens": max_tokens,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-        },
-        timeout=120,
-    )
-    if resp.status_code >= 400:
-        log.error(f"OpenRouter API error: {resp.status_code} {resp.text}")
-        raise HTTPException(resp.status_code, f"OpenRouter: {resp.text}")
-
-    data = resp.json()
-    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-    if not content:
-        raise HTTPException(500, "OpenRouter: Leere Antwort")
-    return content
-
-
-async def create_google_doc_v2(name: str, html_body: str) -> dict:
-    """Google Doc aus HTML erstellen (wie create-staged-docs.py).
-    Gibt {"doc_id": ..., "url": ...} zurueck.
-    """
-    token = await _refresh_google_token()
-    full_html = f"""<!DOCTYPE html>
-<html lang="de">
-<head><meta charset="UTF-8">{V2_DOC_STYLE}</head>
-<body>{html_body}</body>
-</html>"""
-
-    metadata = json.dumps({
-        "name": name,
-        "mimeType": "application/vnd.google-apps.document",
-    })
-    boundary = "v2_doc_boundary_fs"
-    body = (
-        f"--{boundary}\r\n"
-        f"Content-Type: application/json; charset=UTF-8\r\n\r\n"
-        f"{metadata}\r\n"
-        f"--{boundary}\r\n"
-        f"Content-Type: text/html; charset=UTF-8\r\n\r\n"
-        f"{full_html}\r\n"
-        f"--{boundary}--"
-    )
-
-    resp = await _http.post(
-        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": f"multipart/related; boundary={boundary}",
-        },
-        content=body.encode("utf-8"),
-        timeout=30,
-    )
-    if resp.status_code == 401:
-        # Token expired, retry
-        token = await _refresh_google_token()
-        resp = await _http.post(
-            "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": f"multipart/related; boundary={boundary}",
-            },
-            content=body.encode("utf-8"),
-            timeout=30,
-        )
-    if resp.status_code >= 400:
-        log.error(f"Google Drive Upload error: {resp.status_code} {resp.text}")
-        raise HTTPException(resp.status_code, f"Google Drive: {resp.text}")
-
-    file_data = resp.json()
-    doc_id = file_data.get("id", "")
-    doc_url = f"https://docs.google.com/document/d/{doc_id}/edit"
-    log.info(f"V2 Doc erstellt: {name} -> {doc_url}")
-    return {"doc_id": doc_id, "url": doc_url}
-
-
-async def move_to_drive_folder(doc_id: str, folder_id: str):
-    """Doc in einen Drive-Ordner verschieben."""
-    if not folder_id or not doc_id:
-        return
-    token = await _refresh_google_token()
-    # Get current parents
-    resp = await _http.get(
-        f"https://www.googleapis.com/drive/v3/files/{doc_id}?fields=parents",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    if resp.status_code != 200:
-        return
-    current_parents = resp.json().get("parents", [])
-    remove = ",".join(current_parents) if current_parents else ""
-    await _http.patch(
-        f"https://www.googleapis.com/drive/v3/files/{doc_id}?addParents={folder_id}&removeParents={remove}",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-
-
-async def generate_v2_document(
-    doc_number: int,
-    doc_name: str,
-    context: dict,
-    previous_docs: dict | None = None,
-    bausteine: dict | None = None,
-) -> dict:
-    """V2: Framework laden, Bausteine einbauen, AI generieren, Google Doc erstellen.
-
-    Args:
-        doc_number: 1-12 (Framework-Nummer)
-        doc_name: Name des Dokuments (fuer Google Doc Titel)
-        context: Execution-Context (company, transcript, etc.)
-        previous_docs: Dict von vorherigen Doc-Inhalten {name: content}
-        bausteine: Extrahierte Bausteine (88 Felder) — wenn vorhanden, werden sie statt raw Transcript genutzt
-
-    Returns:
-        {"doc_id": ..., "url": ..., "content": ...}
-    """
-    framework = _load_framework(doc_number)
-    company = context.get("company", "Unbekannt")
-
-    # Kontext fuer den Prompt zusammenbauen
-    context_parts = [f"**Unternehmen:** {company}"]
-
-    # Bausteine haben Prioritaet — strukturierter Kontext statt rohem Transkript
-    if bausteine:
-        baustein_text = format_bausteine_for_prompt(bausteine, doc_number)
-        context_parts.append(f"**Extrahierte Bausteine (strukturierte Daten):**\n{baustein_text}")
-    elif context.get("transcript"):
-        context_parts.append(f"**Kickoff-Transkript:**\n{context['transcript']}")
-
-    if previous_docs:
-        for name, content in previous_docs.items():
-            context_parts.append(f"**Vorheriges Dokument — {name}:**\n{content}")
-
-    context_text = "\n\n".join(context_parts)
-
-    system_prompt = f"""Du bist ein Senior Marketing-Stratege und Consumer-Psychologe fuer eine Performance-Marketing-Agentur.
-Du erstellst Elite-Level Strategie-Dokumente fuer Recruiting-Kampagnen.
-
-WICHTIG: Antworte NUR mit dem HTML-Body-Inhalt (KEIN <html>, <head>, <body> Tag).
-Nutze semantisches HTML: <h1>, <h2>, <h3>, <table>, <ul>, <blockquote>, <div class="highlight">, etc.
-CSS-Klassen die du nutzen kannst: .accent, .highlight, .tag, .meta
-
-PSYCHOLOGIE-REGELN:
-- Loss Aversion: Verluste ~2x staerker als Gewinne. Schmerzpunkte IMMER vor Benefits.
-- Social Proof: Konkrete (fiktive) Personas, Zahlen, "Dein Team" statt "Unser Team".
-- Identity Play: Selbstbild spiegeln ("Du bist jemand, der..."), Anti-Identitaet nutzen.
-- Cognitive Ease: Kurze Saetze. Einfache Woerter. Zeilenumbruch nach JEDEM Gedanken.
-
-WORDING-REGELN:
-- Fachbegriffe der Zielgruppe nutzen (Stack-Namen, Tools)
-- "Du" statt "Sie" (Tech/Developer immer Du)
-- Konkrete Zahlen > vage Versprechen
-- VERBOTEN: "Rockstar", "Ninja", "Dynamisches Team", "Flache Hierarchien", "Spannende Aufgaben", "Wir suchen dich!", Ausrufezeichen-Inflation
-
-Halte dich EXAKT an die Struktur und Sections im Framework.
-Alle Inhalte muessen spezifisch fuer das Unternehmen sein — KEINE generischen Platzhalter.
-Sprache: Deutsch.
-
-{framework}"""
-
-    user_prompt = f"""Erstelle das Dokument "{doc_name}" fuer folgendes Projekt:
-
-{context_text}
-
-Generiere den KOMPLETTEN HTML-Body-Inhalt. Jede Section muss ausgefuellt sein mit spezifischen, massgeschneiderten Inhalten.
-Keine Platzhalter wie [hier einfuegen] — alles muss fertig und professionell sein.
-Qualitaet auf dem Niveau einer Top-Agentur — nicht generisch, nicht austauschbar."""
-
-    # AI generieren
-    html_content = await openrouter_generate(system_prompt, user_prompt)
-
-    # HTML-Tags bereinigen falls die AI doch <html>/<body> mitliefert
-    html_content = html_content.strip()
-    if html_content.startswith("```html"):
-        html_content = html_content[7:]
-    if html_content.startswith("```"):
-        html_content = html_content[3:]
-    if html_content.endswith("```"):
-        html_content = html_content[:-3]
-    html_content = html_content.strip()
-
-    # <html>, <head>, <body> Tags entfernen falls vorhanden
-    import re
-    html_content = re.sub(r'<!DOCTYPE[^>]*>', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'</?html[^>]*>', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'<head>.*?</head>', '', html_content, flags=re.IGNORECASE | re.DOTALL)
-    html_content = re.sub(r'</?body[^>]*>', '', html_content, flags=re.IGNORECASE)
-    html_content = re.sub(r'<style>.*?</style>', '', html_content, flags=re.IGNORECASE | re.DOTALL)
-    html_content = html_content.strip()
-
-    # Google Doc erstellen
-    doc_title = f"[V2] {doc_name} — {company}"
-    doc_result = await create_google_doc_v2(doc_title, html_content)
-
-    # In Drive-Ordner verschieben falls vorhanden
-    folder_id = context.get("folder_root_id")
-    if folder_id:
-        await move_to_drive_folder(doc_result["doc_id"], folder_id)
-
-    # Airtable Dokumente-Tabelle updaten (falls konfiguriert)
-    airtable_client_id = context.get("airtable_client_id")
-    if AIRTABLE_BASE_ID and airtable_client_id:
-        try:
-            doc_fields = {
-                "Dokument-Name": f"{context.get('company', 'Client')} — {doc_name}",
-                "Dokument-Typ": doc_name,
-                "Google Doc URL": doc_result["url"],
-                "Google Doc ID": doc_result["doc_id"],
-                "Status": "Generiert",
-                "Version": 1,
-            }
-            # Linked Record zum Client setzen
-            if airtable_client_id:
-                doc_fields["Client"] = [airtable_client_id]
-            await airtable_create_record("Dokumente", doc_fields)
-        except Exception as e:
-            log.warning(f"Airtable Dokument-Eintrag fehlgeschlagen: {e}")
-
-    return {
-        **doc_result,
-        "content": html_content,
-        "doc_name": doc_name,
-    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2474,6 +2423,11 @@ async def execute_node(body: dict):
     result: dict[str, Any] = {}
 
     try:
+        # ═══════════════════════════════════════════════════════════════════
+        # V1 LIVE — Novacode Recruiting Demo (AKTIV)
+        # Node-IDs: is01-is11, kc01-kc06, st01-st10, cc01-cc05,
+        #           fn01-fn11, ca01-ca09, rl01-rl12 (rl13 entfernt)
+        # ═══════════════════════════════════════════════════════════════════
         # ── Infrastructure Setup ──
         if node_id == "is02":
             result = await create_close_lead(context)
@@ -2489,24 +2443,60 @@ async def execute_node(body: dict):
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
             await _append_sheet_row(sheet_info["spreadsheet_id"], ["CRM Lead", "Erledigt", "Lead erstellt und Pipeline gestartet", lead_url, ts])
             # Slack: kurzer Einzeiler
-            await slack_message(f":white_check_mark: {company} — CRM Lead wurde erstellt")
-            # Kunden-Channel erstellen (Name: client-firmenname, bei Duplikat: -2, -3, ...)
+            await slack_message(f":white_check_mark: {company} - CRM Lead wurde erstellt")
+            # Kunden-Channel = Firmenname (sauber, ohne Prefix).
             base_name = company.lower().replace(" ", "-").replace("ü", "ue").replace("ä", "ae").replace("ö", "oe").replace("ß", "ss")
-            channel_name = f"client-{base_name}"[:80]
+
+            # Auto-Cleanup: bestehende AKTIVE Channels die den Firmennamen enthalten
+            # (z.B. von früheren Runs: novacode-gmbh, client-novacode-gmbh-*) erst
+            # umbenennen damit der Name freigegeben wird, dann archivieren.
+            try:
+                list_resp = await slack_bot_api("conversations.list", {
+                    "exclude_archived": "true",
+                    "types": "public_channel",
+                    "limit": 1000,
+                })
+                if list_resp.get("ok"):
+                    old_active = [c for c in list_resp.get("channels", [])
+                                  if base_name in c.get("name", "").lower()]
+                    for old in old_active:
+                        old_id = old.get("id")
+                        old_name = old.get("name", "")
+                        if not old_id:
+                            continue
+                        try:
+                            arch_name = f"zz-arch-{old_name}"[:80]
+                            rename_resp = await slack_bot_api("conversations.rename", {
+                                "channel": old_id,
+                                "name": arch_name,
+                            })
+                            if not rename_resp.get("ok"):
+                                log.warning(f"Slack rename #{old_name}: {rename_resp.get('error')}")
+                            await slack_bot_api("conversations.archive", {"channel": old_id})
+                            log.info(f"Slack: alter Channel #{old_name} → #{arch_name} (archiviert)")
+                        except Exception as e:
+                            log.warning(f"Slack: konnte #{old_name} nicht aufräumen: {e}")
+            except Exception as e:
+                log.warning(f"Slack Auto-Cleanup übersprungen: {e}")
+
+            channel_name = base_name[:80]
             ch = await slack_bot_api("conversations.create", {
                 "name": channel_name,
                 "is_private": False,
             })
             channel_id = None
-            # Falls name_taken, Suffix mit Counter versuchen
+            # Fallback bei name_taken (z.B. weil sehr alter archivierter Channel den Namen reserviert)
             if ch.get("error") == "name_taken":
-                for i in range(2, 50):
-                    channel_name = f"client-{base_name}-{i}"[:80]
+                for i in range(2, 10):
+                    candidate = f"{base_name}-{i}"[:80]
                     ch = await slack_bot_api("conversations.create", {
-                        "name": channel_name,
+                        "name": candidate,
                         "is_private": False,
                     })
-                    if ch.get("ok") or ch.get("error") != "name_taken":
+                    if ch.get("ok"):
+                        channel_name = candidate
+                        break
+                    if ch.get("error") != "name_taken":
                         break
             if ch.get("ok"):
                 channel_id = ch["channel"]["id"]
@@ -2532,14 +2522,7 @@ async def execute_node(body: dict):
                         log.info(f"Slack: Kunde {client_email} per Slack Connect eingeladen")
                     else:
                         err = invite_shared.get("error", "unknown")
-                        log.warning(f"Slack Connect Invite fehlgeschlagen: {err}")
-                        # Fallback: Einladungslink als Nachricht posten
-                        if err in ("not_allowed", "feature_not_enabled", "method_not_supported_for_channel_type", "missing_scope"):
-                            log.info("Slack Connect nicht verfuegbar — sende Einladungshinweis als Nachricht")
-                            await slack_bot_api("chat.postMessage", {
-                                "channel": channel_id,
-                                "text": f":email: Kunden-Einladung: Bitte {client_email} manuell zum Channel einladen (Slack Connect nicht aktiviert).",
-                            })
+                        log.warning(f"Slack Connect Invite fehlgeschlagen: {err} (kein Fallback-Post im Channel)")
 
                 # Channel-Beschreibung setzen
                 await slack_bot_api("conversations.setTopic", {
@@ -2550,7 +2533,7 @@ async def execute_node(body: dict):
                 welcome_blocks = _slack_blocks_message(
                     f":wave: Willkommen, {company}!",
                     [
-                        {"text": "Hier koordinieren wir alles rund um euer Recruiting-Projekt. Wir melden uns hier mit Updates und ihr koennt jederzeit Fragen stellen."},
+                        {"text": "Hier koordinieren wir alles rund um euer Recruiting-Projekt. Wir melden uns hier mit Updates und ihr könnt jederzeit Fragen stellen."},
                     ],
                     footer="Flowstack Recruiting Automation",
                 )
@@ -2565,25 +2548,35 @@ async def execute_node(body: dict):
                 await asyncio.sleep(1)
                 await slack_bot_api("chat.postMessage", {
                     "channel": channel_id,
-                    "text": f"Hey {contact_name}! :wave: Ich bin Claudio und kuemmere mich um eure Strategie, Positionierung und den gesamten Projektablauf. Wenn irgendwas unklar ist oder ihr Fragen habt, einfach hier rein damit. Freue mich auf die Zusammenarbeit mit euch!",
+                    "text": f"Hey {contact_name}! :wave: Ich bin Claudio und kümmere mich um eure Strategie, Positionierung und den gesamten Projektablauf. Wenn irgendwas unklar ist oder ihr Fragen habt, einfach hier rein damit. Freue mich auf die Zusammenarbeit mit euch!",
                     "username": "Claudio Di Franco",
                     "icon_url": "https://ca.slack-edge.com/T0AAEHFN8GH-U0AA1KHD0G2-gae40f8c7598-512",
                 })
                 await asyncio.sleep(0.5)
                 await slack_bot_api("chat.postMessage", {
                     "channel": channel_id,
-                    "text": f"Hey {contact_name}! :rocket: Ich bin Anak — bei mir liegt die technische Umsetzung: Funnel, Tracking, Kampagnen-Setup, alles was mit Tech zu tun hat. Falls technisch irgendwas klemmt, bin ich euer Ansprechpartner. Willkommen an Bord!",
+                    "text": f"Hey {contact_name}! :rocket: Ich bin Anak - bei mir liegt die technische Umsetzung: Funnel, Tracking, Kampagnen-Setup, alles was mit Tech zu tun hat. Falls technisch irgendwas klemmt, bin ich euer Ansprechpartner. Willkommen an Bord!",
                     "username": "Anak",
                     "icon_url": "https://ca.slack-edge.com/T0AAEHFN8GH-U0A9L6KUT5M-g2f3e8b1c4d7-512",
                 })
             else:
                 log.error(f"Slack Channel erstellen fehlgeschlagen: {ch.get('error')}")
-            # Deep-Link zum Channel
-            slack_url = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{channel_id}" if channel_id else "https://app.slack.com/"
-            result = {"sent": True, "channel_id": channel_id, "channel_name": channel_name, "url": slack_url}
+            # Deep-Link zum Channel (nur wenn Channel erstellt) - Sheet-IDs im result behalten,
+            # damit sie via side-effects.ts Context-Merge für is05/is06/is09/kc06/cc05/rl06/rl12 verfügbar sind.
+            result = {
+                "sent": True,
+                "channel_id": channel_id,
+                "channel_name": channel_name,
+                "overview_sheet_id": sheet_info["spreadsheet_id"],
+                "overview_sheet_url": sheet_info["url"],
+            }
+            if channel_id:
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{channel_id}"
+                ts2 = datetime.now().strftime('%d.%m.%Y %H:%M')
+                await _append_sheet_row(sheet_info["spreadsheet_id"], ["Slack Channel", "Erstellt", f"#{channel_name} mit Team + Kunde", result["url"], ts2])
 
         elif node_id == "is04":
-            # Upload-Link: Bilder-Ordner (Bilder/Materialien fuer den Kunden)
+            # Upload-Link: Bilder-Ordner (Bilder/Materialien für den Kunden)
             # Prioritaet: upload_folder_id (= Bilder) > folder_root_id > Fallback
             upload_folder_id = context.get("upload_folder_id")
             folder_root_id = context.get("folder_root_id")
@@ -2592,22 +2585,38 @@ async def execute_node(body: dict):
                 log.info(f"Email Upload-Link: Bilder Ordner ({upload_folder_id})")
             elif folder_root_id:
                 context["upload_link"] = f"https://drive.google.com/drive/folders/{folder_root_id}"
-                log.warning(f"Email Upload-Link: Fallback auf Root-Ordner ({folder_root_id}) — upload_folder_id fehlt im Context")
+                log.warning(f"Email Upload-Link: Fallback auf Root-Ordner ({folder_root_id}) - upload_folder_id fehlt im Context")
             else:
                 log.error("Email Upload-Link: Weder upload_folder_id noch folder_root_id im Context! is06 muss vor is04 laufen.")
             result = await send_welcome_email(context)
+            # Gmail-Inbox-Link für Klick-Through (statt Deep-Link auf einzelne Message)
+            result["url"] = "https://mail.google.com/mail/u/0/#sent"
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            upload_link = context.get("upload_link", "")
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Willkommens-E-Mail", "Erledigt", f"An {context.get('email', '')} gesendet", upload_link, ts])
 
         elif node_id == "is05":
             result = await create_calendar_event(context)
+            event_id = result.get("event_id") or context.get("event_id") if isinstance(result, dict) else None
+            if event_id:
+                result["url"] = f"https://calendar.google.com/calendar/u/0/r/eventedit/{event_id}"
             # Projekt-Übersicht: Zeile anhängen
             company = context.get("company", "Novacode GmbH")
             event_link = result.get("link", "")
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
             await _append_sheet_row(context.get("overview_sheet_id"), ["Kickoff-Termin", "Erledigt", "Einladung an Client gesendet", event_link, ts])
-            await slack_message(f":calendar: {company} — Kickoff-Termin wurde erstellt")
+            await slack_message(f":calendar: {company} - Kickoff-Termin wurde erstellt")
 
         elif node_id == "is06":
             result = await create_drive_folders(context)
+            # Context sofort mit Folder-IDs anreichern, damit is04/is07/is09 im selben Request-Batch
+            # die korrekten IDs lesen, selbst wenn Frontend noch nicht re-sended hat.
+            if result.get("root_id"):
+                context["folder_root_id"] = result["root_id"]
+            if result.get("upload_folder_id"):
+                context["upload_folder_id"] = result["upload_folder_id"]
+            if result.get("subfolders"):
+                context["subfolders"] = result["subfolders"]
             folder_url = result.get("url", "")
             company = context.get("company", "Novacode GmbH")
             if folder_url:
@@ -2616,34 +2625,84 @@ async def execute_node(body: dict):
                 await _append_sheet_row(context.get("overview_sheet_id"), ["Google Drive", "Erledigt", "8 Hauptordner + Unterordner angelegt", folder_url, ts])
                 # Spreadsheet in Client-Ordner verschieben
                 sheet_id = context.get("overview_sheet_id")
-                folder_root_id = result.get("folder_root_id") or context.get("folder_root_id")
+                folder_root_id = context.get("folder_root_id")
                 if sheet_id and folder_root_id:
                     try:
                         await google_api("PATCH", f"https://www.googleapis.com/drive/v3/files/{sheet_id}?addParents={folder_root_id}", {})
                     except Exception as e:
                         log.warning(f"Spreadsheet in Drive verschieben fehlgeschlagen: {e}")
-                await slack_message(f":file_folder: {company} — Google Drive Ordner wurde erstellt")
+                await slack_message(f":file_folder: {company} - Google Drive Ordner wurde erstellt")
 
         elif node_id == "is07":
-            # Drive: Templates dupliziert — Link zum Kundenordner
+            # Drive: Master-Docs pro Kunde in die passenden Unterordner duplizieren
             folder_root_id = context.get("folder_root_id")
-            if folder_root_id:
-                result = {"url": f"https://drive.google.com/drive/folders/{folder_root_id}", "templates_duplicated": True}
+            subfolders: dict[str, str] = context.get("subfolders") or {}
+            # Fachlich sinnvolle Ablage pro Doc-Typ
+            DOC_TARGET_FOLDER = {
+                "Doc 1 Strategie": "02_Strategie",
+                "Doc 2 Messaging": "02_Strategie",
+                "Doc 3 Creative Briefing": "02_Strategie",
+                "Doc 4 Ads-Copy": "06_Anzeigen",
+                "Doc 5 Kickoff": "08_Transkripte",
+            }
+            if not folder_root_id:
+                result = {"templates_duplicated": False, "url": ""}
             else:
-                result = {"url": "https://drive.google.com/drive/my-drive", "templates_duplicated": False}
+                company = context.get("company", "Novacode GmbH")
+                client_docs: dict[str, str] = {}
+                for label, master_url in MASTER_DOCS.items():
+                    try:
+                        master_id = master_url.split("/d/")[1].split("/")[0]
+                        target_folder_name = DOC_TARGET_FOLDER.get(label)
+                        target_parent = subfolders.get(target_folder_name) if target_folder_name else None
+                        parent_id = target_parent or folder_root_id
+                        display = DOC_DISPLAY_NAME.get(label, label)
+                        copy = await google_api(
+                            "POST",
+                            f"https://www.googleapis.com/drive/v3/files/{master_id}/copy?supportsAllDrives=true",
+                            {"name": f"{display} - {company}", "parents": [parent_id]},
+                        )
+                        client_docs[label] = f"https://docs.google.com/document/d/{copy['id']}/edit"
+                    except Exception as e:
+                        log.warning(f"is07 Template-Copy {label} fehlgeschlagen: {e}")
+                        client_docs[label] = master_url  # Fallback auf Master
+                result = {
+                    "url": f"https://drive.google.com/drive/folders/{folder_root_id}",
+                    "templates_duplicated": len(client_docs) > 0,
+                    "client_docs": client_docs,
+                }
+                # Projekt-Übersicht: eine Zeile pro dupliziertem Dokument
+                sheet_id = context.get("overview_sheet_id")
+                if sheet_id:
+                    ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                    rows = [["Client-Dokumente", "Erstellt", f"{len(client_docs)} Master-Docs dupliziert", result["url"], ts]]
+                    for label, url in client_docs.items():
+                        display = DOC_DISPLAY_NAME.get(label, label)
+                        rows.append([f"  → {display}", "-", "", url, ""])
+                    await _append_sheet_rows(sheet_id, rows)
 
         elif node_id == "is08":
             result = await create_clickup_project(context)
+            # Projekt-Übersicht: Zeile anhängen (Liste existiert, aber Tasks kommen in is09)
+            list_id = result.get("list_id") if isinstance(result, dict) else None
+            if list_id:
+                result["url"] = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}"
+            if list_id:
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                clickup_url = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}"
+                await _append_sheet_row(context.get("overview_sheet_id"), ["ClickUp List angelegt", "Erledigt", "Kundenliste in ClickUp erstellt", clickup_url, ts])
 
         elif node_id == "is09":
             list_id = context.get("list_id")
             if list_id:
                 result = await create_clickup_tasks(context)
+                if isinstance(result, dict):
+                    result["url"] = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}"
                 company = context.get("company", "Novacode GmbH")
                 clickup_url = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}"
                 ts = datetime.now().strftime('%d.%m.%Y %H:%M')
                 await _append_sheet_row(context.get("overview_sheet_id"), ["ClickUp Projekt", "Erledigt", "3 Tasks erstellt", clickup_url, ts])
-                await slack_message(f":memo: {company} — ClickUp Projekt wurde erstellt")
+                await slack_message(f":memo: {company} - ClickUp Projekt wurde erstellt")
 
         elif node_id == "is10":
             result = await update_close_stage({
@@ -2651,19 +2710,55 @@ async def execute_node(body: dict):
                 "stage": "Kickoff geplant",
                 "automation_status": "Warte auf Kickoff",
             })
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            lead_id = context.get("lead_id", "")
+            close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Close: Kickoff geplant", "Warte auf Kickoff", "Automations-Status aktualisiert", close_url, ts])
 
-        elif node_id == "is11":
-            try:
-                result = await create_miro_board(context)
-            except Exception as e:
-                log.warning(f"Miro Board-Erstellung fehlgeschlagen: {e} — verwende Fallback")
-                result = {"url": "https://miro.com/app/dashboard/", "miro_board_id": "fallback", "note": str(e)}
-            company = context.get("company", "Novacode GmbH")
-            board_url = (result or {}).get("url", "")
-            if board_url:
-                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
-                await _append_sheet_row(context.get("overview_sheet_id"), ["Miro Board", "Erledigt", "Kampagnen-Übersicht Board erstellt", board_url, ts])
-                await slack_message(f":art: {company} — Miro Board wurde erstellt")
+            # Konsolidierte Ressourcen-Note in Close: alle erzeugten Links an einem Platz
+            if lead_id:
+                try:
+                    cdocs = context.get("client_docs") or {}
+                    folder_root_id = context.get("folder_root_id")
+                    upload_folder_id = context.get("upload_folder_id")
+                    sheet_id = context.get("overview_sheet_id")
+                    channel_id = context.get("channel_id")
+                    channel_name = context.get("channel_name")
+                    list_id = context.get("list_id")
+                    event_id = context.get("event_id")
+
+                    lines: list[str] = ["Fulfillment-Ressourcen für diesen Lead:"]
+                    if folder_root_id:
+                        lines.append(f"- Drive Kundenordner: https://drive.google.com/drive/folders/{folder_root_id}")
+                    if upload_folder_id:
+                        lines.append(f"- Upload-Ordner (für Client): https://drive.google.com/drive/folders/{upload_folder_id}")
+                    if sheet_id:
+                        lines.append(f"- Projekt-Übersicht: https://docs.google.com/spreadsheets/d/{sheet_id}/edit")
+                    if list_id:
+                        lines.append(f"- ClickUp-Liste: https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id}")
+                    if channel_id:
+                        label = channel_name or channel_id
+                        lines.append(f"- Slack-Channel: #{label} (id {channel_id})")
+                    if event_id:
+                        lines.append(f"- Kickoff-Termin (Event-ID): {event_id}")
+                    if cdocs:
+                        lines.append("- Client-Dokumente:")
+                        for label, url in cdocs.items():
+                            display = DOC_DISPLAY_NAME.get(label, label)
+                            lines.append(f"    * {display}: {url}")
+                    await close_api("POST", "/activity/note/", {
+                        "lead_id": lead_id,
+                        "note": "\n".join(lines),
+                    })
+                    log.info(f"Close Ressourcen-Note angehängt an Lead {lead_id}")
+                except Exception as e:
+                    log.warning(f"Close Ressourcen-Note fehlgeschlagen: {e}")
+
+        # is11 (Miro) gehört nicht zu V1 - nur V3 nutzt v3-is11 über /api/v3/execute-node.
 
         # ── Kickoff & Transcript ──
         elif node_id == "kc05":
@@ -2672,7 +2767,15 @@ async def execute_node(body: dict):
                 "stage": "Kickoff abgeschlossen",
                 "automation_status": "Strategie in Arbeit",
             })
-            # ClickUp: Neue Tasks fuer naechste manuelle Schritte (KEIN Auto-Complete)
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            lead_id = context.get("lead_id", "")
+            close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Close: Kickoff abgeschlossen", "Strategie in Arbeit", "Strategie-Erstellung startet", close_url, ts])
+            # ClickUp: Neue Tasks für nächste manuelle Schritte (KEIN Auto-Complete)
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             company = context.get("company", "Novacode GmbH")
@@ -2681,31 +2784,31 @@ async def execute_node(body: dict):
                 drive_url = f"https://drive.google.com/drive/folders/{folder_root_id}" if folder_root_id else ""
 
                 # Task: Videodreh planen
-                desc_vid = f"Videodreh mit {company} organisieren fuer Recruiting-Content.\n"
+                desc_vid = f"Videodreh mit {company} organisieren für Recruiting-Content.\n"
                 if drive_url: desc_vid += f"\nGoogle Drive: {drive_url}\n"
                 t = await _create_task(
-                    list_id, f"Videodreh planen — {company}", desc_vid,
+                    list_id, f"Videodreh planen - {company}", desc_vid,
                     [CLICKUP_CLAUDIO], 2, 5,  # High, +5 Tage
                     [
                         "Drehtag mit Kunden abstimmen",
-                        "Shot-Liste erstellen (Buero, Team, Arbeitsalltag)",
+                        "Shot-Liste erstellen (Büro, Team, Arbeitsalltag)",
                         "Equipment organisieren",
-                        "Anfahrt und Zeitplan klaeren",
+                        "Anfahrt und Zeitplan klären",
                     ],
                 )
                 task_ids["videodreh_planen"] = t["id"]
 
                 # Task: Strategie reviewen
-                desc = f"KI-generierte Strategie-Dokumente fuer {company} pruefen.\n\n"
+                desc = f"KI-generierte Strategie-Dokumente für {company} prüfen.\n\n"
                 if drive_url: desc += f"Google Drive: {drive_url}\n"
                 t = await _create_task(
-                    list_id, f"Strategie reviewen — {company}", desc,
+                    list_id, f"Strategie reviewen - {company}", desc,
                     [CLICKUP_CLAUDIO], 2, 3,  # High, +3 Tage
                     [
                         "Zielgruppen-Avatar: Passt zur Branche und Position?",
                         "Messaging: USPs differenzieren sich vom Wettbewerb?",
                         "Creative Briefing: Bildsprache passt zur Marke?",
-                        "Feedback an KI-Docs einarbeiten falls noetig",
+                        "Feedback an KI-Docs einarbeiten falls nötig",
                     ],
                 )
                 task_ids["strategy_review"] = t["id"]
@@ -2714,9 +2817,16 @@ async def execute_node(body: dict):
         elif node_id == "kc06":
             company = context.get("company", "Novacode GmbH")
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
-            await _append_sheet_row(context.get("overview_sheet_id"), ["Kickoff", "Abgeschlossen", "Strategie-Erstellung startet automatisch", TRANSCRIPT_DOC, ts])
-            await slack_message(f":white_check_mark: {company} — Kickoff wurde abgeschlossen")
-            result = {"sent": True, "url": f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context.get('channel_id', '')}" if context.get("channel_id") else "https://app.slack.com/"}
+            kickoff_doc = _client_docs(context).get("Doc 5 Kickoff", TRANSCRIPT_DOC)
+            channel_id_kc06 = context.get("channel_id")
+            if channel_id_kc06 and SLACK_TEAM_ID:
+                result = result if isinstance(result, dict) else {}
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{channel_id_kc06}"
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Kickoff", "Abgeschlossen", "Strategie-Erstellung startet automatisch", kickoff_doc, ts])
+            await slack_message(f":white_check_mark: {company} - Kickoff wurde abgeschlossen")
+            result = {"sent": True}
+            if context.get("channel_id"):
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context['channel_id']}"
 
         # ── Strategy & Brand ──
         elif node_id == "st10":
@@ -2725,36 +2835,43 @@ async def execute_node(body: dict):
                 "stage": "Strategie erstellt",
                 "automation_status": "Strategie erstellt",
             })
-            # ClickUp: Neue Tasks fuer naechste manuelle Schritte (KEIN Auto-Complete)
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            # ClickUp: Neue Tasks für nächste manuelle Schritte (KEIN Auto-Complete)
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             company = context.get("company", "Novacode GmbH")
+            strategy_docs = _resolve_docs(context, ["Doc 1 Strategie", "Doc 2 Messaging", "Doc 3 Creative Briefing"])
             if list_id:
                 # Task: Texte reviewen & freigeben
-                desc = f"KI-generierte Texte fuer {company} pruefen und freigeben.\n\n"
+                desc = f"KI-generierte Texte für {company} prüfen und freigeben.\n\n"
                 desc += "Strategie-Docs als Referenz:\n"
-                for name, url in STRATEGY_DOCS.items():
-                    desc += f"- {name}: {url}\n"
+                for label, url in strategy_docs.items():
+                    display = DOC_DISPLAY_NAME.get(label, label)
+                    desc += f"- {display}: {url}\n"
                 t = await _create_task(
-                    list_id, f"Texte reviewen & freigeben — {company}", desc,
+                    list_id, f"Texte reviewen & freigeben - {company}", desc,
                     [CLICKUP_CLAUDIO], 2, 4,  # High, +4 Tage
                     [
-                        "Landingpage-Texte: Tone of Voice passt?",
-                        "Anzeigentexte: Hooks sind stark genug?",
+                        "Strategie-Doc: Tabs Kandidaten-Persona und Arbeitgeber-Profil prüfen",
+                        "Messaging-Doc: Kern-Botschaft und Angles freigegeben",
+                        "Creative Briefing: Brand-Basics und Format-Specs final",
                         "Kein Bullshit-Marketing, authentisch und direkt?",
-                        "Kundenfeedback einholen falls gewuenscht",
+                        "Kundenfeedback einholen falls gewünscht",
                     ],
                 )
                 task_ids["copy_review"] = t["id"]
-                await _attach_docs_to_task(t["id"], STRATEGY_DOCS)
+                await _attach_docs_to_task(t["id"], strategy_docs)
 
-                # Task: Videodreh durchfuehren
+                # Task: Videodreh durchführen
                 t = await _create_task(
-                    list_id, f"Videodreh durchfuehren — {company}",
-                    f"Recruiting-Video fuer {company} drehen.\n",
+                    list_id, f"Videodreh durchführen - {company}",
+                    f"Recruiting-Video für {company} drehen.\n",
                     [CLICKUP_CLAUDIO], 1, 7,  # Urgent, +7 Tage
                     [
-                        "Drehtag durchgefuehrt",
+                        "Drehtag durchgeführt",
                         "Rohmaterial gesichtet und gesichert",
                         "Beste Takes markiert",
                         "Rohmaterial im Drive Bilder-Ordner hochgeladen",
@@ -2768,11 +2885,12 @@ async def execute_node(body: dict):
             drive_url_slack = f"https://drive.google.com/drive/folders/{folder_root_id_slack}" if folder_root_id_slack else ""
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
             sheet_id = context.get("overview_sheet_id")
-            rows = [["Strategie & Brand", "Erledigt", f"{len(STRATEGY_DOCS)} Dokumente erstellt", drive_url_slack, ts]]
-            for name, url in STRATEGY_DOCS.items():
-                rows.append([f"  → {name}", "—", "", url, ""])
+            rows = [["Strategie & Brand", "Erledigt", f"{len(strategy_docs)} Dokumente erstellt", drive_url_slack, ts]]
+            for label, url in strategy_docs.items():
+                display = DOC_DISPLAY_NAME.get(label, label)
+                rows.append([f"  → {display}", "-", "", url, ""])
             await _append_sheet_rows(sheet_id, rows)
-            await slack_message(f":dart: {company} — Strategie & Brand wurde fertiggestellt")
+            await slack_message(f":dart: {company} - Strategie & Brand wurde fertiggestellt")
 
         # ── Copy Creation ──
         elif node_id == "cc05":
@@ -2781,19 +2899,23 @@ async def execute_node(body: dict):
                 "stage": "Assets erstellt",
                 "automation_status": "Assets erstellt",
             })
-            # ClickUp: Neue Tasks fuer naechste manuelle Schritte (KEIN Auto-Complete)
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            # ClickUp: Neue Tasks für nächste manuelle Schritte (KEIN Auto-Complete)
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             company = context.get("company", "Novacode GmbH")
             if list_id:
                 # Task: Video schneiden
                 t = await _create_task(
-                    list_id, f"Video schneiden — {company}",
-                    f"Recruiting-Video fuer {company} schneiden und exportieren.\n",
+                    list_id, f"Video schneiden - {company}",
+                    f"Recruiting-Video für {company} schneiden und exportieren.\n",
                     [CLICKUP_ANAK], 2, 5,  # High, +5 Tage
                     [
-                        "60s Recruiting-Video geschnitten (Hook-Problem-Loesung-CTA)",
-                        "3 kurze Varianten fuer Retargeting (15-20s)",
+                        "60s Recruiting-Video geschnitten (Hook-Problem-Lösung-CTA)",
+                        "3 kurze Varianten für Retargeting (15-20s)",
                         "Untertitel eingebaut",
                         "Formate: 1080x1080 + 1080x1920 exportiert",
                         "Im Drive Bilder-Ordner hochgeladen",
@@ -2801,15 +2923,15 @@ async def execute_node(body: dict):
                 )
                 task_ids["video_schneiden"] = t["id"]
 
-                # Task: Funnel & Pixel pruefen
+                # Task: Funnel & Pixel prüfen
                 events_url = f"https://business.facebook.com/events_manager2/list/pixel/{META_PIXEL_ID}/overview" if META_PIXEL_ID else ""
-                desc2 = f"Recruiting-Funnel und Pixel fuer {company} testen.\n\n"
+                desc2 = f"Recruiting-Funnel und Pixel für {company} testen.\n\n"
                 desc2 += "Ressourcen:\n"
                 for name, url in FUNNEL_LINKS.items():
                     desc2 += f"- {name}: {url}\n"
                 if events_url: desc2 += f"- Meta Events Manager: {events_url}\n"
                 t = await _create_task(
-                    list_id, f"Funnel & Pixel pruefen — {company}", desc2,
+                    list_id, f"Funnel & Pixel prüfen - {company}", desc2,
                     [CLICKUP_ANAK], 1, 3,  # Urgent, +3 Tage
                     [
                         "Alle Seiten auf Desktop + Mobile getestet",
@@ -2830,26 +2952,34 @@ async def execute_node(body: dict):
             drive_url_slack = f"https://drive.google.com/drive/folders/{folder_root_id_slack}" if folder_root_id_slack else ""
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
             sheet_id = context.get("overview_sheet_id")
-            rows = [["Copy & Texte", "Erledigt", f"{len(COPY_DOCS)} Dokumente erstellt", drive_url_slack, ts]]
-            for name, url in COPY_DOCS.items():
-                rows.append([f"  → {name}", "—", "", url, ""])
+            copy_docs = _resolve_docs(context, ["Doc 4 Ads-Copy"])
+            rows = [["Copy & Texte", "Erledigt", f"{len(copy_docs)} Dokumente erstellt", drive_url_slack, ts]]
+            for label, url in copy_docs.items():
+                display = DOC_DISPLAY_NAME.get(label, label)
+                rows.append([f"  → {display}", "-", "", url, ""])
             await _append_sheet_rows(sheet_id, rows)
-            await slack_message(f":pencil2: {company} — Copy Assets wurden fertiggestellt")
+            await slack_message(f":pencil2: {company} - Copy Assets wurden fertiggestellt")
 
         # ── Review & Launch ──
         elif node_id == "rl06":
+            channel_id_rl06 = context.get("channel_id")
+            if channel_id_rl06 and SLACK_TEAM_ID:
+                if not isinstance(result, dict): result = {}
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{channel_id_rl06}"
             company = context.get("company", "Novacode GmbH")
             # Projekt-Übersicht + Slack: Asset-Paket bereit
             ts = datetime.now().strftime('%d.%m.%Y %H:%M')
             sheet_id = context.get("overview_sheet_id")
             rows = [["Asset-Paket", "Bereit", "Alle Assets zusammengestellt", "", ts]]
             for name, url in FUNNEL_LINKS.items():
-                rows.append([f"  → {name}", "—", "", url, ""])
-            rows.append(["  → Tracking Sheet", "—", "", TRACKING_SHEET, ""])
-            rows.append(["  → Tracking Dashboard", "—", "", TRACKING_DASHBOARD, ""])
+                rows.append([f"  → {name}", "-", "", url, ""])
+            rows.append(["  → Tracking Sheet", "-", "", TRACKING_SHEET, ""])
+            rows.append(["  → Tracking Dashboard", "-", "", TRACKING_DASHBOARD, ""])
             await _append_sheet_rows(sheet_id, rows)
-            await slack_message(f":package: {company} — Asset-Paket ist bereit")
-            result = {"sent": True, "url": f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context.get('channel_id', '')}" if context.get("channel_id") else "https://app.slack.com/"}
+            await slack_message(f":package: {company} - Asset-Paket ist bereit")
+            result = {"sent": True}
+            if context.get("channel_id"):
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context['channel_id']}"
 
         elif node_id == "rl07":
             result = await update_close_stage({
@@ -2857,10 +2987,10 @@ async def execute_node(body: dict):
                 "stage": "Warte auf Freigabe",
                 "automation_status": "Warte auf Freigabe",
             })
-            # Airtable Client Status → "Review"
-            client_id_rl07 = context.get("airtable_client_id")
-            if client_id_rl07 and AIRTABLE_BASE_ID:
-                await airtable_update_record("Clients", client_id_rl07, {"Status": "Review"})
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
             # ClickUp: Zielgruppen-QA + Kampagnen-Review erstellen
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
@@ -2896,7 +3026,8 @@ async def execute_node(body: dict):
                 desc2 = "Alle 3 Meta-Kampagnen (Kaltakquise, Retargeting, Warmup) vor Launch prüfen.\n\n"
                 desc2 += "Ressourcen:\n"
                 if ads_url: desc2 += f"- Meta Ads Manager: {ads_url}\n"
-                desc2 += f"- Anzeigentexte: {COPY_DOCS.get('Anzeigentexte', '')}\n"
+                ads_copy_url = _client_docs(context).get("Doc 4 Ads-Copy", "")
+                desc2 += f"- Ads-Copy (Kalt/Retargeting/Warmup/Videoskripte): {ads_copy_url}\n"
                 desc2 += f"- Funnel: {FUNNEL_LINKS.get('Landingpage', '')}\n"
                 t = await _create_task(
                     list_id, "Kampagnen-Review", desc2,
@@ -2923,11 +3054,15 @@ async def execute_node(body: dict):
                 task_ids["campaign_review"] = t["id"]
                 campaign_docs = {
                     "Meta Ads Manager": ads_url,
-                    "Anzeigentexte": COPY_DOCS.get("Anzeigentexte", ""),
+                    "Ads-Copy": ads_copy_url,
                     "Landingpage": FUNNEL_LINKS.get("Landingpage", ""),
                 }
                 await _attach_docs_to_task(t["id"], {k: v for k, v in campaign_docs.items() if v})
                 result["task_ids"] = task_ids
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            lead_id = context.get("lead_id", "")
+            close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Close: Warte auf Freigabe", "Offen", "QA- und Review-Tasks erstellt", close_url, ts])
 
         elif node_id == "rl09":
             result = await update_close_stage({
@@ -2935,6 +3070,14 @@ async def execute_node(body: dict):
                 "stage": "Bereit für Launch",
                 "automation_status": "Bereit für Launch",
             })
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            lead_id = context.get("lead_id", "")
+            close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Close: Bereit für Launch", "Freigegeben", "Launch kann starten", close_url, ts])
 
         elif node_id == "rl11":
             result = await update_close_stage({
@@ -2942,21 +3085,21 @@ async def execute_node(body: dict):
                 "stage": "Live",
                 "automation_status": "Live",
             })
-            # Airtable Client Status → "Live"
-            client_id_rl11 = context.get("airtable_client_id")
-            if client_id_rl11 and AIRTABLE_BASE_ID:
-                await airtable_update_record("Clients", client_id_rl11, {"Status": "Live"})
-            # ClickUp: Neue Tasks fuer Launch (KEIN Auto-Complete)
+            if isinstance(result, dict) and not result.get("url"):
+                lead_id_for_url = context.get("lead_id", "")
+                if lead_id_for_url:
+                    result["url"] = f"https://app.close.com/lead/{lead_id_for_url}/"
+            # ClickUp: Neue Tasks für Launch (KEIN Auto-Complete)
             list_id = context.get("list_id")
             task_ids = dict(context.get("task_ids", {}))
             ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}" if META_AD_ACCOUNT else ""
             if list_id:
                 company = context.get("company", "Novacode GmbH")
-                # Task: Kampagnen pruefen & aktivieren
-                desc = f"Alle Kampagnen fuer {company} pruefen und live schalten.\n\n"
+                # Task: Kampagnen prüfen & aktivieren
+                desc = f"Alle Kampagnen für {company} prüfen und live schalten.\n\n"
                 if ads_url: desc += f"Meta Ads Manager: {ads_url}\n"
                 t = await _create_task(
-                    list_id, f"Kampagnen pruefen & aktivieren — {company}", desc,
+                    list_id, f"Kampagnen prüfen & aktivieren - {company}", desc,
                     [CLICKUP_CLAUDIO], 1, 2,  # Urgent, +2 Tage
                     [
                         "Alle Creatives korrekt zugewiesen?",
@@ -2971,28 +3114,36 @@ async def execute_node(body: dict):
                     await _attach_docs_to_task(t["id"], {"Meta Ads Manager": ads_url})
 
                 # Task: Erste Woche Monitoring
-                desc2 = f"Kampagnen-Performance fuer {company} in der ersten Woche ueberwachen.\n\n"
+                desc2 = f"Kampagnen-Performance für {company} in der ersten Woche überwachen.\n\n"
                 desc2 += "Ressourcen:\n"
                 if ads_url: desc2 += f"- Meta Ads Manager: {ads_url}\n"
                 desc2 += f"- Tracking Sheet: {TRACKING_SHEET}\n"
                 desc2 += f"- Tracking Dashboard: {TRACKING_DASHBOARD}\n"
                 t = await _create_task(
-                    list_id, f"Erste Woche Monitoring — {company}", desc2,
+                    list_id, f"Erste Woche Monitoring - {company}", desc2,
                     [CLICKUP_CLAUDIO, CLICKUP_ANAK], 2, 7,  # High, +7 Tage
                     [
                         "Tag 1: Auslieferung gestartet (Impressions > 0)",
                         "Tag 3: CPM < 15 EUR, CTR > 0.5%?",
                         "Tag 3: Erste Bewerbungen eingegangen?",
-                        "Tag 5: Budget wird ausgeschoepft?",
+                        "Tag 5: Budget wird ausgeschöpft?",
                         "Tag 7: Performance-Report erstellen",
                         "Tag 7: Underperformer pausieren",
-                        "Kunde ueber Ergebnisse informieren",
+                        "Kunde über Ergebnisse informieren",
                     ],
                 )
                 task_ids["monitoring"] = t["id"]
                 result["task_ids"] = task_ids
+            ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+            lead_id = context.get("lead_id", "")
+            close_url = f"https://app.close.com/lead/{lead_id}/" if lead_id else ""
+            await _append_sheet_row(context.get("overview_sheet_id"), ["Close: Live", "Live", "Recruiting-Funnel ist aktiv", close_url, ts])
 
         elif node_id == "rl12":
+            channel_id_rl12 = context.get("channel_id")
+            if channel_id_rl12 and SLACK_TEAM_ID:
+                if not isinstance(result, dict): result = {}
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{channel_id_rl12}"
             company = context.get("company", "Novacode GmbH")
             launch_date = datetime.now().strftime('%d.%m.%Y %H:%M')
             ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
@@ -3002,80 +3153,63 @@ async def execute_node(body: dict):
             # Slack: EINE finale Block Kit Nachricht mit Spreadsheet-Link
             overview_url = context.get("overview_sheet_url", "")
             blocks = _slack_blocks_message(
-                f":rocket: {company} — Recruiting ist LIVE!",
+                f":rocket: {company} - Recruiting ist LIVE!",
                 [{"text": "Alle Schritte abgeschlossen. Komplette Projekt-Übersicht:"}],
                 buttons=[("Projekt-Übersicht öffnen", overview_url, "primary")] if overview_url else [],
                 footer=f":zap: Flowstack Automation | {launch_date}",
             )
             await slack_message(f"{company} Recruiting ist LIVE!", blocks=blocks, color=SLACK_COLOR_SUCCESS)
-            result = {"sent": True, "url": f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context.get('channel_id', '')}" if context.get("channel_id") else "https://app.slack.com/"}
+            result = {"sent": True}
+            if context.get("channel_id"):
+                result["url"] = f"https://app.slack.com/client/{SLACK_TEAM_ID}/{context['channel_id']}"
 
         elif node_id == "rl13":
-            # Airtable: Performance-Sync — Meta Ads → Airtable Dashboard
+            # Performance-Sync - Meta Ads Insights → Client-Overview Sheet
             campaign_ids = []
             meta_campaigns = context.get("meta_campaigns", {})
             if meta_campaigns:
                 campaign_ids = list(meta_campaigns.values())
+            overview_sheet_id = context.get("overview_sheet_id")
+            overview_sheet_url = context.get("overview_sheet_url") or TRACKING_SHEET
 
-            if campaign_ids and META_ACCESS_TOKEN and AIRTABLE_API_KEY and AIRTABLE_BASE_ID:
-                synced_total = 0
+            synced_total = 0
+            if campaign_ids and META_ACCESS_TOKEN and overview_sheet_id:
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                rows: list[list] = [["Performance-Sync", "Start", f"{len(campaign_ids)} Kampagnen", "", ts]]
                 for cid in campaign_ids:
                     insights = await _fetch_meta_campaign_insights(cid, "last_7d")
-                    records = []
                     for day in insights:
-                        impressions = int(day.get("impressions", 0))
-                        clicks = int(day.get("clicks", 0))
                         spend = float(day.get("spend", 0))
                         leads = _extract_leads_from_actions(day.get("actions"))
+                        cpl = round(spend / leads, 2) if leads > 0 else 0
                         name = day.get("campaign_name", f"Campaign {cid}")
-                        name_lower = name.lower()
-                        if "retarget" in name_lower or "rt" in name_lower:
-                            typ = "Retargeting"
-                        elif "warmup" in name_lower or "wu" in name_lower or "awareness" in name_lower:
-                            typ = "Warmup"
-                        else:
-                            typ = "Initial"
-                        records.append({
-                            "Kampagnen-Name": name,
-                            "Datum": day.get("date_start", ""),
-                            "Kampagnen-Typ": typ,
-                            "Meta Campaign ID": cid,
-                            "Impressions": impressions,
-                            "Clicks": clicks,
-                            "CTR": float(day.get("ctr", 0)) / 100,
-                            "CPM": float(day.get("cpm", 0)),
-                            "CPC": float(day.get("cpc", 0)) if clicks > 0 else 0,
-                            "Leads": leads,
-                            "CPL": round(spend / leads, 2) if leads > 0 else 0,
-                            "Spend": spend,
-                            "Reach": int(day.get("reach", 0)),
-                            "Frequency": float(day.get("frequency", 0)),
-                        })
-                    for i in range(0, len(records), 10):
-                        await airtable_create_records("Performance", records[i:i+10])
-                    synced_total += len(records)
-                airtable_url = f"https://airtable.com/{AIRTABLE_BASE_ID}" if AIRTABLE_BASE_ID else "https://airtable.com"
-                result = {"synced": synced_total, "campaigns": len(campaign_ids), "url": airtable_url}
+                        date = day.get("date_start", "")
+                        rows.append([name, date, f"Spend {spend:.2f} EUR", f"Leads {leads} / CPL {cpl:.2f}", ""])
+                        synced_total += 1
+                if synced_total > 0:
+                    await _append_sheet_rows(overview_sheet_id, rows)
+                result = {"synced": synced_total, "campaigns": len(campaign_ids), "url": overview_sheet_url}
             else:
-                result = {"synced": 0, "note": "Meta oder Airtable nicht konfiguriert — Dashboard-Sync uebersprungen", "url": "https://airtable.com"}
+                result = {"synced": 0, "note": "Meta oder Overview-Sheet nicht konfiguriert - Dashboard-Sync übersprungen", "url": overview_sheet_url}
 
         # ── Meta Zielgruppen & Kampagnen ──────────────────────────────────────
-        # Spec: Phase 7 – Audience & Campaign Setup (Meta Ads)
+        # Spec: Phase 7 - Audience & Campaign Setup (Meta Ads)
         # Order: Audiences → Campaigns → Ad Sets → Ads
 
         elif node_id in ("ca01", "ca02", "ca03"):
             # Website Custom Audiences (Pixel-basiert)
             company = context.get("company", "Novacode GmbH")
             acct = _meta_acct()
-            LP_URL = "demo-recruiting.vercel.app/demo-landing"
-            FORM_URL = "demo-recruiting.vercel.app/demo-formular"
-            THANKS_URL = "demo-recruiting.vercel.app/demo-danke"
+            LP_URL = "www.flowstack-agentur.de/demo"
+            FORM_URL = "www.flowstack-agentur.de/demo-bewerbung"
+            THANKS_URL = "www.flowstack-agentur.de/demo-danke"
 
             if node_id == "ca01":
                 name = "AllVisitors_30d"
                 desc = "Alle Website-Besucher der letzten 30 Tage"
                 rule = {"inclusions": {"operator": "or", "rules": [
-                    {"event_sources": [{"id": META_PIXEL_ID, "type": "pixel"}], "retention_seconds": 2592000}
+                    {"event_sources": [{"id": META_PIXEL_ID, "type": "pixel"}], "retention_seconds": 2592000,
+                     "filter": {"operator": "and", "filters": [{"field": "event", "operator": "=", "value": "PageView"}]}}
                 ]}} if META_PIXEL_ID else None
                 retention = 30
             elif node_id == "ca02":
@@ -3102,73 +3236,94 @@ async def execute_node(body: dict):
                 retention = 7
 
             try:
+                audience_name = f"{name}_{company.replace(' ', '_')}"
                 payload: dict[str, Any] = {
-                    "name": f"{name}_{company.replace(' ', '_')}",
+                    "name": audience_name,
                     "description": desc,
                 }
                 if rule and META_PIXEL_ID:
-                    payload["rule"] = rule
+                    # Meta erwartet rule als JSON-String, nicht als Dict
+                    payload["rule"] = json.dumps(rule)
                     payload["retention_days"] = retention
                     payload["pixel_id"] = META_PIXEL_ID
                     payload["prefill"] = True
                 else:
                     payload["customer_file_source"] = "USER_PROVIDED_ONLY"
-                resp_data = await meta_api("POST", f"{acct}/customaudiences", payload)
-                meta_audiences_url = f"https://adsmanager.facebook.com/adsmanager/manage/audiences?act={_meta_acct_numeric()}"
-                result = {"audience_id": resp_data.get("id"), "name": name, "url": meta_audiences_url}
-                log.info(f"Meta Audience erstellt: {name} ({resp_data.get('id')})")
+                # Dedupe-Check: Audience mit diesem Namen schon vorhanden?
+                aud_id = None
+                try:
+                    lookup = await meta_api("GET", f"{acct}/customaudiences?fields=id,name&limit=200")
+                    for a in (lookup.get("data") or []):
+                        if a.get("name") == audience_name and a.get("id"):
+                            aud_id = a["id"]
+                            log.info(f"Meta Audience '{audience_name}' wiederverwendet (Dedupe): {aud_id}")
+                            break
+                except Exception as e:
+                    log.warning(f"Meta Audience Dedupe-Lookup fehlgeschlagen: {e}")
+                if not aud_id:
+                    resp_data = await meta_api("POST", f"{acct}/customaudiences", payload)
+                    aud_id = resp_data.get("id")
+                acct_num = _meta_acct_numeric()
+                audience_url = f"https://adsmanager.facebook.com/adsmanager/audiences/detail?act={acct_num}&selected_audience_id={aud_id}" if aud_id else f"https://adsmanager.facebook.com/adsmanager/manage/audiences?act={acct_num}"
+                result = {"audience_id": aud_id, "name": name, "url": audience_url}
+                log.info(f"Meta Audience erstellt: {name} ({aud_id})")
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                await _append_sheet_row(context.get("overview_sheet_id"), [f"Audience: {name}", "Erstellt", desc, audience_url, ts])
             except Exception as e:
                 log.warning(f"Meta Audience {name} übersprungen: {e}")
                 meta_audiences_url = f"https://adsmanager.facebook.com/adsmanager/manage/audiences?act={_meta_acct_numeric()}"
-                result = {"name": name, "audience_id": f"skipped_{name}", "note": f"Audience-Erstellung uebersprungen: {e}", "url": meta_audiences_url}
+                result = {"name": name, "audience_id": f"skipped_{name}", "note": f"Audience-Erstellung übersprungen: {e}", "url": meta_audiences_url}
 
         elif node_id == "ca04":
-            # Initial (Cold) Campaign — Objective: Leads, CBO: OFF
+            # Initial (Cold) Campaign - Objective: Leads, CBO: OFF
             company = context.get("company", "Novacode GmbH")
             acct = _meta_acct()
             try:
-                # Bilder einmalig hochladen (für alle Ad Sets/Kampagnen)
-                image_hashes = await upload_meta_images()
-                log.info(f"Meta Bilder hochgeladen: {len(image_hashes)} Hashes")
-                campaign = await meta_api("POST", f"{acct}/campaigns", {
-                    "name": f"TOF | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting",
-                    "objective": "OUTCOME_LEADS",
-                    "status": "PAUSED",
-                    "special_ad_categories": ["EMPLOYMENT"],
-                    "is_campaign_budget_optimization": False,  # Advantage Campaign Budget: OFF
-                    "is_adset_budget_sharing_enabled": False,
-                })
-                cid = campaign["id"]
+                # Bilder einmalig hochladen (für alle Ad Sets/Kampagnen) + Kopie in Drive-Kundenordner
+                drive_images_folder = context.get("upload_folder_id") or (context.get("subfolders") or {}).get("04_Creatives")
+                image_hashes = await upload_meta_images(drive_target_folder_id=drive_images_folder)
+                log.info(f"Meta Bilder hochgeladen: {len(image_hashes)} Hashes, Drive-Kopie: {drive_images_folder}")
+                campaign_name = f"TOF | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting"
+                # Dedupe-Check: Kampagne mit diesem Namen schon vorhanden?
+                cid = None
+                try:
+                    lookup = await meta_api("GET", f"{acct}/campaigns?fields=id,name,effective_status&limit=200")
+                    for c in (lookup.get("data") or []):
+                        if c.get("name") == campaign_name and c.get("effective_status") != "DELETED" and c.get("id"):
+                            cid = c["id"]
+                            log.info(f"Meta TOF-Kampagne '{campaign_name}' wiederverwendet (Dedupe): {cid}")
+                            break
+                except Exception as e:
+                    log.warning(f"Meta Kampagne Dedupe-Lookup fehlgeschlagen: {e}")
+                if not cid:
+                    campaign = await meta_api("POST", f"{acct}/campaigns", {
+                        "name": campaign_name,
+                        "objective": "OUTCOME_LEADS",
+                        "status": "PAUSED",
+                        "special_ad_categories": ["EMPLOYMENT"],
+                        "is_campaign_budget_optimization": False,  # Advantage Campaign Budget: OFF
+                        "is_adset_budget_sharing_enabled": False,
+                    })
+                    cid = campaign["id"]
                 meta_campaigns = dict(context.get("meta_campaigns", {}))
                 meta_campaigns["initial"] = cid
-                ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
+                acct_num = _meta_acct_numeric()
+                campaign_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={acct_num}&selected_campaign_ids={cid}"
                 result = {
                     "campaign_id": cid,
                     "meta_campaigns": meta_campaigns,
                     "image_hashes": image_hashes,
-                    "url": ads_url,
+                    "url": campaign_url,
                 }
-                # Kampagne in Airtable schreiben
-                if AIRTABLE_BASE_ID and AIRTABLE_API_KEY:
-                    at_fields = {
-                        "Kampagnen-Name": f"TOF | {company} Recruiting",
-                        "Typ": "Initial",
-                        "Meta Campaign ID": cid,
-                        "Budget Tag": 30.0,
-                        "Status": "Draft",
-                        "Ads Manager URL": ads_url,
-                    }
-                    at_client = context.get("airtable_client_id")
-                    if at_client:
-                        at_fields["Client"] = [at_client]
-                    await airtable_create_record("Kampagnen", at_fields)
                 log.info(f"Meta Initial-Kampagne erstellt: {cid}, {len(image_hashes)} Bilder hochgeladen")
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Initial-Kampagne (TOF)", "Pausiert", "Objective Leads, Special Ad Category Employment", campaign_url, ts])
             except Exception as e:
                 log.error(f"Meta ca04 Initial-Kampagne fehlgeschlagen: {e}")
                 result = {"error": str(e), "image_hashes": [], "meta_campaigns": dict(context.get("meta_campaigns", {})), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
         elif node_id == "ca05":
-            # Initial Ad Sets (3x) — Manuelle Placements: nur Facebook Feed + Instagram Feed
+            # Initial Ad Sets (3x) - Manuelle Placements: nur Facebook Feed + Instagram Feed
 
             campaign_id = context.get("meta_campaigns", {}).get("initial")
             if not campaign_id:
@@ -3177,8 +3332,12 @@ async def execute_node(body: dict):
                 try:
                     company = context.get("company", "Novacode GmbH")
                     acct = _meta_acct()
-                    image_hashes = context.get("image_hashes", [])
-                    destination_url = "https://demo-recruiting.vercel.app/demo-landing/"
+                    image_hashes = context.get("image_hashes", []) or []
+                    if not image_hashes:
+                        log.warning("ca05 Initial: image_hashes fehlen im context, lade Bilder neu hoch")
+                        drive_images_folder = context.get("upload_folder_id") or (context.get("subfolders") or {}).get("04_Creatives")
+                        image_hashes = await upload_meta_images(drive_target_folder_id=drive_images_folder)
+                    destination_url = "https://www.flowstack-agentur.de/demo"
 
                     # Employment: Country-Level DE, manuelle Placements (nur Feeds)
                     base_targeting = {
@@ -3193,8 +3352,21 @@ async def execute_node(body: dict):
                         f"Interest_Recruiting | Alle | 25-55 | DE | Feed | LEAD | {month}",
                         f"Interest_Management | Alle | 25-55 | DE | Feed | LEAD | {month}",
                     ]
+                    # Dedupe: Bestehende Ad Sets dieser Kampagne per Name-Map einsammeln
+                    existing_adsets: dict[str, str] = {}
+                    try:
+                        adset_lookup = await meta_api("GET", f"{campaign_id}/adsets?fields=id,name&limit=200")
+                        for a in (adset_lookup.get("data") or []):
+                            if a.get("name") and a.get("id"):
+                                existing_adsets[a["name"]] = a["id"]
+                    except Exception as e:
+                        log.warning(f"Meta Ad Set Dedupe-Lookup fehlgeschlagen: {e}")
                     adset_ids = []
                     for adset_name in adset_names:
+                        if adset_name in existing_adsets:
+                            log.info(f"Meta Ad Set '{adset_name}' wiederverwendet (Dedupe): {existing_adsets[adset_name]}")
+                            adset_ids.append(existing_adsets[adset_name])
+                            continue
                         resp_data = await meta_api("POST", f"{acct}/adsets", {
                             "name": adset_name,
                             "campaign_id": campaign_id,
@@ -3215,53 +3387,58 @@ async def execute_node(body: dict):
                                 acct, resp_data["id"], image_hashes,
                                 AD_COPY_INITIAL, company, destination_url, "APPLY_NOW", "TOF",
                             )
-                    ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
-                    result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": ads_url}
+                    acct_num = _meta_acct_numeric()
+                    adsets_url = f"https://adsmanager.facebook.com/adsmanager/manage/adsets?act={acct_num}&selected_campaign_ids={campaign_id}"
+                    result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": adsets_url}
                     log.info(f"Meta Initial Ad Sets + Ads erstellt: {adset_ids}")
+                    ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                    await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Initial Ad Sets", "Pausiert", f"{len(adset_ids)} Ad Sets (Broad + Interests), 30 EUR/Tag", adsets_url, ts])
                 except Exception as e:
                     log.error(f"Meta ca05 Initial Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
 
         elif node_id == "ca06":
-            # Retargeting Campaign — Objective: Leads, CBO: OFF
+            # Retargeting Campaign - Objective: Leads, CBO: OFF
             company = context.get("company", "Novacode GmbH")
             acct = _meta_acct()
             try:
-                campaign = await meta_api("POST", f"{acct}/campaigns", {
-                    "name": f"RT | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting",
-                    "objective": "OUTCOME_LEADS",
-                    "status": "PAUSED",
-                    "special_ad_categories": ["EMPLOYMENT"],
-                    "is_campaign_budget_optimization": False,  # Advantage Campaign Budget: OFF
-                    "is_adset_budget_sharing_enabled": False,
-                })
-                cid = campaign["id"]
+                campaign_name = f"RT | {datetime.now().strftime('%Y-%m')} | Leads | DE | {company} Recruiting"
+                # Dedupe-Check: Retargeting-Kampagne mit diesem Namen schon vorhanden?
+                cid = None
+                try:
+                    lookup = await meta_api("GET", f"{acct}/campaigns?fields=id,name,effective_status&limit=200")
+                    for c in (lookup.get("data") or []):
+                        if c.get("name") == campaign_name and c.get("effective_status") != "DELETED" and c.get("id"):
+                            cid = c["id"]
+                            log.info(f"Meta RT-Kampagne '{campaign_name}' wiederverwendet (Dedupe): {cid}")
+                            break
+                except Exception as e:
+                    log.warning(f"Meta Kampagne Dedupe-Lookup fehlgeschlagen: {e}")
+                if not cid:
+                    campaign = await meta_api("POST", f"{acct}/campaigns", {
+                        "name": campaign_name,
+                        "objective": "OUTCOME_LEADS",
+                        "status": "PAUSED",
+                        "special_ad_categories": ["EMPLOYMENT"],
+                        "is_campaign_budget_optimization": False,  # Advantage Campaign Budget: OFF
+                        "is_adset_budget_sharing_enabled": False,
+                    })
+                    cid = campaign["id"]
                 meta_campaigns = dict(context.get("meta_campaigns", {}))
                 meta_campaigns["retargeting"] = cid
-                ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
-                result = {"campaign_id": cid, "meta_campaigns": meta_campaigns, "url": ads_url}
+                acct_num = _meta_acct_numeric()
+                campaign_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={acct_num}&selected_campaign_ids={cid}"
+                result = {"campaign_id": cid, "meta_campaigns": meta_campaigns, "url": campaign_url}
                 log.info(f"Meta Retargeting-Kampagne erstellt: {cid}")
-                # Kampagne in Airtable schreiben
-                if AIRTABLE_BASE_ID and AIRTABLE_API_KEY:
-                    at_fields = {
-                        "Kampagnen-Name": f"RT | {company} Recruiting",
-                        "Typ": "Retargeting",
-                        "Meta Campaign ID": cid,
-                        "Budget Tag": 30.0,
-                        "Status": "Draft",
-                        "Ads Manager URL": ads_url,
-                    }
-                    at_client = context.get("airtable_client_id")
-                    if at_client:
-                        at_fields["Client"] = [at_client]
-                    await airtable_create_record("Kampagnen", at_fields)
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Retargeting-Kampagne", "Pausiert", "Objective Leads, Retargeting auf Website-Besucher", campaign_url, ts])
             except Exception as e:
                 log.error(f"Meta ca06 Retargeting-Kampagne fehlgeschlagen: {e}")
                 result = {"error": str(e), "meta_campaigns": dict(context.get("meta_campaigns", {})), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
         elif node_id == "ca07":
-            # Retargeting Ad Sets (3x) — Auto-Placements, 10€/Tag
+            # Retargeting Ad Sets (3x) - Auto-Placements, 10€/Tag
 
             campaign_id = context.get("meta_campaigns", {}).get("retargeting")
             if not campaign_id:
@@ -3270,8 +3447,12 @@ async def execute_node(body: dict):
                 try:
                     company = context.get("company", "Novacode GmbH")
                     acct = _meta_acct()
-                    image_hashes = context.get("image_hashes", [])
-                    destination_url = "https://demo-recruiting.vercel.app/demo-formular"
+                    image_hashes = context.get("image_hashes", []) or []
+                    if not image_hashes:
+                        log.warning("ca07 Retargeting: image_hashes fehlen im context, lade Bilder neu hoch")
+                        drive_images_folder = context.get("upload_folder_id") or (context.get("subfolders") or {}).get("04_Creatives")
+                        image_hashes = await upload_meta_images(drive_target_folder_id=drive_images_folder)
+                    destination_url = "https://www.flowstack-agentur.de/demo-bewerbung"
 
                     # Auto-Placements (Employment: nur Country-Level)
                     base_targeting = {
@@ -3283,8 +3464,21 @@ async def execute_node(body: dict):
                         f"WV-7d-LP_NoBewerbung | Alle | 25-55 | DE | Auto | LEAD | {month}",
                         f"WV-7d-Bewerbung_NoLead | Alle | 25-55 | DE | Auto | LEAD | {month}",
                     ]
+                    # Dedupe: Bestehende RT Ad Sets per Name-Map einsammeln
+                    existing_adsets: dict[str, str] = {}
+                    try:
+                        adset_lookup = await meta_api("GET", f"{campaign_id}/adsets?fields=id,name&limit=200")
+                        for a in (adset_lookup.get("data") or []):
+                            if a.get("name") and a.get("id"):
+                                existing_adsets[a["name"]] = a["id"]
+                    except Exception as e:
+                        log.warning(f"Meta RT Ad Set Dedupe-Lookup fehlgeschlagen: {e}")
                     adset_ids = []
                     for adset_name in adset_names:
+                        if adset_name in existing_adsets:
+                            log.info(f"Meta RT Ad Set '{adset_name}' wiederverwendet (Dedupe): {existing_adsets[adset_name]}")
+                            adset_ids.append(existing_adsets[adset_name])
+                            continue
                         resp_data = await meta_api("POST", f"{acct}/adsets", {
                             "name": adset_name,
                             "campaign_id": campaign_id,
@@ -3304,16 +3498,21 @@ async def execute_node(body: dict):
                                 acct, resp_data["id"], image_hashes,
                                 AD_COPY_RETARGETING, company, destination_url, "APPLY_NOW", "RT",
                             )
-                    ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
-                    result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": ads_url}
+                        else:
+                            log.error(f"ca07 Retargeting: 0 Ads für AdSet {resp_data['id']} (keine image_hashes)")
+                    acct_num = _meta_acct_numeric()
+                    adsets_url = f"https://adsmanager.facebook.com/adsmanager/manage/adsets?act={acct_num}&selected_campaign_ids={campaign_id}"
+                    result = {"adset_ids": adset_ids, "count": len(adset_ids), "url": adsets_url}
                     log.info(f"Meta Retargeting Ad Sets + Ads erstellt: {adset_ids}")
+                    ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                    await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Retargeting Ad Sets", "Pausiert", f"{len(adset_ids)} Ad Sets auf Custom Audiences", adsets_url, ts])
                 except Exception as e:
                     log.error(f"Meta ca07 Retargeting Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
 
         elif node_id == "ca08":
-            # Warmup Campaign — Objective: Awareness, CBO: OFF
+            # Warmup Campaign - Objective: Awareness, CBO: OFF
             company = context.get("company", "Novacode GmbH")
             acct = _meta_acct()
             try:
@@ -3328,29 +3527,18 @@ async def execute_node(body: dict):
                 cid = campaign["id"]
                 meta_campaigns = dict(context.get("meta_campaigns", {}))
                 meta_campaigns["warmup"] = cid
-                ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
-                result = {"campaign_id": cid, "meta_campaigns": meta_campaigns, "url": ads_url}
+                acct_num = _meta_acct_numeric()
+                campaign_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={acct_num}&selected_campaign_ids={cid}"
+                result = {"campaign_id": cid, "meta_campaigns": meta_campaigns, "url": campaign_url}
                 log.info(f"Meta Warmup-Kampagne erstellt: {cid}")
-                # Kampagne in Airtable schreiben
-                if AIRTABLE_BASE_ID and AIRTABLE_API_KEY:
-                    at_fields = {
-                        "Kampagnen-Name": f"WU | {company} Recruiting",
-                        "Typ": "Warmup",
-                        "Meta Campaign ID": cid,
-                        "Budget Tag": 10.0,
-                        "Status": "Draft",
-                        "Ads Manager URL": ads_url,
-                    }
-                    at_client = context.get("airtable_client_id")
-                    if at_client:
-                        at_fields["Client"] = [at_client]
-                    await airtable_create_record("Kampagnen", at_fields)
+                ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Warmup-Kampagne", "Pausiert", "Objective Awareness, Markenaufbau", campaign_url, ts])
             except Exception as e:
                 log.error(f"Meta ca08 Warmup-Kampagne fehlgeschlagen: {e}")
                 result = {"error": str(e), "meta_campaigns": dict(context.get("meta_campaigns", {})), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
         elif node_id == "ca09":
-            # Warmup Ad Sets — Video-freundliche Placements, 10€/Tag
+            # Warmup Ad Sets - Video-freundliche Placements, 10€/Tag
 
             campaign_id = context.get("meta_campaigns", {}).get("warmup")
             if not campaign_id:
@@ -3359,8 +3547,12 @@ async def execute_node(body: dict):
                 try:
                     company = context.get("company", "Novacode GmbH")
                     acct = _meta_acct()
-                    image_hashes = context.get("image_hashes", [])
-                    destination_url = "https://demo-recruiting.vercel.app/demo-landing/"
+                    image_hashes = context.get("image_hashes", []) or []
+                    if not image_hashes:
+                        log.warning("ca09 Warmup: image_hashes fehlen im context, lade Bilder neu hoch")
+                        drive_images_folder = context.get("upload_folder_id") or (context.get("subfolders") or {}).get("04_Creatives")
+                        image_hashes = await upload_meta_images(drive_target_folder_id=drive_images_folder)
+                    destination_url = "https://www.flowstack-agentur.de/demo"
 
                     # Reach-optimierte Placements (Employment: Country-Level)
                     targeting = {
@@ -3384,556 +3576,21 @@ async def execute_node(body: dict):
                     # Warmup: Bild-Ads als Platzhalter (Video-Ads können später ergänzt werden)
                     if image_hashes:
                         await create_meta_ads(
-                            acct, adset_id, image_hashes[:1],  # 1 Bild fuer Warmup
+                            acct, adset_id, image_hashes[:1],  # 1 Bild für Warmup
                             AD_COPY_WARMUP, company, destination_url, "LEARN_MORE", "WU",
                         )
-                    ads_url = f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"
-                    result = {"adset_ids": [adset_id], "count": 1, "url": ads_url}
+                    else:
+                        log.error(f"ca09 Warmup: 0 Ads für AdSet {adset_id} (keine image_hashes)")
+                    acct_num = _meta_acct_numeric()
+                    adsets_url = f"https://adsmanager.facebook.com/adsmanager/manage/adsets?act={acct_num}&selected_campaign_ids={campaign_id}"
+                    result = {"adset_ids": [adset_id], "count": 1, "url": adsets_url}
                     log.info(f"Meta Warmup Ad Set + Ads erstellt: {adset_id}")
+                    ts = datetime.now().strftime('%d.%m.%Y %H:%M')
+                    await _append_sheet_row(context.get("overview_sheet_id"), ["Meta: Warmup Ad Sets", "Pausiert", "Video Views in Feed, Stories, Reels", adsets_url, ts])
                 except Exception as e:
                     log.error(f"Meta ca09 Warmup Ad Sets fehlgeschlagen: {e}")
                     result = {"error": str(e), "url": f"https://adsmanager.facebook.com/adsmanager/manage/campaigns?act={_meta_acct_numeric()}"}
 
-
-        # ══════════════════════════════════════════════════════════════════
-        # V2 Close CRM Lead — Lead + Opportunity in V2 Org erstellen
-        # ══════════════════════════════════════════════════════════════════
-
-        elif node_id == "v2-create-lead":
-            company = context.get("company", "Unbekannt")
-            contact_email = context.get("email", "")
-            # Reuse existing lead if is02 already created one (same Close org)
-            existing_lead = context.get("lead_id", "")
-            existing_opp = context.get("opportunity_id", "")
-            if existing_lead and existing_opp:
-                log.info(f"V2: Lead {existing_lead} existiert bereits (aus is02) — kein Duplikat erstellt")
-                # Note hinzufuegen dass V2 Phase startet
-                if CLOSE_API_KEY_V2:
-                    await close_api_v2("POST", "/activity/note/", {
-                        "lead_id": existing_lead,
-                        "note": "V2 Automation gestartet: AI-Extraktion + Dokument-Generierung.",
-                    })
-                    # Stage auf kickoff_abgeschlossen setzen (V2 startet nach Kickoff)
-                    stage_id = CLOSE_V2_STAGES.get("kickoff_abgeschlossen")
-                    if stage_id:
-                        await close_api_v2("PUT", f"/opportunity/{existing_opp}/", {"status_id": stage_id})
-                result = {
-                    "lead_id": existing_lead,
-                    "opportunity_id": existing_opp,
-                    "url": f"https://app.close.com/lead/{existing_lead}/",
-                    "reused": True,
-                }
-            elif CLOSE_API_KEY_V2 and CLOSE_V2_PIPELINE_ID:
-                lead = await close_api_v2("POST", "/lead/", {
-                    "name": company,
-                    "contacts": [{
-                        "name": context.get("contact", "Ansprechpartner"),
-                        "emails": [{"email": contact_email, "type": "office"}] if contact_email else [],
-                    }],
-                    **(
-                        {f"custom.{CLOSE_V2_FIELDS['service_type']}": "Recruiting"}
-                        if CLOSE_V2_FIELDS.get("service_type") else {}
-                    ),
-                    **(
-                        {f"custom.{CLOSE_V2_FIELDS['automation_status']}": "Running"}
-                        if CLOSE_V2_FIELDS.get("automation_status") else {}
-                    ),
-                })
-                lead_id = lead["id"]
-                stage_id = CLOSE_V2_STAGES.get("onboarding_gestartet")
-                opp = await close_api_v2("POST", "/opportunity/", {
-                    "lead_id": lead_id,
-                    "pipeline_id": CLOSE_V2_PIPELINE_ID,
-                    "status_id": stage_id,
-                    "note": f"Fulfillment Automation gestartet fuer {company}",
-                    "value": 0,
-                })
-                await close_api_v2("POST", "/activity/note/", {
-                    "lead_id": lead_id,
-                    "note": "Onboarding-Formular eingegangen. Automation gestartet.",
-                })
-                result = {
-                    "lead_id": lead_id,
-                    "opportunity_id": opp["id"],
-                    "url": f"https://app.close.com/lead/{lead_id}/",
-                }
-                log.info(f"Close Lead erstellt (Leadflow Marketing): {lead_id}, Opp: {opp['id']}")
-            else:
-                log.warning("Close nicht konfiguriert — Lead uebersprungen")
-                result = {"lead_id": "", "opportunity_id": "", "skipped": True}
-            # Slack: V2 Lead erstellt/verknüpft
-            lead_url = result.get("url", "https://app.close.com/")
-            blocks = _slack_blocks_message(
-                f":link: V2 Automation gestartet — {company}",
-                [
-                    {"text": "Lead in Close verknüpft. AI-Pipeline startet."},
-                    {"fields": [
-                        ("Service", "Recruiting"),
-                        ("Phase", "Extraktion → Strategie → Copy"),
-                    ]},
-                ],
-                buttons=[("Close CRM öffnen", lead_url, "primary")],
-                footer=f":zap: Flowstack V2 | {datetime.now().strftime('%d.%m.%Y %H:%M')}",
-            )
-            await slack_message(f"V2 Automation gestartet — {company}", blocks=blocks, color=SLACK_COLOR_INFO)
-
-        # ══════════════════════════════════════════════════════════════════
-        # V2 Airtable + Extraktion — Neue Nodes fuer Lego-Baustein-System
-        # ══════════════════════════════════════════════════════════════════
-
-        elif node_id == "v2-airtable-client":
-            # Airtable: Client-Record erstellen
-            company = context.get("company", "Unbekannt")
-            if AIRTABLE_BASE_ID and AIRTABLE_API_KEY:
-                fields = {
-                    "Client Name": company,
-                    "Status": "Extraktion",
-                    "Branche": "Recruiting",
-                    "Email": context.get("email", ""),
-                    "Rolle": context.get("rolle", ""),
-                    "Ansprechpartner": context.get("contact", ""),
-                }
-                # Close Lead URL verlinken falls vorhanden
-                lid = context.get("lead_id", "")
-                if lid:
-                    fields["Close Lead URL"] = f"https://app.close.com/lead/{lid}/"
-                # Google Drive URL verlinken falls vorhanden
-                frid = context.get("folder_root_id", "")
-                if frid:
-                    fields["Google Drive URL"] = f"https://drive.google.com/drive/folders/{frid}"
-                # Slack Channel verlinken falls vorhanden
-                ch_name = context.get("channel_name", "")
-                ch_id = context.get("channel_id", "")
-                if ch_name:
-                    fields["Slack Channel"] = ch_name
-                elif ch_id:
-                    fields["Slack Channel"] = ch_id
-                # Kickoff Datum falls vorhanden
-                event_id = context.get("event_id", "")
-                if event_id:
-                    fields["Kickoff Datum"] = datetime.now().strftime("%Y-%m-%d")
-                record = await airtable_create_record("Clients", fields)
-                result = {"airtable_client_id": record.get("id", "")}
-                log.info(f"Airtable Client erstellt: {result['airtable_client_id']}")
-            else:
-                log.warning("Airtable nicht konfiguriert — Client-Record uebersprungen")
-                result = {"airtable_client_id": "", "skipped": True}
-            # Slack: Airtable Client erstellt
-            blocks = _slack_blocks_message(
-                f":card_index: Airtable — {company}",
-                [
-                    {"text": "Client-Record erstellt. 6 Tabellen verknüpft:"},
-                    {"items": [
-                        "Clients — Stammdaten & Status",
-                        "Bausteine — 88 Lego-Bausteine (nach Extraktion)",
-                        "Dokumente — 12 AI-generierte Dokumente",
-                        "Kampagnen — Meta Ads Tracking",
-                        "Frameworks — Dokument-Strukturen",
-                        "Performance — Kampagnen-Metriken",
-                    ]},
-                ],
-                footer=f":zap: Flowstack V2 | Airtable Base bereit",
-            )
-            await slack_message(f"Airtable Client erstellt — {company}", blocks=blocks, color=SLACK_COLOR_INFO)
-
-        elif node_id == "v2-extract":
-            # AI: Transkript lesen → 88 Bausteine extrahieren → Airtable
-            transcript_id = "1ZO6yLLW18GLjJd1xuCc8jytaGwPi0jedoSkUR8LO-eM"
-            transcript_text = await read_google_doc_content(transcript_id)
-            company = context.get("company", "Unbekannt")
-            rolle = context.get("rolle", "")
-            blocks = await extract_building_blocks(transcript_text, company, rolle)
-
-            # Quality Gate: Pruefen ob die wichtigsten Kategorien vorhanden sind
-            required_categories = ["schmerzpunkte", "arbeitgeber", "messaging", "psychologie", "benefits"]
-            missing = [c for c in required_categories if c not in blocks or not blocks[c]]
-            if missing:
-                log.warning(f"Quality Gate: Fehlende Kategorien in Bausteinen: {missing}")
-
-            # In Airtable schreiben
-            client_id = context.get("airtable_client_id", "")
-            if client_id and AIRTABLE_BASE_ID:
-                written = await write_blocks_to_airtable(blocks, client_id)
-                log.info(f"Bausteine in Airtable geschrieben: {written} Records")
-                # Client Status → "Strategie" (Extraktion abgeschlossen, bereit fuer AI)
-                await airtable_update_record("Clients", client_id, {"Status": "Strategie"})
-            result = {
-                "bausteine": blocks,
-                "block_count": len(blocks),
-                "missing_categories": missing,
-                "quality_ok": len(missing) == 0,
-            }
-            # Close: Note mit Extraktions-Ergebnis
-            lead_id_ext = context.get("lead_id", "")
-            if lead_id_ext and CLOSE_API_KEY_V2:
-                cat_count = len([c for c in blocks if blocks.get(c)])
-                await close_api_v2("POST", "/activity/note/", {
-                    "lead_id": lead_id_ext,
-                    "note": f"AI-Extraktion abgeschlossen: {len(blocks)} Kategorien, {cat_count} mit Daten. Quality: {'OK' if len(missing) == 0 else f'Fehlend: {missing}'}",
-                })
-            # Slack: Extraktion fertig
-            company_ext = context.get("company", "Unbekannt")
-            cat_names = {"schmerzpunkte": "Schmerzpunkte", "arbeitgeber": "Arbeitgeber-Daten", "messaging": "Messaging", "psychologie": "Psychologie", "benefits": "Benefits", "sprache": "Sprache & Wording", "einwaende": "Einwände"}
-            cat_items = []
-            for key, label in cat_names.items():
-                count = len(blocks.get(key, {})) if isinstance(blocks.get(key), dict) else (1 if blocks.get(key) else 0)
-                status = ":white_check_mark:" if count > 0 else ":x:"
-                cat_items.append(f"{status} {label} ({count} Felder)")
-            blocks_slack = _slack_blocks_message(
-                f":brain: Extraktion fertig — {company_ext}",
-                [
-                    {"text": f"88 Bausteine aus Kickoff-Transkript extrahiert:"},
-                    {"items": cat_items},
-                ] + ([{"text": f":warning: Fehlende Kategorien: {', '.join(missing)}"}] if missing else []),
-                buttons=[("Transkript", TRANSCRIPT_DOC, "primary")],
-                footer=f":zap: Flowstack V2 | Quality Gate: {'PASS' if len(missing) == 0 else 'WARN'}",
-            )
-            await slack_message(f"Extraktion fertig — {company_ext}", blocks=blocks_slack, color=SLACK_COLOR_SUCCESS if len(missing) == 0 else SLACK_COLOR_WARNING)
-            # ClickUp: Bausteine-Review Task erstellen
-            list_id_ext = context.get("list_id")
-            task_ids_ext = dict(context.get("task_ids", {}))
-            if list_id_ext:
-                desc_ext = f"AI-extrahierte Bausteine aus dem Kickoff-Transkript reviewen und korrigieren.\n\n"
-                desc_ext += "Ressourcen:\n"
-                desc_ext += f"- Kickoff-Transkript: {TRANSCRIPT_DOC}\n"
-                desc_ext += f"- Airtable Bausteine: https://airtable.com/{AIRTABLE_BASE_ID}\n"
-                if missing:
-                    desc_ext += f"\n:warning: Fehlende Kategorien: {', '.join(missing)}\n"
-                t_ext = await _create_task(
-                    list_id_ext, f"V2 Bausteine-Review — {company_ext}", desc_ext,
-                    [CLICKUP_CLAUDIO], 2, 3,  # High, +3 Tage
-                    [
-                        "Schmerzpunkte: Mind. 3 branchenspezifische Pain Points vorhanden",
-                        "Arbeitgeber-Daten: Gründungsjahr, Teamgröße, Finanzierung vollständig",
-                        "Benefits: Konkrete Benefits (nicht generisch) — mind. 5 Stück",
-                        "Messaging: USPs und CTAs definiert, Tonalität festgelegt",
-                        "Psychologie: Entscheidungstrigger und Einwände dokumentiert",
-                        "Einwände: Mind. 3 konkrete Einwände mit Gegenargumenten",
-                        "Sprache: Verbotene Wörter und Branchenjargon definiert",
-                        "Alle Bausteine in Airtable korrekt verlinkt (Client-Record)",
-                    ],
-                )
-                task_ids_ext["bausteine_review"] = t_ext["id"]
-                result["task_ids"] = task_ids_ext
-
-        # ══════════════════════════════════════════════════════════════════
-        # V2 AI-Generierung — Echte Dokumente via OpenRouter + Google Docs
-        # ══════════════════════════════════════════════════════════════════
-
-        # V2 Strategy Phase: Frameworks 01-05
-        # Framework mapping: 01=Zielgruppen, 02=Arbeitgeber, 03=Messaging,
-        # 04=Creative-Briefing, 05=Marken-Richtlinien
-
-        # Helper: Bausteine aus Context holen (falls v2-extract vorher lief)
-        elif node_id == "v2-st01":
-            bs = context.get("bausteine")
-            doc = await generate_v2_document(1, "Zielgruppen-Avatar", context, bausteine=bs)
-            generated = dict(context.get("generated_docs", {}))
-            generated["zielgruppen_avatar"] = doc["content"]
-            generated["zielgruppen_avatar_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-st02":
-            bs = context.get("bausteine")
-            prev = {}
-            if context.get("generated_docs", {}).get("zielgruppen_avatar"):
-                prev["Zielgruppen-Avatar"] = context["generated_docs"]["zielgruppen_avatar"]
-            doc = await generate_v2_document(2, "Arbeitgeber-Avatar", context, prev, bausteine=bs)
-            generated = dict(context.get("generated_docs", {}))
-            generated["arbeitgeber_avatar"] = doc["content"]
-            generated["arbeitgeber_avatar_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-st03":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            if gd.get("zielgruppen_avatar"):
-                prev["Zielgruppen-Avatar"] = gd["zielgruppen_avatar"]
-            if gd.get("arbeitgeber_avatar"):
-                prev["Arbeitgeber-Avatar"] = gd["arbeitgeber_avatar"]
-            doc = await generate_v2_document(3, "Messaging-Matrix", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["messaging_matrix"] = doc["content"]
-            generated["messaging_matrix_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-st04":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(4, "Creative Briefing", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["creative_briefing"] = doc["content"]
-            generated["creative_briefing_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-st05":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("creative_briefing", "Creative Briefing")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(5, "Marken-Richtlinien", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["marken_richtlinien"] = doc["content"]
-            generated["marken_richtlinien_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        # V2 Copy Phase: Frameworks 06-12
-        # 06=LP-Texte, 07=Formular, 08=Danke, 09=Ads-Haupt, 10=Ads-RT, 11=Ads-WU, 12=Video
-        elif node_id == "v2-cc01":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("marken_richtlinien", "Marken-Richtlinien")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(6, "Landingpage-Texte", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["landingpage_texte"] = doc["content"]
-            generated["landingpage_texte_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc02":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("landingpage_texte", "Landingpage-Texte")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(7, "Formularseite-Texte", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["formularseite_texte"] = doc["content"]
-            generated["formularseite_texte_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc03":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite-Texte")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(8, "Dankeseite-Texte", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["dankeseite_texte"] = doc["content"]
-            generated["dankeseite_texte_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc04":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("landingpage_texte", "Landingpage-Texte")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(9, "Anzeigentexte Hauptkampagne", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["anzeigentexte_haupt"] = doc["content"]
-            generated["anzeigentexte_haupt_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc05":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("anzeigentexte_haupt", "Anzeigentexte Hauptkampagne"), ("messaging_matrix", "Messaging-Matrix")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(10, "Anzeigentexte Retargeting", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["anzeigentexte_rt"] = doc["content"]
-            generated["anzeigentexte_rt_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc06":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("anzeigentexte_haupt", "Anzeigentexte Hauptkampagne")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(11, "Anzeigentexte Warmup", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["anzeigentexte_wu"] = doc["content"]
-            generated["anzeigentexte_wu_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        elif node_id == "v2-cc07":
-            bs = context.get("bausteine")
-            prev = {}
-            gd = context.get("generated_docs", {})
-            for k, v in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("anzeigentexte_haupt", "Anzeigentexte Hauptkampagne")]:
-                if gd.get(k): prev[v] = gd[k]
-            doc = await generate_v2_document(12, "Videoskript", context, prev, bausteine=bs)
-            generated = dict(gd)
-            generated["videoskript"] = doc["content"]
-            generated["videoskript_url"] = doc["url"]
-            result = {"url": doc["url"], "doc_id": doc["doc_id"], "generated_docs": generated}
-
-        # Close CRM Updates (Leadflow Marketing Org)
-        elif node_id == "v2-close-strategy":
-            opp_id = context.get("opportunity_id")
-            lead_id = context.get("lead_id")
-            if opp_id and CLOSE_API_KEY_V2:
-                stage_id = CLOSE_V2_STAGES.get("strategie_erstellt")
-                if stage_id:
-                    await close_api_v2("PUT", f"/opportunity/{opp_id}/", {"status_id": stage_id})
-                if lead_id and CLOSE_V2_FIELDS.get("automation_status"):
-                    await close_api_v2("PUT", f"/lead/{lead_id}/", {
-                        f"custom.{CLOSE_V2_FIELDS['automation_status']}": "Running",
-                    })
-                # Note mit allen generierten Strategie-Docs
-                gd_note = context.get("generated_docs", {})
-                note_text = "V2 Strategie-Phase abgeschlossen. 5 Dokumente AI-generiert:\n\n"
-                for key, label in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("creative_briefing", "Creative Briefing"), ("marken_richtlinien", "Marken-Richtlinien")]:
-                    url = gd_note.get(f"{key}_url", "")
-                    note_text += f"• {label}: {url}\n" if url else f"• {label}: (nicht generiert)\n"
-                if lead_id:
-                    await close_api_v2("POST", "/activity/note/", {"lead_id": lead_id, "note": note_text})
-                result = {"stage": "strategie_erstellt", "updated": True}
-            else:
-                result = {"stage": "strategie_erstellt", "updated": False, "reason": "no opportunity_id or Close key"}
-            # Airtable Client Status → "Copy"
-            client_id = context.get("airtable_client_id")
-            if client_id and AIRTABLE_BASE_ID:
-                await airtable_update_record("Clients", client_id, {"Status": "Copy"})
-            # ClickUp: Bausteine-Review abschließen + V2 Copy-Review erstellen
-            company = context.get("company", "Unbekannt")
-            list_id_st = context.get("list_id")
-            task_ids_st = dict(context.get("task_ids", {}))
-            if list_id_st:
-                if task_ids_st.get("bausteine_review"):
-                    log.info("V2: Bausteine-Review Task bleibt offen — Mensch muss pruefen und abhaken.")
-                # Task: V2 Copy-Review
-                gd_st2 = context.get("generated_docs", {})
-                desc_st = "AI-generierte Strategie-Dokumente reviewen und Copy-Phase vorbereiten.\n\n"
-                desc_st += "Strategie-Dokumente:\n"
-                for key, label in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("creative_briefing", "Creative Briefing"), ("marken_richtlinien", "Marken-Richtlinien")]:
-                    url = gd_st2.get(f"{key}_url", "")
-                    if url:
-                        desc_st += f"- {label}: {url}\n"
-                t_st = await _create_task(
-                    list_id_st, f"V2 Copy-Review — {company}", desc_st,
-                    [CLICKUP_CLAUDIO], 2, 4,  # High, +4 Tage
-                    [
-                        "Zielgruppen-Avatar: Alter, Region, Branche korrekt",
-                        "Arbeitgeber-Avatar: EVP und 4 P's vollständig",
-                        "Messaging-Matrix: USPs mit Pain Points verknüpft",
-                        "Creative Briefing: Farbpalette und Typografie festgelegt",
-                        "Marken-Richtlinien: Kommunikations-Dos/Don'ts vollständig",
-                        "Alle 5 Dokumente konsistent untereinander",
-                        "Ton und Sprache passen zur Zielgruppe",
-                        "Copy-Phase kann starten",
-                    ],
-                )
-                task_ids_st["v2_copy_review"] = t_st["id"]
-                result["task_ids"] = task_ids_st
-            # Slack: V2 Strategy Docs fertig
-            gd = context.get("generated_docs", {})
-            doc_items = []
-            for key, label in [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("creative_briefing", "Creative Briefing"), ("marken_richtlinien", "Marken-Richtlinien")]:
-                if gd.get(f"{key}_url"):
-                    doc_items.append((label, gd[f"{key}_url"]))
-            sections_st = [{"text": "5 Dokumente via AI generiert:"}]
-            if doc_items:
-                sections_st.append({"items": doc_items, "emoji": ":sparkles:"})
-            folder_root_st = context.get("folder_root_id", "")
-            drive_url_st = f"https://drive.google.com/drive/folders/{folder_root_st}" if folder_root_st else ""
-            blocks = _slack_blocks_message(
-                f":dart: V2 AI-Strategie — {company}",
-                sections_st,
-                buttons=([("Drive öffnen", drive_url_st, "primary")] if drive_url_st else []),
-                footer=":zap: Flowstack V2 | Strategie abgeschlossen — Copy startet",
-            )
-            await slack_message(f"V2 Strategie fertig — {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
-            result["sent"] = True
-
-        elif node_id == "v2-close-copy":
-            opp_id = context.get("opportunity_id")
-            lead_id_cc = context.get("lead_id")
-            if opp_id and CLOSE_API_KEY_V2:
-                stage_id = CLOSE_V2_STAGES.get("assets_erstellt")
-                if stage_id:
-                    await close_api_v2("PUT", f"/opportunity/{opp_id}/", {"status_id": stage_id})
-                # Note mit allen generierten Copy-Docs
-                gd_cc_note = context.get("generated_docs", {})
-                note_cc = "V2 Copy-Phase abgeschlossen. 7 Dokumente AI-generiert:\n\n"
-                for key, label in [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite"), ("dankeseite_texte", "Dankeseite"), ("anzeigentexte_haupt", "Ads Hauptkampagne"), ("anzeigentexte_rt", "Ads Retargeting"), ("anzeigentexte_wu", "Ads Warmup"), ("videoskript", "Videoskript")]:
-                    url = gd_cc_note.get(f"{key}_url", "")
-                    note_cc += f"• {label}: {url}\n" if url else f"• {label}: (nicht generiert)\n"
-                if lead_id_cc:
-                    await close_api_v2("POST", "/activity/note/", {"lead_id": lead_id_cc, "note": note_cc})
-                result = {"stage": "assets_erstellt", "updated": True}
-            else:
-                result = {"stage": "assets_erstellt", "updated": False, "reason": "no opportunity_id or Close key"}
-            # Airtable Client Status → "Ads" (Copy Phase abgeschlossen)
-            client_id = context.get("airtable_client_id")
-            if client_id and AIRTABLE_BASE_ID:
-                await airtable_update_record("Clients", client_id, {"Status": "Ads"})
-            # ClickUp: V2 Copy-Review abschließen + Launch-Vorbereitung erstellen
-            company = context.get("company", "Unbekannt")
-            list_id_cc = context.get("list_id")
-            task_ids_cc = dict(context.get("task_ids", {}))
-            if list_id_cc:
-                if task_ids_cc.get("v2_copy_review"):
-                    comment_cc = "✅ Copy-Phase abgeschlossen. Dokumente generiert:\n\n"
-                    gd_cc = context.get("generated_docs", {})
-                    for key, label in [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite"), ("dankeseite_texte", "Dankeseite"), ("anzeigentexte_haupt", "Ads Hauptkampagne"), ("anzeigentexte_rt", "Ads Retargeting"), ("anzeigentexte_wu", "Ads Warmup"), ("videoskript", "Videoskript")]:
-                        url = gd_cc.get(f"{key}_url", "")
-                        if url:
-                            comment_cc += f"• {label}: {url}\n"
-                    log.info("V2: Copy-Review Task bleibt offen — Mensch muss pruefen und abhaken.")
-                # Task: V2 Launch-Vorbereitung
-                gd_cc2 = context.get("generated_docs", {})
-                desc_cc = "Alle AI-generierten Dokumente final prüfen und Kampagnen-Setup vorbereiten.\n\n"
-                desc_cc += "Copy-Dokumente:\n"
-                for key, label in [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite"), ("dankeseite_texte", "Dankeseite"), ("anzeigentexte_haupt", "Ads Hauptkampagne"), ("anzeigentexte_rt", "Ads Retargeting"), ("anzeigentexte_wu", "Ads Warmup"), ("videoskript", "Videoskript")]:
-                    url = gd_cc2.get(f"{key}_url", "")
-                    if url:
-                        desc_cc += f"- {label}: {url}\n"
-                desc_cc += f"\nAirtable: https://airtable.com/{AIRTABLE_BASE_ID}\n"
-                t_cc = await _create_task(
-                    list_id_cc, f"V2 Launch-Vorbereitung — {company}", desc_cc,
-                    [CLICKUP_CLAUDIO, CLICKUP_ANAK], 1, 3,  # Urgent, +3 Tage
-                    [
-                        "Landingpage-Texte in Funnel eingebaut",
-                        "Formularseite-Texte korrekt",
-                        "Dankeseite-Texte eingebaut",
-                        "Anzeigentexte Hauptkampagne: 5 Varianten geprüft",
-                        "Anzeigentexte Retargeting: 3 Varianten (Einwand, Social Proof, Urgency)",
-                        "Anzeigentexte Warmup: Awareness-Angle korrekt",
-                        "Videoskript: Hook-Problem-Lösung-CTA Struktur",
-                        "Alle Texte konsistent mit Marken-Richtlinien",
-                        "Meta Ads Manager: Kampagnen-Setup bereit",
-                        "Airtable: Alle Dokumente verlinkt und Status korrekt",
-                    ],
-                )
-                task_ids_cc["v2_launch_prep"] = t_cc["id"]
-                result["task_ids"] = task_ids_cc
-            # Slack: V2 Copy fertig
-            gd = context.get("generated_docs", {})
-            doc_items = []
-            for key, label in [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite"), ("dankeseite_texte", "Dankeseite"), ("anzeigentexte_haupt", "Ads Hauptkampagne"), ("anzeigentexte_rt", "Ads Retargeting"), ("anzeigentexte_wu", "Ads Warmup"), ("videoskript", "Videoskript")]:
-                if gd.get(f"{key}_url"):
-                    doc_items.append((label, gd[f"{key}_url"]))
-            sections = [{"text": "7 Dokumente via AI generiert:"}]
-            if doc_items:
-                sections.append({"items": doc_items, "emoji": ":sparkles:"})
-            folder_root_cc = context.get("folder_root_id", "")
-            drive_url_cc = f"https://drive.google.com/drive/folders/{folder_root_cc}" if folder_root_cc else ""
-            list_id_cc_slack = context.get("list_id", "")
-            clickup_url_cc = f"https://app.clickup.com/{CLICKUP_TEAM_ID}/v/li/{list_id_cc_slack}" if list_id_cc_slack else ""
-            blocks = _slack_blocks_message(
-                f":pencil2: V2 AI-Copy — {company}",
-                sections,
-                buttons=[
-                    btn for btn in [
-                        ("Drive öffnen", drive_url_cc, "primary") if drive_url_cc else None,
-                        ("ClickUp", clickup_url_cc) if clickup_url_cc else None,
-                    ] if btn
-                ],
-                footer=":zap: Flowstack V2 | Copy abgeschlossen — Kampagnen-Setup als Nächstes",
-            )
-            await slack_message(f"V2 Copy fertig — {company}", blocks=blocks, color=SLACK_COLOR_SUCCESS)
-            result["sent"] = True
 
         else:
             return {"ok": True, "result": None, "message": f"Kein Side-Effect für {node_id}"}
@@ -3959,7 +3616,7 @@ async def _fetch_meta_campaign_insights(campaign_id: str, date_preset: str = "la
         })
         return data.get("data", [])
     except Exception as e:
-        log.warning(f"Meta Insights fuer {campaign_id} fehlgeschlagen: {e}")
+        log.warning(f"Meta Insights für {campaign_id} fehlgeschlagen: {e}")
         return []
 
 
@@ -4071,7 +3728,7 @@ async def list_meta_campaigns():
 
 @app.get("/api/meta/campaign/{campaign_id}/insights")
 async def get_campaign_insights(campaign_id: str, date_preset: str = "last_30d"):
-    """Holt Insights fuer eine einzelne Kampagne."""
+    """Holt Insights für eine einzelne Kampagne."""
     insights = await _fetch_meta_campaign_insights(campaign_id, date_preset)
     return {"data": insights, "campaign_id": campaign_id}
 
@@ -4086,7 +3743,8 @@ async def cleanup_demo_data(body: Optional[dict] = None):
     Löscht Demo-Ressourcen und setzt den Zustand zurück.
     Body (alle optional): { "lead_id", "opportunity_id", "list_id", "folder_root_id", "event_id", "channel_id" }
     WICHTIG: Es werden NUR die während der Automation erstellten Ressourcen gelöscht.
-    Vorbereitete Template-Dokumente (STRATEGY_DOCS, COPY_DOCS, etc.) bleiben IMMER erhalten.
+    Vorbereitete Master-Template-Dokumente (MASTER_DOCS) bleiben IMMER erhalten.
+    Kunden-Kopien (client_docs) werden über den folder_root_id-Delete mit gelöscht.
     """
     payload = body or {}
     lead_id = payload.get("lead_id")
@@ -4099,7 +3757,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
     deleted: list[str] = []
     errors: list[str] = []
 
-    # Close CRM Lead löschen (Leadflow Marketing Org — Opportunity wird mit-gelöscht)
+    # Close CRM Lead löschen (Leadflow Marketing Org - Opportunity wird mit-gelöscht)
     if lead_id:
         # Versuche V2 API (Leadflow Marketing), Fallback auf V1
         api_fn = close_api_v2 if CLOSE_API_KEY_V2 else close_api
@@ -4108,7 +3766,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"close_lead:{lead_id}")
             log.info(f"Cleanup: Close Lead {lead_id} gelöscht")
         except Exception as e:
-            errors.append(f"close_lead:{lead_id} — {e}")
+            errors.append(f"close_lead:{lead_id} - {e}")
             log.error(f"Cleanup: Close Lead {lead_id} fehlgeschlagen: {e}")
 
     # ClickUp List löschen
@@ -4118,7 +3776,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"clickup_list:{list_id}")
             log.info(f"Cleanup: ClickUp List {list_id} gelöscht")
         except Exception as e:
-            errors.append(f"clickup_list:{list_id} — {e}")
+            errors.append(f"clickup_list:{list_id} - {e}")
             log.error(f"Cleanup: ClickUp List {list_id} fehlgeschlagen: {e}")
 
     # Google Drive Ordner löschen
@@ -4131,7 +3789,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"drive_folder:{folder_root_id}")
             log.info(f"Cleanup: Drive Folder {folder_root_id} gelöscht")
         except Exception as e:
-            errors.append(f"drive_folder:{folder_root_id} — {e}")
+            errors.append(f"drive_folder:{folder_root_id} - {e}")
             log.error(f"Cleanup: Drive Folder {folder_root_id} fehlgeschlagen: {e}")
 
     # Google Calendar Event löschen
@@ -4144,7 +3802,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"calendar_event:{event_id}")
             log.info(f"Cleanup: Calendar Event {event_id} gelöscht")
         except Exception as e:
-            errors.append(f"calendar_event:{event_id} — {e}")
+            errors.append(f"calendar_event:{event_id} - {e}")
             log.error(f"Cleanup: Calendar Event {event_id} fehlgeschlagen: {e}")
 
     # Slack Channel archivieren (Bot muss erst joinen falls nicht mehr drin)
@@ -4170,9 +3828,9 @@ async def cleanup_demo_data(body: Optional[dict] = None):
                 elif r.get("error") == "already_archived":
                     deleted.append(f"slack_channel:{channel_id}")
                 else:
-                    errors.append(f"slack_channel:{channel_id} — {r.get('error')}")
+                    errors.append(f"slack_channel:{channel_id} - {r.get('error')}")
         except Exception as e:
-            errors.append(f"slack_channel:{channel_id} — {e}")
+            errors.append(f"slack_channel:{channel_id} - {e}")
             log.error(f"Cleanup: Slack Channel {channel_id} fehlgeschlagen: {e}")
 
     # Meta Kampagnen löschen (Löschen einer Kampagne löscht auch ihre Ad Sets)
@@ -4183,8 +3841,21 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"meta_campaign:{cid}")
             log.info(f"Cleanup: Meta Kampagne {cid} gelöscht")
         except Exception as e:
-            errors.append(f"meta_campaign:{cid} — {e}")
+            errors.append(f"meta_campaign:{cid} - {e}")
             log.error(f"Cleanup: Meta Kampagne {cid} fehlgeschlagen: {e}")
+
+    # Meta Custom Audiences löschen (ca01/ca02/ca03 erstellen je eine pro Run)
+    meta_audience_ids = payload.get("meta_audience_ids", []) or []
+    for aid in meta_audience_ids:
+        if not aid or str(aid).startswith("skipped_"):
+            continue
+        try:
+            await meta_api("DELETE", str(aid))
+            deleted.append(f"meta_audience:{aid}")
+            log.info(f"Cleanup: Meta Audience {aid} gelöscht")
+        except Exception as e:
+            errors.append(f"meta_audience:{aid} - {e}")
+            log.warning(f"Cleanup: Meta Audience {aid} fehlgeschlagen: {e}")
 
     # Airtable Records bereinigen (Clients, Bausteine, Dokumente, Performance)
     airtable_client_id = payload.get("airtable_client_id")
@@ -4202,7 +3873,7 @@ async def cleanup_demo_data(body: Optional[dict] = None):
                     deleted.append(f"airtable_{table_name.lower()}:{len(record_ids)}_records")
                     log.info(f"Cleanup: {len(record_ids)} {table_name} Records gelöscht")
             except Exception as e:
-                errors.append(f"airtable_{table_name.lower()} — {e}")
+                errors.append(f"airtable_{table_name.lower()} - {e}")
                 log.warning(f"Cleanup: Airtable {table_name} fehlgeschlagen: {e}")
         # Client Record selbst löschen
         try:
@@ -4210,22 +3881,36 @@ async def cleanup_demo_data(body: Optional[dict] = None):
             deleted.append(f"airtable_client:{airtable_client_id}")
             log.info(f"Cleanup: Airtable Client {airtable_client_id} gelöscht")
         except Exception as e:
-            errors.append(f"airtable_client:{airtable_client_id} — {e}")
+            errors.append(f"airtable_client:{airtable_client_id} - {e}")
             log.warning(f"Cleanup: Airtable Client fehlgeschlagen: {e}")
 
-    # Miro Board loeschen
+    # Overview Sheet löschen (liegt außerhalb folder_root_id in Drive-Root)
+    overview_sheet_id = payload.get("overview_sheet_id")
+    if overview_sheet_id:
+        try:
+            await google_api(
+                "DELETE",
+                f"https://www.googleapis.com/drive/v3/files/{overview_sheet_id}",
+            )
+            deleted.append(f"overview_sheet:{overview_sheet_id}")
+            log.info(f"Cleanup: Overview Sheet {overview_sheet_id} gelöscht")
+        except Exception as e:
+            errors.append(f"overview_sheet:{overview_sheet_id} - {e}")
+            log.warning(f"Cleanup: Overview Sheet fehlgeschlagen: {e}")
+
+    # Miro Board löschen
     miro_board_id = payload.get("miro_board_id")
     if miro_board_id and MIRO_ACCESS_TOKEN:
         try:
             await miro_api("DELETE", f"/boards/{miro_board_id}")
             deleted.append(f"miro_board:{miro_board_id}")
-            log.info(f"Cleanup: Miro Board {miro_board_id} geloescht")
+            log.info(f"Cleanup: Miro Board {miro_board_id} gelöscht")
         except Exception as e:
-            errors.append(f"miro_board:{miro_board_id} — {e}")
+            errors.append(f"miro_board:{miro_board_id} - {e}")
             log.warning(f"Cleanup: Miro Board fehlgeschlagen: {e}")
 
     # Slack Benachrichtigung
-    await slack_message("\U0001f504 Demo zurückgesetzt \u2014 Testdaten bereinigt")
+    await slack_message("\U0001f504 Demo zurückgesetzt - Testdaten bereinigt")
 
     log.info(f"Cleanup abgeschlossen: {len(deleted)} gelöscht, {len(errors)} Fehler")
     return {"ok": True, "deleted": deleted, "errors": errors}
@@ -4286,7 +3971,7 @@ async def clear_slack_channel(body: Optional[dict] = None):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DriveVault — Google Docs, Sheets & Gmail durchsuchbar machen
+# DriveVault - Google Docs, Sheets & Gmail durchsuchbar machen
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Hierarchisches Kategorie-System ───────────────────────────────────────
@@ -4390,7 +4075,7 @@ _DRIVE_HIERARCHY_RULES: list[tuple[list[str], str, str]] = [
       "to-do", "plan ", "memo"], "notizen", ""),
 ]
 
-# Baulig Roh-Erkennung — Original Baulig-Vorlagen (mit Rechtshinweis)
+# Baulig Roh-Erkennung - Original Baulig-Vorlagen (mit Rechtshinweis)
 # Erkannt an typischen Prefix-Patterns: BC -, CCET, CCM2, ET - (am Anfang)
 import re as _re
 
@@ -4414,7 +4099,7 @@ def _save_overrides(overrides: dict):
 def _is_baulig_original(name: str) -> bool:
     """Prüft ob eine Datei ein Original-Baulig-Dokument ist (Coaching-Material mit Rechtshinweis).
     Erkennung über Name-Patterns:
-    - BC - / BC – (Baulig Consulting Vorlage)
+    - BC - / BC - (Baulig Consulting Vorlage)
     - Kopie von BC - (Kopie einer Baulig Vorlage)
     - CCET (CC Elite Training Modul)
     - CCM2 (CCM2 Modul)
@@ -4426,7 +4111,7 @@ def _is_baulig_original(name: str) -> bool:
     """
     nl = name.strip().lower()
     # Prefix-basierte Erkennung (sehr zuverlässig)
-    if nl.startswith("bc -") or nl.startswith("bc –") or nl.startswith("bc –"):
+    if nl.startswith("bc -") or nl.startswith("bc -") or nl.startswith("bc -"):
         return True
     if nl.startswith("kopie von bc"):
         return True
@@ -4662,7 +4347,7 @@ def _is_already_named(name: str) -> bool:
 def _generate_standard_name(name: str, category: str, subcategory: str) -> str:
     """Generiert standardisierten Dateinamen nach Naming Convention.
 
-    Format: [BEREICH] Typ — Name (Details)
+    Format: [BEREICH] Typ - Name (Details)
     """
     # Bereits benannte Dateien nicht nochmal umbenennen
     if _is_already_named(name):
@@ -4732,12 +4417,12 @@ def _generate_standard_name(name: str, category: str, subcategory: str) -> str:
     # Kern-Name bereinigen: Prefix/Typ/Version/Status entfernen
     clean = name
     # Bekannte Patterns entfernen
-    for remove in ["[V2]", "[V1]", "[Unfertig]", "[TEMPLATE]", " - ", " — ", " | "]:
+    for remove in ["[V2]", "[V1]", "[Unfertig]", "[TEMPLATE]", " - ", " - ", " | "]:
         clean = clean.replace(remove, " ")
-    clean = clean.strip(" -—|")
+    clean = clean.strip(" --|")
 
     if doc_type:
-        return f"[{prefix}] {doc_type} — {clean}{version}{source}{status}"
+        return f"[{prefix}] {doc_type} - {clean}{version}{source}{status}"
     return f"[{prefix}] {clean}{version}{source}{status}"
 
 
@@ -5083,7 +4768,7 @@ async def gmail_vault_search(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# DriveVault — Auto-Organize: Rename + Sort + Tag
+# DriveVault - Auto-Organize: Rename + Sort + Tag
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -5178,10 +4863,10 @@ async def organize_drive_files(body: Optional[dict] = None):
     """Alle Drive-Dateien analysieren, umbenennen und in richtige Ordner sortieren.
 
     Body options:
-      dry_run: bool (default true) — nur Preview, keine Änderungen
-      rename: bool (default true) — Dateien umbenennen
-      move: bool (default true) — Dateien in Ordner verschieben
-      file_ids: list[str] (optional) — nur bestimmte Dateien verarbeiten
+      dry_run: bool (default true) - nur Preview, keine Änderungen
+      rename: bool (default true) - Dateien umbenennen
+      move: bool (default true) - Dateien in Ordner verschieben
+      file_ids: list[str] (optional) - nur bestimmte Dateien verarbeiten
     """
     opts = body or {}
     dry_run = opts.get("dry_run", True)
@@ -5210,14 +4895,14 @@ async def organize_drive_files(body: Optional[dict] = None):
         category = f["category"]
         subcategory = f.get("subcategory", "")
 
-        # Skip "Unbenanntes Dokument" — markieren als zu prüfen
+        # Skip "Unbenanntes Dokument" - markieren als zu prüfen
         if current_name.startswith("Unbenanntes Dokument"):
             actions.append({
                 "id": file_id,
                 "current_name": current_name,
                 "new_name": None,
                 "action": "skip",
-                "reason": "Unbenanntes Dokument — manuell benennen",
+                "reason": "Unbenanntes Dokument - manuell benennen",
                 "category": category,
                 "subcategory": subcategory,
             })
@@ -5341,15 +5026,15 @@ async def fix_file_names():
         if m:
             clean = f"{m.group(1)} {m.group(2)}".strip()
 
-        # 2. [X] Typ — [X] Typ Rest → [X] Typ — Rest
-        m = re.match(r'^(\[[\w\s]+\])\s+(\w+)\s*—\s*\1\s+\2\s*(.*)', clean)
+        # 2. [X] Typ - [X] Typ Rest → [X] Typ - Rest
+        m = re.match(r'^(\[[\w\s]+\])\s+(\w+)\s*-\s*\1\s+\2\s*(.*)', clean)
         if m:
-            clean = f"{m.group(1)} {m.group(2)} — {m.group(3)}".strip()
+            clean = f"{m.group(1)} {m.group(2)} - {m.group(3)}".strip()
 
-        # 3. [X] Typ — Typ Rest → [X] Typ — Rest (doppelter Typ nach Dash)
-        m = re.match(r'^(\[[\w\s]+\])\s+(\w+)\s+—\s+\2\s+(.*)', clean)
+        # 3. [X] Typ - Typ Rest → [X] Typ - Rest (doppelter Typ nach Dash)
+        m = re.match(r'^(\[[\w\s]+\])\s+(\w+)\s+-\s+\2\s+(.*)', clean)
         if m:
-            clean = f"{m.group(1)} {m.group(2)} — {m.group(3)}".strip()
+            clean = f"{m.group(1)} {m.group(2)} - {m.group(3)}".strip()
 
         # 4. Doppelte Versionen: V2 V2 → V2
         clean = re.sub(r'\b(V\d)\s+\1\b', r'\1', clean)
@@ -5360,8 +5045,8 @@ async def fix_file_names():
         # 6. Mehrfache Leerzeichen
         clean = re.sub(r'\s+', ' ', clean).strip()
 
-        # 7. Trailing —
-        clean = clean.rstrip(' —')
+        # 7. Trailing -
+        clean = clean.rstrip(' -')
 
         if clean != name:
             renamed = await _rename_drive_file(f["id"], clean)
@@ -5414,7 +5099,7 @@ async def list_all_categories():
 @app.post("/api/drive-vault/copy-to-flowstack")
 async def copy_files_to_flowstack(body: dict):
     """Kopiert Dateien von Leadflow nach Flowstack (Cross-Account Copy).
-    Body: {file_ids: [str]} — Liste von Leadflow-File-IDs.
+    Body: {file_ids: [str]} - Liste von Leadflow-File-IDs.
     Exportiert als docx/xlsx und importiert in Flowstack Account.
     """
     import asyncio
@@ -5571,7 +5256,7 @@ async def find_content_duplicates(limit: int = 500):
     def _token_for(f: dict) -> str:
         return leadflow_token if f.get("account") == "leadflow" else flowstack_token
 
-    # Content-Hashes berechnen — in Batches um Rate Limits zu vermeiden
+    # Content-Hashes berechnen - in Batches um Rate Limits zu vermeiden
     file_hashes: dict[str, str] = {}  # file_id → hash
     batch_size = 10
 
@@ -5644,2255 +5329,6 @@ async def find_content_duplicates(limit: int = 500):
     }
 
 
-# ═══════════════════════════════════════════════════════════════
-# V3 ENDPOINTS — Eigenständige Automation mit Resilience Layer
-# ═══════════════════════════════════════════════════════════════
-
-from resilience import (
-    retry_with_backoff, validate_context, ExecutionState,
-    acquire_execution_lock, release_execution_lock, CircuitBreaker,
-    DeadLetterQueue, OPTIONAL_SERVICES,
-)
-from approval import (
-    handle_approval_gate, resolve_approval, get_pending_approvals,
-    check_escalations, GATE_CONFIG,
-)
-from monitoring import (
-    health_check, slack_log as v3_slack_log, slack_alert as v3_slack_alert,
-    slack_phase_complete, check_milestones,
-)
-from qa import (
-    dach_compliance_scan, apply_auto_fixes, spelling_check,
-    validate_text_lengths, validate_all_urls, verify_pixel,
-    ad_policy_check, brand_consistency_check, scan_for_placeholders,
-)
-from notion_client import NotionClient
-from gtm_client import setup_gtm_for_client, setup_ga4_for_client
-from nudge_system import create_nudge, resolve_nudge, get_open_nudges, check_nudges, AUTOMATIC_NUDGES
-
-# Notion client
-NOTION_API_KEY = os.environ.get("NOTION_API_KEY_CLAUDIO", "")
-_notion = NotionClient(NOTION_API_KEY) if NOTION_API_KEY else None
-
-# V3 Slack helper (wraps with token)
-async def _v3_log(msg: str):
-    if SLACK_BOT_TOKEN:
-        await v3_slack_log("", msg, SLACK_BOT_TOKEN)
-
-async def _v3_alert(msg: str, severity: str = "critical"):
-    if SLACK_BOT_TOKEN:
-        await v3_slack_alert(msg, SLACK_BOT_TOKEN, severity)
-
-
-# ── V3 Execution ─────────────────────────────────────────────
-
-@app.post("/api/v3/execute")
-async def v3_start_execution(body: dict):
-    """Start a new V3 execution for a client."""
-    company = body.get("company", "")
-    contact = body.get("contact", "")
-    email = body.get("email", "")
-
-    if not company or not email:
-        raise HTTPException(400, "company and email are required")
-
-    # Generate execution ID
-    safe_name = company.lower().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
-    execution_id = f"v3_{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-
-    # Check execution lock
-    if not acquire_execution_lock(company, execution_id):
-        raise HTTPException(409, f"Execution already running for {company}")
-
-    # Create execution state
-    state = ExecutionState(execution_id, company)
-    state.update_context({
-        "company": company,
-        "contact": contact,
-        "email": email,
-        "phone": body.get("phone", ""),
-        "branche": body.get("branche", ""),
-        "website": body.get("website", ""),
-        "stellen": body.get("stellen", ""),
-        "budget": body.get("budget", ""),
-        "account_manager": body.get("account_manager", "Claudio"),
-    })
-    state.save()
-
-    await _v3_log(f"✓ {company} — V3 Execution gestartet ({execution_id})")
-
-    return {
-        "execution_id": execution_id,
-        "client_name": company,
-        "status": "running",
-    }
-
-
-@app.get("/api/v3/execute/{execution_id}")
-async def v3_get_execution(execution_id: str):
-    """Get execution state."""
-    state = ExecutionState.load(execution_id)
-    if not state:
-        raise HTTPException(404, f"Execution {execution_id} not found")
-
-    return {
-        "execution_id": state.execution_id,
-        "client_name": state.client_name,
-        "started_at": state.started_at,
-        "paused_at": state.paused_at,
-        "completed_at": state.completed_at,
-        "context": state.context,
-        "nodes": state.nodes,
-    }
-
-
-@app.post("/api/v3/execute/{execution_id}/pause")
-async def v3_pause_execution(execution_id: str):
-    """Pause an execution."""
-    state = ExecutionState.load(execution_id)
-    if not state:
-        raise HTTPException(404, f"Execution {execution_id} not found")
-    state.pause()
-    await _v3_log(f"⏸ {state.client_name} — Execution pausiert")
-    return {"status": "paused"}
-
-
-@app.post("/api/v3/execute/{execution_id}/resume")
-async def v3_resume_execution(execution_id: str):
-    """Resume a paused execution."""
-    state = ExecutionState.load(execution_id)
-    if not state:
-        raise HTTPException(404, f"Execution {execution_id} not found")
-    state.resume()
-    resume_point = state.get_resume_point()
-    await _v3_log(f"▶ {state.client_name} — Execution resumed ab {resume_point}")
-    return {"status": "resumed", "resume_from": resume_point}
-
-
-@app.get("/api/v3/executions")
-async def v3_list_executions():
-    """List all executions."""
-    return ExecutionState.list_all()
-
-
-# ── V3 Approvals ─────────────────────────────────────────────
-
-@app.post("/api/approval/{node_id}")
-async def v3_handle_approval(node_id: str, body: dict):
-    """Approve, reject, or request changes for an approval gate."""
-    action = body.get("action", "")
-    reviewer = body.get("reviewer", "unknown")
-    comment = body.get("comment", "")
-
-    if action not in ("approve", "reject", "changes_requested"):
-        raise HTTPException(400, "action must be 'approve', 'reject', or 'changes_requested'")
-
-    result = await resolve_approval(
-        node_id=node_id,
-        action=action,
-        reviewer=reviewer,
-        comment=comment,
-        slack_func=lambda **kw: _v3_log(kw.get("text", "")),
-    )
-
-    if not result["success"]:
-        raise HTTPException(400, result["error"])
-
-    return result
-
-
-@app.get("/api/approval/pending")
-async def v3_pending_approvals():
-    """Get all pending approvals."""
-    return get_pending_approvals()
-
-
-# ── V3 Alerts ────────────────────────────────────────────────
-
-@app.get("/api/v3/alerts")
-async def v3_get_alerts():
-    """Get active alerts (DLQ entries + circuit breaker states)."""
-    dlq = DeadLetterQueue.get_unresolved()
-    circuits = {}
-    for service in ["close", "google", "slack", "clickup", "meta", "airtable", "openrouter", "miro", "notion"]:
-        cb = CircuitBreaker.get(service)
-        state = cb.get_state()
-        if state != "closed":
-            circuits[service] = state
-
-    return {
-        "dlq_entries": dlq,
-        "circuit_breakers": circuits,
-        "dlq_count": len(dlq),
-        "open_circuits": len(circuits),
-    }
-
-
-@app.post("/api/v3/alerts/{alert_id}/acknowledge")
-async def v3_acknowledge_alert(alert_id: str):
-    """Acknowledge a DLQ entry."""
-    # alert_id format: "node_id:client_name"
-    parts = alert_id.split(":", 1)
-    if len(parts) == 2:
-        DeadLetterQueue.resolve(parts[0], parts[1])
-    return {"acknowledged": True}
-
-
-# ── V3 Health ────────────────────────────────────────────────
-
-@app.get("/api/health")
-async def v3_health():
-    """Full system health check."""
-    tokens = {
-        "CLOSE_API_KEY_V2": CLOSE_API_KEY_V2,
-        "SLACK_BOT_TOKEN": SLACK_BOT_TOKEN,
-        "CLICKUP_API_TOKEN": CLICKUP_TOKEN,
-        "META_ACCESS_TOKEN": META_ACCESS_TOKEN,
-        "AIRTABLE_API": AIRTABLE_API_KEY,
-        "OPENROUTER_API_KEY": OPENROUTER_API_KEY,
-        "NOTION_API_KEY_CLAUDIO": NOTION_API_KEY,
-    }
-    return await health_check(tokens)
-
-
-# ── V3 Node Execution ────────────────────────────────────────
-
-@app.post("/api/v3/execute-node")
-async def v3_execute_node(body: dict):
-    """
-    Execute a single V3 node with resilience.
-    Called by the frontend DAG engine.
-    """
-    node_id = body.get("nodeId", "")
-    execution_id = body.get("executionId", "")
-    context = body.get("context", {})
-
-    if not node_id or not execution_id:
-        raise HTTPException(400, "nodeId and executionId required")
-
-    # Load execution state
-    state = ExecutionState.load(execution_id)
-    if not state:
-        raise HTTPException(404, f"Execution {execution_id} not found")
-
-    if state.paused_at:
-        raise HTTPException(409, "Execution is paused")
-
-    client_name = state.client_name
-
-    # Merge context
-    full_context = {**state.context, **context}
-
-    # Context validation
-    valid, missing = validate_context(node_id, full_context)
-    if not valid:
-        state.update_node(node_id, "blocked", error=f"Missing context: {missing}")
-        await _v3_alert(f"{client_name} — {node_id} BLOCKED: fehlendes Feld '{missing}'", "warning")
-        return {"status": "blocked", "missing": missing}
-
-    # Mark as running
-    state.update_node(node_id, "running")
-    start_time = datetime.now()
-
-    # Check if this is an approval gate
-    if node_id in GATE_CONFIG:
-        result = await handle_approval_gate(
-            node_id=node_id,
-            client_name=client_name,
-            execution_id=execution_id,
-            context=full_context,
-            slack_func=lambda **kw: _v3_log(kw.get("text", "")),
-        )
-        state.update_node(node_id, "waiting_approval", result=result)
-        return {"status": "waiting_approval", "result": result}
-
-    # Route to handler — V3 ist eigenständig, KEIN V1/V2 Fallback
-    handler = V3_NODE_HANDLERS.get(node_id)
-    if not handler:
-        state.update_node(node_id, "failed", error=f"Kein V3 Handler für {node_id}")
-        await _v3_alert(f"{client_name} — {node_id}: Kein Handler implementiert", "critical")
-        return {"status": "failed", "error": f"Kein V3 Handler für {node_id}"}
-
-    # Execute with retry
-    service = _get_service_for_node(node_id)
-    result = await retry_with_backoff(
-        func=handler,
-        args={"context": full_context, "state": state},
-        service=service,
-        node_id=node_id,
-        client_name=client_name,
-        slack_log_func=_v3_log,
-        slack_alert_func=_v3_alert,
-    )
-
-    duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
-
-    if result["success"]:
-        # Update context with results
-        if isinstance(result.get("result"), dict):
-            state.update_context(result["result"])
-
-        state.update_node(node_id, "completed", result=result.get("result"), duration_ms=duration_ms)
-        await _v3_log(f"✓ {client_name} — {node_id}")
-        return {"status": "completed", "result": result.get("result"), "duration_ms": duration_ms}
-    else:
-        # Failed
-        if result.get("optional"):
-            # Optional service — skip and continue
-            state.update_node(node_id, "completed", result={"skipped": True, "reason": result["error"]}, duration_ms=duration_ms)
-            await _v3_log(f"⚠ {client_name} — {node_id} übersprungen ({result['error'][:50]})")
-            return {"status": "completed", "skipped": True, "error": result["error"]}
-        else:
-            state.update_node(node_id, "failed", error=result["error"], retries=result.get("retries", 0), duration_ms=duration_ms)
-            return {"status": "failed", "error": result["error"], "retries": result.get("retries", 0)}
-
-
-# ── V3 Node Handlers ─────────────────────────────────────────
-
-async def _v3_is02a(context: dict, state: ExecutionState) -> dict:
-    """Duplikat-Check: Lead existiert schon in Close?"""
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://api.close.com/api/v1/lead/",
-            params={"query": f'email:"{context["email"]}"', "limit": 1},
-            auth=(CLOSE_API_KEY_V2, ""),
-        )
-        data = resp.json()
-        leads = data.get("data", [])
-        if leads:
-            lead = leads[0]
-            return {
-                "duplicate": True,
-                "lead_id": lead["id"],
-                "opportunity_id": lead.get("opportunities", [{}])[0].get("id") if lead.get("opportunities") else None,
-            }
-        return {"duplicate": False}
-
-
-def _refresh_google_token_v3() -> str:
-    """Refresh the Flowstack Google OAuth token and return a valid access token."""
-    global GOOGLE_ACCESS_TOKEN
-    try:
-        raw = os.environ.get("FLOWSTACK_GOOGLE_OAUTH_TOKEN", os.environ.get("GOOGLE_OAUTH_TOKEN", "{}"))
-        creds = json.loads(raw) if isinstance(raw, str) else raw
-        import ssl, certifi, urllib.request
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        refresh_data = json.dumps({
-            "client_id": creds.get("client_id", GOOGLE_CLIENT_ID),
-            "client_secret": creds.get("client_secret", GOOGLE_CLIENT_SECRET),
-            "refresh_token": creds.get("refresh_token", GOOGLE_REFRESH_TOKEN),
-            "grant_type": "refresh_token",
-        }).encode()
-        req = urllib.request.Request("https://oauth2.googleapis.com/token", data=refresh_data, headers={"Content-Type": "application/json"})
-        resp = urllib.request.urlopen(req, timeout=10, context=ctx)
-        new_token = json.loads(resp.read()).get("access_token", "")
-        if new_token:
-            GOOGLE_ACCESS_TOKEN = new_token
-        return new_token or GOOGLE_ACCESS_TOKEN
-    except Exception as e:
-        log.warning(f"Google token refresh failed: {e}")
-        return GOOGLE_ACCESS_TOKEN
-
-
-async def _v3_is06a(context: dict, state: ExecutionState) -> dict:
-    """Drive Quota Check."""
-    token = _refresh_google_token_v3()
-    if not token:
-        return {"free_gb": -1, "skipped": True, "reason": "No Google Drive token available"}
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            "https://www.googleapis.com/drive/v3/about",
-            params={"fields": "storageQuota"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        data = resp.json()
-        quota = data.get("storageQuota", {})
-        usage = int(quota.get("usage", "0"))
-        limit = int(quota.get("limit", "0"))
-        free_bytes = limit - usage if limit > 0 else float("inf")
-        free_gb = free_bytes / (1024**3)
-
-        if free_gb < 0.1:  # < 100MB
-            raise Exception(f"Drive Speicher KRITISCH: nur {free_gb:.2f} GB frei")
-        if free_gb < 1.0:
-            await _v3_alert(f"{state.client_name} — Drive Speicher niedrig: {free_gb:.1f} GB frei", "warning")
-
-        return {"free_gb": round(free_gb, 2), "usage_bytes": usage}
-
-
-async def _v3_kc02a(context: dict, state: ExecutionState) -> dict:
-    """No-Show Detection: Kein Transkript nach Meeting-Ende?"""
-    # Check if kickoff date is in the past and no transcript exists
-    # Simplified: Check if transcript_id exists in context
-    has_transcript = bool(context.get("transcript_id") or context.get("transcript_doc_id"))
-    return {"noshow": not has_transcript, "has_transcript": has_transcript}
-
-
-async def _v3_kc02b(context: dict, state: ExecutionState) -> dict:
-    """No-Show Handler: Close → Blocked, ClickUp Task erstellen."""
-    # Update Close to Blocked
-    if context.get("opportunity_id"):
-        async with httpx.AsyncClient() as client:
-            await client.put(
-                f"https://api.close.com/api/v1/opportunity/{context['opportunity_id']}/",
-                json={"status_id": CLOSE_V2_STAGES.get("onboarding_gestartet", "")},
-                auth=(CLOSE_API_KEY_V2, ""),
-            )
-
-    # Create ClickUp task
-    if context.get("list_id") and CLICKUP_TOKEN:
-        async with httpx.AsyncClient() as client:
-            await client.post(
-                f"https://api.clickup.com/api/v2/list/{context['list_id']}/task",
-                json={
-                    "name": f"Neuen Kickoff-Termin vereinbaren — {state.client_name}",
-                    "description": "Client ist nicht zum Kickoff erschienen. Bitte neuen Termin vereinbaren.",
-                    "priority": 1,
-                    "assignees": [CLICKUP_CLAUDIO],
-                },
-                headers={"Authorization": CLICKUP_TOKEN},
-            )
-
-    return {"handled": True, "action": "noshow_handler"}
-
-
-async def _v3_cc01a(context: dict, state: ExecutionState) -> dict:
-    """DACH Compliance Scan auf alle generierten Texte."""
-    generated_docs = context.get("generated_docs", {})
-    texts = {}
-    for doc_name, doc_info in generated_docs.items():
-        if isinstance(doc_info, dict) and "content" in doc_info:
-            texts[doc_name] = doc_info["content"][:3000]
-
-    if not texts:
-        return {"passed": True, "issues": [], "message": "No texts to scan"}
-
-    result = await dach_compliance_scan(texts)
-    return result
-
-
-async def _v3_fn05a(context: dict, state: ExecutionState) -> dict:
-    """SSL + Performance Check auf Landing Page."""
-    urls = []
-    for key in ["lp_url", "form_url", "thankyou_url"]:
-        if context.get(key):
-            urls.append(context[key])
-
-    if not urls:
-        return {"passed": True, "message": "No URLs to check"}
-
-    return await validate_all_urls(urls)
-
-
-async def _v3_fn10a(context: dict, state: ExecutionState) -> dict:
-    """GTM Container auto-erstellen pro Client."""
-    return await setup_gtm_for_client(
-        client_name=state.client_name,
-        client_domain=context.get("website", "example.com").replace("https://", "").replace("http://", ""),
-        meta_pixel_id=context.get("meta_pixel_id", META_PIXEL_ID),
-        ga4_measurement_id=context.get("ga4_measurement_id"),
-    )
-
-
-async def _v3_fn10b(context: dict, state: ExecutionState) -> dict:
-    """GA4 Property auto-erstellen pro Client."""
-    return await setup_ga4_for_client(
-        client_name=state.client_name,
-        client_domain=context.get("website", "example.com").replace("https://", "").replace("http://", ""),
-    )
-
-
-async def _v3_ca00(context: dict, state: ExecutionState) -> dict:
-    """Ad Account Health Check."""
-    ad_account = META_AD_ACCOUNT if META_AD_ACCOUNT.startswith("act_") else f"act_{META_AD_ACCOUNT}"
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"https://graph.facebook.com/v21.0/{ad_account}",
-            params={
-                "fields": "name,account_status,disable_reason,funding_source",
-                "access_token": META_ACCESS_TOKEN,
-            },
-        )
-        data = resp.json()
-
-        # account_status: 1=ACTIVE, 2=DISABLED, 3=UNSETTLED, 7=PENDING_RISK_REVIEW, 8=PENDING_SETTLEMENT, 9=IN_GRACE_PERIOD, 100=PENDING_CLOSURE, 101=CLOSED
-        status = data.get("account_status", 0)
-        if status != 1:
-            status_names = {2: "DISABLED", 3: "UNSETTLED", 7: "PENDING_RISK_REVIEW", 100: "PENDING_CLOSURE", 101: "CLOSED"}
-            raise Exception(f"Meta Ad Account Status: {status_names.get(status, f'UNKNOWN ({status})')}")
-
-        return {
-            "healthy": True,
-            "name": data.get("name", ""),
-            "status": status,
-        }
-
-
-async def _v3_rl09a(context: dict, state: ExecutionState) -> dict:
-    """E2E Funnel Test."""
-    results = {"steps": []}
-
-    # Step 1: Check LP
-    lp_url = context.get("lp_url")
-    if lp_url:
-        lp_check = await validate_all_urls([lp_url])
-        results["steps"].append({"step": "landing_page", "result": lp_check})
-        if not lp_check.get("passed"):
-            results["passed"] = False
-            results["failed_step"] = "landing_page"
-            return results
-
-    # Step 2: Check Form Page
-    form_url = context.get("form_url")
-    if form_url:
-        form_check = await validate_all_urls([form_url])
-        results["steps"].append({"step": "form_page", "result": form_check})
-        if not form_check.get("passed"):
-            results["passed"] = False
-            results["failed_step"] = "form_page"
-            return results
-
-    # Step 3: Check Thank You Page
-    ty_url = context.get("thankyou_url")
-    if ty_url:
-        ty_check = await validate_all_urls([ty_url])
-        results["steps"].append({"step": "thankyou_page", "result": ty_check})
-
-    results["passed"] = True
-    return results
-
-
-async def _v3_notion_wiki(context: dict, state: ExecutionState) -> dict:
-    """Create Notion Client Wiki."""
-    if not _notion:
-        return {"skipped": True, "reason": "Notion not configured"}
-
-    # Parent page ID should be configured — for now use search
-    parent_id = context.get("notion_parent_page_id", "")
-    if not parent_id:
-        return {"skipped": True, "reason": "No notion_parent_page_id in context"}
-
-    return _notion.create_client_wiki(
-        parent_page_id=parent_id,
-        client_name=state.client_name,
-        company=context.get("company", ""),
-        branche=context.get("branche", ""),
-        ansprechpartner=context.get("contact", ""),
-        email=context.get("email", ""),
-        phone=context.get("phone", ""),
-        close_url=context.get("close_lead_url"),
-        drive_url=context.get("drive_folder_url"),
-        slack_channel=context.get("channel_name"),
-        clickup_url=context.get("clickup_list_url"),
-        miro_url=context.get("miro_board_url"),
-    )
-
-
-async def _v3_kc00(context: dict, state: ExecutionState) -> dict:
-    """Kickoff Reminder 2h vorher — Email + Slack."""
-    token = GOOGLE_ACCESS_TOKEN or LEADFLOW_ACCESS_TOKEN
-    # Send reminder email
-    async with httpx.AsyncClient() as client:
-        await client.post(
-            "https://gmail.googleapis.com/gmail/v1/users/me/messages/send",
-            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            json={"raw": _encode_email(
-                to=context["email"],
-                subject=f"Erinnerung: Kickoff-Call morgen — {state.client_name}",
-                body=f"Hallo {context.get('contact', '')},\n\nkurze Erinnerung an unseren Kickoff-Call morgen. Bitte halten Sie folgende Unterlagen bereit:\n- Logo in hoher Auflösung\n- Aktuelle Stellenanzeigen\n- Zugangsdaten zum Meta Business Manager\n\nWir freuen uns auf das Gespräch!\n\nViele Grüße",
-            )},
-        )
-    return {"reminder_sent": True}
-
-
-async def _v3_kc03a(context: dict, state: ExecutionState) -> dict:
-    """Transkript Quality Gate — prüft Wortanzahl + Kategorie-Abdeckung."""
-    transcript = context.get("transcript_text", "")
-    word_count = len(transcript.split()) if transcript else 0
-
-    if word_count < 500:
-        return {"quality_score": 0, "word_count": word_count, "passed": False, "reason": f"Nur {word_count} Wörter (min. 500)"}
-
-    # AI-basierte Kategorie-Prüfung
-    if OPENROUTER_API_KEY:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-                json={
-                    "model": os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507"),
-                    "messages": [{"role": "user", "content": f"Bewerte dieses Kickoff-Transkript auf einer Skala von 0-100. Prüfe ob folgende Kategorien abgedeckt sind: Demografie, Beruflich, Schmerzpunkte, Psychologie, Benefits. Antworte NUR als JSON: {{\"score\": N, \"missing\": [...]}}.\n\nTranskript:\n{transcript[:3000]}"}],
-                },
-                timeout=120,
-            )
-            data = resp.json()
-            content = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-            try:
-                result = json.loads(content.strip().strip("`").replace("json\n", ""))
-                return {"quality_score": result.get("score", 50), "word_count": word_count, "missing_categories": result.get("missing", []), "passed": result.get("score", 0) >= 70}
-            except json.JSONDecodeError:
-                pass
-
-    return {"quality_score": 70, "word_count": word_count, "passed": True, "reason": "AI check skipped"}
-
-
-async def _v3_kc03b(context: dict, state: ExecutionState) -> dict:
-    """Transkript zu dünn — Notification in Slack dass das Thema gelöst werden muss."""
-    if SLACK_BOT_TOKEN:
-        await v3_slack_alert(
-            f"{state.client_name} — Transkript unvollständig ({context.get('quality_score', '?')}% Abdeckung). Bitte intern klären wie weiter vorgegangen wird.",
-            SLACK_BOT_TOKEN,
-            severity="warning",
-        )
-    return {"action": "notification_sent", "reason": "transcript_insufficient"}
-
-
-async def _v3_st00(context: dict, state: ExecutionState) -> dict:
-    """Bausteine Quality Gate — alle 5 Pflicht-Kategorien vorhanden?"""
-    bausteine = context.get("bausteine", {})
-    required_categories = ["demografie", "beruflich", "schmerzpunkte", "psychologie", "benefits"]
-    missing = []
-
-    for cat in required_categories:
-        found = False
-        for key, value in bausteine.items():
-            if isinstance(value, dict) and value.get("kategorie", "").lower() == cat:
-                found = True
-                break
-            elif cat in key.lower():
-                found = True
-                break
-        if not found:
-            missing.append(cat)
-
-    coverage = ((len(required_categories) - len(missing)) / len(required_categories)) * 100
-    return {"passed": len(missing) == 0, "coverage": coverage, "missing_categories": missing}
-
-
-async def _v3_st02a(context: dict, state: ExecutionState) -> dict:
-    """Fact Verification — KI-Fakten gegen Client-Website prüfen."""
-    website = context.get("website", "")
-    if not website or not OPENROUTER_API_KEY:
-        return {"verified": True, "skipped": True, "reason": "No website or AI key"}
-
-    # Fetch website content
-    website_text = ""
-    try:
-        import urllib.request
-        req = urllib.request.Request(website if website.startswith("http") else f"https://{website}", headers={"User-Agent": "Flowstack/1.0"})
-        resp = urllib.request.urlopen(req, timeout=10, context=__import__("ssl").create_default_context(cafile=__import__("certifi").where()))
-        website_text = resp.read().decode("utf-8", errors="ignore")[:5000]
-    except Exception:
-        return {"verified": True, "skipped": True, "reason": "Website not reachable"}
-
-    bausteine = context.get("bausteine", {})
-    bausteine_summary = json.dumps(bausteine, ensure_ascii=False)[:2000]
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-            json={
-                "model": os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507"),
-                "messages": [{"role": "user", "content": f"Vergleiche diese extrahierten Bausteine mit der Website des Kunden. Markiere Fakten die NICHT von der Website bestätigt werden als 'KI-Inferenz'. Antworte als JSON: {{\"verified\": [...], \"unverified\": [...]}}.\n\nBausteine:\n{bausteine_summary}\n\nWebsite-Text:\n{website_text[:2000]}"}],
-            },
-            timeout=120,
-        )
-        data = resp.json()
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "{}")
-        try:
-            result = json.loads(content.strip().strip("`").replace("json\n", ""))
-            return {"verified": True, "verified_facts": result.get("verified", []), "unverified_facts": result.get("unverified", [])}
-        except json.JSONDecodeError:
-            return {"verified": True, "parse_error": True}
-
-
-async def _v3_cc01b(context: dict, state: ExecutionState) -> dict:
-    """Compliance Auto-Fix — sichere Fixes automatisch anwenden."""
-    generated_docs = context.get("generated_docs", {})
-    all_changes = {}
-    for doc_name, doc_info in generated_docs.items():
-        if isinstance(doc_info, dict) and "content" in doc_info:
-            fixed_text, changes = apply_auto_fixes(doc_info["content"])
-            if changes:
-                all_changes[doc_name] = changes
-                doc_info["content"] = fixed_text
-    return {"auto_fixed": all_changes, "docs_changed": len(all_changes)}
-
-
-async def _v3_cc02a(context: dict, state: ExecutionState) -> dict:
-    """Rechtschreib- und Grammatik-Check."""
-    generated_docs = context.get("generated_docs", {})
-    texts = {k: v["content"][:3000] for k, v in generated_docs.items() if isinstance(v, dict) and "content" in v}
-    if not texts or not OPENROUTER_API_KEY:
-        return {"passed": True, "skipped": True}
-
-    async def ai_func(prompt: str):
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-                json={"model": os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507"), "messages": [{"role": "user", "content": prompt}]},
-                timeout=120,
-            )
-            content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "[]")
-            try:
-                return json.loads(content.strip().strip("`").replace("json\n", ""))
-            except json.JSONDecodeError:
-                return []
-
-    return await spelling_check(texts, ai_func)
-
-
-async def _v3_cc02b(context: dict, state: ExecutionState) -> dict:
-    """Placeholder-Scan — unreplaced [FIRMENNAME] etc. finden."""
-    generated_docs = context.get("generated_docs", {})
-    texts = {k: v.get("content", "") for k, v in generated_docs.items() if isinstance(v, dict) and "content" in v}
-    if not texts:
-        return {"passed": True}
-    return scan_for_placeholders(texts)
-
-
-async def _v3_rl_url(context: dict, state: ExecutionState) -> dict:
-    """URL Validation — alle URLs prüfen."""
-    urls = [context.get(k) for k in ["lp_url", "form_url", "thankyou_url"] if context.get(k)]
-    if not urls:
-        return {"passed": True, "message": "No URLs"}
-    return await validate_all_urls(urls)
-
-
-async def _v3_rl_pixel(context: dict, state: ExecutionState) -> dict:
-    """Pixel Final Check."""
-    pixel_id = context.get("meta_pixel_id", META_PIXEL_ID)
-    return await verify_pixel(pixel_id, META_ACCESS_TOKEN)
-
-
-async def _v3_rl_policy(context: dict, state: ExecutionState) -> dict:
-    """Ad Policy Pre-Check."""
-    generated_docs = context.get("generated_docs", {})
-    ad_texts = {}
-    for k, v in generated_docs.items():
-        if isinstance(v, dict) and v.get("subtype", "").startswith("anzeigen"):
-            ad_texts[k] = v.get("content", "")[:1000]
-    if not ad_texts:
-        return {"passed": True, "message": "No ad texts"}
-
-    async def ai_func(prompt: str):
-        if not OPENROUTER_API_KEY:
-            return []
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {OPENROUTER_API_KEY}"},
-                json={"model": os.environ.get("OPENROUTER_MODEL", "qwen/qwen3-235b-a22b-thinking-2507"), "messages": [{"role": "user", "content": prompt}]},
-                timeout=60,
-            )
-            content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "[]")
-            try:
-                return json.loads(content.strip().strip("`").replace("json\n", ""))
-            except json.JSONDecodeError:
-                return []
-
-    return await ad_policy_check(ad_texts, ai_func)
-
-
-async def _v3_pl01(context: dict, state: ExecutionState) -> dict:
-    """Launch +24h Check — Impressions > 0?"""
-    campaigns = context.get("meta_campaigns", {})
-    results = {}
-    for name, campaign_id in campaigns.items():
-        if not campaign_id:
-            continue
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"https://graph.facebook.com/v21.0/{campaign_id}/insights",
-                params={"fields": "impressions,clicks,spend", "date_preset": "yesterday", "access_token": META_ACCESS_TOKEN},
-            )
-            data = resp.json().get("data", [{}])
-            if data:
-                results[name] = data[0]
-            else:
-                results[name] = {"impressions": "0", "clicks": "0", "spend": "0"}
-
-    total_impressions = sum(int(r.get("impressions", "0")) for r in results.values())
-    return {"passed": total_impressions > 0, "total_impressions": total_impressions, "campaigns": results}
-
-
-async def _v3_pl02(context: dict, state: ExecutionState) -> dict:
-    """Zero-Lead Alert — 0 Leads nach 72h?"""
-    # Check Close for leads linked to this client
-    if not context.get("lead_id"):
-        return {"leads": 0, "alert": True}
-
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
-            f"https://api.close.com/api/v1/lead/{context['lead_id']}/",
-            auth=(CLOSE_API_KEY_V2, ""),
-        )
-        data = resp.json()
-        # Count activities that look like incoming leads (simplified)
-        activities = data.get("activities", [])
-        lead_count = len([a for a in activities if a.get("type") in ("LeadStatusChange", "Note")])
-
-    return {"leads": lead_count, "alert": lead_count == 0}
-
-
-async def _v3_pl03(context: dict, state: ExecutionState) -> dict:
-    """Auto-Diagnose bei 0 Leads."""
-    diagnostics = {"checks": []}
-
-    # Check 1: LP reachable?
-    lp_url = context.get("lp_url")
-    if lp_url:
-        from qa import validate_url
-        lp_result = await validate_url(lp_url)
-        diagnostics["checks"].append({"check": "landing_page", "result": lp_result})
-
-    # Check 2: Pixel active?
-    pixel_id = context.get("meta_pixel_id", META_PIXEL_ID)
-    pixel_result = await verify_pixel(pixel_id, META_ACCESS_TOKEN)
-    diagnostics["checks"].append({"check": "pixel", "result": pixel_result})
-
-    # Check 3: Campaign delivering?
-    campaigns = context.get("meta_campaigns", {})
-    for name, cid in campaigns.items():
-        if cid:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}",
-                    params={"fields": "effective_status,daily_budget", "access_token": META_ACCESS_TOKEN},
-                )
-                data = resp.json()
-                diagnostics["checks"].append({"check": f"campaign_{name}", "status": data.get("effective_status"), "budget": data.get("daily_budget")})
-
-    # Summary
-    issues = [c for c in diagnostics["checks"] if not c.get("result", {}).get("passed", c.get("result", {}).get("active", c.get("status") == "ACTIVE"))]
-    diagnostics["issues_found"] = len(issues)
-    diagnostics["diagnosis"] = "Alle Checks bestanden" if not issues else f"{len(issues)} Problem(e) gefunden"
-
-    return diagnostics
-
-
-async def _v3_cm08(context: dict, state: ExecutionState) -> dict:
-    """Milestone Celebration — wird vom Monitoring getriggert."""
-    return {"milestone_check": True}
-
-
-async def _v3_pl05(context: dict, state: ExecutionState) -> dict:
-    """Daily Performance Digest — alle Clients Spend/Leads/CPL."""
-    if not META_ACCESS_TOKEN:
-        return {"skipped": True, "reason": "No Meta token"}
-    # Simplified: Get insights for this client's campaigns
-    campaigns = context.get("meta_campaigns", {})
-    summary = {}
-    for name, cid in campaigns.items():
-        if not cid:
-            continue
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}/insights",
-                    params={"fields": "impressions,clicks,spend,actions", "date_preset": "yesterday", "access_token": META_ACCESS_TOKEN},
-                )
-                data = resp.json().get("data", [{}])
-                summary[name] = data[0] if data else {}
-        except Exception:
-            summary[name] = {"error": "fetch failed"}
-    return {"digest": summary}
-
-
-async def _v3_pl06(context: dict, state: ExecutionState) -> dict:
-    """Weekly Performance Report — KI-generierter Report als Google Doc."""
-    campaigns = context.get("meta_campaigns", {})
-    performance_data = {}
-    for name, cid in campaigns.items():
-        if not cid:
-            continue
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}/insights",
-                    params={"fields": "impressions,clicks,spend,ctr,actions", "date_preset": "last_7d", "access_token": META_ACCESS_TOKEN},
-                )
-                data = resp.json().get("data", [{}])
-                performance_data[name] = data[0] if data else {}
-        except Exception:
-            pass
-
-    if not performance_data:
-        return {"skipped": True, "reason": "No performance data"}
-
-    prompt = f"""Erstelle einen kurzen Wochen-Performance-Report für die Recruiting-Kampagnen von {state.client_name}.
-
-Daten der letzten 7 Tage:
-{json.dumps(performance_data, indent=2)}
-
-Format: Zusammenfassung (3 Sätze), dann Tabelle mit Kennzahlen, dann 2-3 Empfehlungen.
-Sprache: Deutsch."""
-
-    try:
-        report = await gemini_generate(prompt, max_tokens=2000)
-    except Exception as e:
-        return {"error": str(e)}
-
-    return {"report": report[:3000], "data": performance_data}
-
-
-async def _v3_pl07(context: dict, state: ExecutionState) -> dict:
-    """Monthly Report — umfassender Monatsbericht."""
-    # Same as weekly but with last_30d
-    return await _v3_pl06.__wrapped__(context, state) if hasattr(_v3_pl06, '__wrapped__') else {"skipped": True, "reason": "Uses weekly logic"}
-
-
-async def _v3_pl09(context: dict, state: ExecutionState) -> dict:
-    """Ad Fatigue Detection — Frequency > 3 oder CTR -20%."""
-    campaigns = context.get("meta_campaigns", {})
-    fatigued = []
-    for name, cid in campaigns.items():
-        if not cid:
-            continue
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}/insights",
-                    params={"fields": "frequency,ctr", "date_preset": "last_7d", "access_token": META_ACCESS_TOKEN},
-                )
-                data = resp.json().get("data", [{}])
-                if data:
-                    freq = float(data[0].get("frequency", "0"))
-                    ctr = float(data[0].get("ctr", "0"))
-                    if freq > 3.0:
-                        fatigued.append({"campaign": name, "reason": f"Frequency {freq:.1f} > 3.0", "frequency": freq})
-                    if ctr < 0.5:
-                        fatigued.append({"campaign": name, "reason": f"CTR {ctr:.2f}% sehr niedrig", "ctr": ctr})
-        except Exception:
-            pass
-    return {"fatigued": fatigued, "needs_refresh": len(fatigued) > 0}
-
-
-async def _v3_pl10(context: dict, state: ExecutionState) -> dict:
-    """A/B Test Empfehlungen — Top/Bottom Performer analysieren."""
-    campaigns = context.get("meta_campaigns", {})
-    ad_performance = []
-    for name, cid in campaigns.items():
-        if not cid:
-            continue
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}/insights",
-                    params={"fields": "ad_name,ctr,actions,spend", "level": "ad", "date_preset": "last_14d", "limit": 20, "access_token": META_ACCESS_TOKEN},
-                )
-                for ad in resp.json().get("data", []):
-                    ad_performance.append({**ad, "campaign": name})
-        except Exception:
-            pass
-
-    if not ad_performance:
-        return {"recommendations": [], "reason": "No ad data"}
-
-    prompt = f"""Analysiere diese Ad-Performance-Daten und gib 3 konkrete A/B Test Empfehlungen:
-
-{json.dumps(ad_performance[:10], indent=2)}
-
-Antworte auf Deutsch. Format: Nummerierte Liste mit je 1-2 Sätzen."""
-
-    try:
-        recs = await gemini_generate(prompt, max_tokens=1000)
-    except Exception as e:
-        return {"error": str(e)}
-
-    return {"recommendations": recs}
-
-
-async def _v3_pl11(context: dict, state: ExecutionState) -> dict:
-    """Budget Scaling Suggestions — CPL < Target? Dann Empfehlung."""
-    campaigns = context.get("meta_campaigns", {})
-    suggestions = []
-    for name, cid in campaigns.items():
-        if not cid:
-            continue
-        try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{cid}/insights",
-                    params={"fields": "spend,actions", "date_preset": "last_7d", "access_token": META_ACCESS_TOKEN},
-                )
-                data = resp.json().get("data", [{}])
-                if data:
-                    spend = float(data[0].get("spend", "0"))
-                    leads = sum(int(a.get("value", "0")) for a in data[0].get("actions", []) if a.get("action_type") == "lead")
-                    if leads > 0:
-                        cpl = spend / leads
-                        if cpl < 80:
-                            suggestions.append({"campaign": name, "cpl": round(cpl, 2), "suggestion": f"CPL bei {cpl:.0f}€ — Budget-Erhöhung empfohlen"})
-        except Exception:
-            pass
-    return {"suggestions": suggestions, "has_suggestions": len(suggestions) > 0}
-
-
-async def _v3_pl12(context: dict, state: ExecutionState) -> dict:
-    """Lead Quality Scoring — Score 1-10 für neue Leads."""
-    lead_id = context.get("lead_id")
-    if not lead_id or not CLOSE_API_KEY_V2:
-        return {"skipped": True}
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.get(
-            f"https://api.close.com/api/v1/lead/{lead_id}/",
-            auth=(CLOSE_API_KEY_V2, ""),
-        )
-        lead_data = resp.json()
-
-    prompt = f"""Bewerte diesen Recruiting-Lead auf einer Skala von 1-10 basierend auf den verfügbaren Daten.
-10 = Perfekter Kandidat, 1 = Unqualifiziert.
-
-Lead-Daten:
-{json.dumps(lead_data.get('contacts', [{}])[0] if lead_data.get('contacts') else {}, indent=2)[:2000]}
-
-Antworte NUR als JSON: {{"score": N, "reason": "kurze Begründung"}}"""
-
-    try:
-        result = await gemini_generate(prompt, max_tokens=200)
-        clean = result.strip().strip("`").replace("json\n", "")
-        parsed = json.loads(clean)
-        return {"score": parsed.get("score", 5), "reason": parsed.get("reason", "")}
-    except Exception:
-        return {"score": 5, "reason": "Auto-scoring failed"}
-
-
-async def _v3_pl13(context: dict, state: ExecutionState) -> dict:
-    """Competitor Ad Monitor — Meta Ad Library durchsuchen."""
-    branche = context.get("branche", "IT")
-    region = "Deutschland"
-
-    prompt = f"""Was sind typische Recruiting-Ads von Wettbewerbern in der Branche "{branche}" in {region}?
-
-Beschreibe 3 typische Competitor-Ads:
-1. Welche Angles nutzen sie?
-2. Welche Headlines?
-3. Welche CTAs?
-
-Basierend auf deinem Wissen über Meta Ads in der {branche}-Branche. Kurz und knapp, je 2-3 Sätze."""
-
-    try:
-        analysis = await gemini_generate(prompt, max_tokens=1000)
-    except Exception as e:
-        return {"error": str(e)}
-
-    return {"competitor_analysis": analysis, "branche": branche}
-
-
-async def _v3_fn_screenshots(context: dict, state: ExecutionState) -> dict:
-    """Screenshot-Dokumentation — Desktop + Mobile Screenshots aller Funnel-Seiten."""
-    screenshots = []
-    urls = {
-        "landing_page": context.get("lp_url"),
-        "formular_page": context.get("form_url"),
-        "danke_page": context.get("thankyou_url"),
-    }
-
-    for page_name, url in urls.items():
-        if not url:
-            continue
-        for device, width in [("desktop", 1920), ("mobile", 375)]:
-            try:
-                # Use Puppeteer MCP or fallback to API screenshot service
-                # For now: log what would be screenshotted
-                screenshots.append({
-                    "page": page_name,
-                    "device": device,
-                    "width": width,
-                    "url": url,
-                    "status": "queued",
-                })
-            except Exception as e:
-                screenshots.append({"page": page_name, "device": device, "error": str(e)})
-
-    return {"screenshots": screenshots, "count": len(screenshots)}
-
-
-async def _v3_pl_winners(context: dict, state: ExecutionState) -> dict:
-    """Gewinner-Bibliothek — Top-Performer in Airtable Winners speichern."""
-    campaigns = context.get("meta_campaigns", {})
-    winners = []
-
-    for camp_name, campaign_id in campaigns.items():
-        if not campaign_id:
-            continue
-        try:
-            async with httpx.AsyncClient() as client:
-                # Get ad-level insights
-                resp = await client.get(
-                    f"https://graph.facebook.com/v21.0/{campaign_id}/insights",
-                    params={
-                        "fields": "ad_name,impressions,clicks,ctr,spend,actions",
-                        "date_preset": "last_30d",
-                        "level": "ad",
-                        "limit": 10,
-                        "access_token": META_ACCESS_TOKEN,
-                    },
-                )
-                data = resp.json().get("data", [])
-
-                for ad in data:
-                    ctr = float(ad.get("ctr", "0"))
-                    leads = 0
-                    for action in ad.get("actions", []):
-                        if action.get("action_type") == "lead":
-                            leads = int(action.get("value", "0"))
-                    spend = float(ad.get("spend", "0"))
-                    cpl = spend / leads if leads > 0 else 999
-
-                    # Score: higher = better
-                    score = (ctr * leads) / max(cpl, 1) if leads > 0 else 0
-
-                    winners.append({
-                        "ad_name": ad.get("ad_name", ""),
-                        "campaign_type": camp_name,
-                        "ctr": round(ctr, 2),
-                        "leads": leads,
-                        "cpl": round(cpl, 2),
-                        "spend": round(spend, 2),
-                        "score": round(score, 2),
-                    })
-        except Exception as e:
-            log.warning(f"Winners analysis failed for {camp_name}: {e}")
-
-    # Sort by score, keep top 3 per campaign type
-    winners.sort(key=lambda x: x["score"], reverse=True)
-    top_winners = winners[:9]  # Top 3 per campaign type (3 types)
-
-    # Save to Airtable Winners table
-    if top_winners and AIRTABLE_API_KEY and AIRTABLE_BASE_ID:
-        for winner in top_winners:
-            try:
-                async with httpx.AsyncClient() as client:
-                    await client.post(
-                        f"https://api.airtable.com/v0/{AIRTABLE_BASE_ID}/Winners",
-                        headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                        json={"fields": {
-                            "Client": state.client_name,
-                            "Branche": context.get("branche", ""),
-                            "Typ": "ad_text",
-                            "Inhalt": winner["ad_name"],
-                            "Kampagnen-Typ": winner["campaign_type"],
-                            "CTR": winner["ctr"],
-                            "CPL": winner["cpl"],
-                            "Leads": winner["leads"],
-                            "Performance Score": winner["score"],
-                        }},
-                    )
-            except Exception as e:
-                log.warning(f"Failed to save winner to Airtable: {e}")
-
-    return {"winners_saved": len(top_winners), "total_analyzed": len(winners)}
-
-
-# ── V3 Gemini AI Helper ──────────────────────────────────────
-
-async def gemini_generate(prompt: str, max_tokens: int = 8000) -> str:
-    """Call Gemini API for text generation. Kostenlos, kein OpenRouter."""
-    if not GEMINI_API_KEY:
-        raise Exception("GEMINI_API_KEY nicht konfiguriert")
-
-    import ssl, certifi
-    ctx = ssl.create_default_context(cafile=certifi.where())
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_API_KEY}"
-    payload = json.dumps({
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.7},
-    }).encode()
-
-    import urllib.request
-    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-    resp = urllib.request.urlopen(req, timeout=120, context=ctx)
-    result = json.loads(resp.read())
-    return result.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
-
-
-# ── V3 KI-Generierung (eigenständig, Gemini-basiert) ────────
-
-async def _v3_st_extract(context: dict, state: ExecutionState) -> dict:
-    """Bausteine aus Transkript extrahieren — via Gemini, exakt gleiches Schema wie V2 (88 Felder → 352 Records in Airtable)."""
-    transcript_text = context.get("transcript_text", "")
-    if not transcript_text and context.get("transcript_doc_id"):
-        token = _refresh_google_token_v3()
-        transcript_text = await read_google_doc_content(context["transcript_doc_id"])
-    if not transcript_text:
-        return {"error": "Kein Transkript-Text vorhanden", "bausteine": {}}
-
-    company = context.get("company", "Unbekannt")
-    rolle = context.get("stellen", "")
-
-    # Nutze exakt das gleiche Schema wie V2
-    schema_str = json.dumps(EXTRACTION_JSON_SCHEMA, indent=2, ensure_ascii=False)
-
-    prompt = f"""Du bist ein Senior Consumer-Psychologe und Recruiting-Marketing-Stratege mit 15 Jahren Erfahrung.
-
-AUFGABE: Analysiere das Kickoff-Transkript und extrahiere ALLE relevanten Informationen in das vorgegebene JSON-Schema.
-
-REGELN:
-1. Jedes Feld MUSS befuellt werden — leite logisch ab wenn nicht explizit im Transkript
-2. Zitate muessen klingen wie echte Menschen reden — Fachjargon, kurze Saetze, authentisch
-3. "Schmerz hinter dem Schmerz" = die tiefere EMOTIONALE Ebene
-4. Hooks: Max 125 Zeichen, emotional triggern, Loss Aversion > Benefits
-5. CTAs muessen niedrigschwellig sein: "In 60 Sekunden", "Kein Lebenslauf", "Unverbindlich"
-6. VERBOTENE Woerter: "Rockstar", "Ninja", "Guru", "Dynamisches Team", "Flache Hierarchien"
-7. Fachwoerter: Echte Begriffe die die Zielgruppe TAEGLICH nutzt
-8. Psychologie-Felder: Denke wie ein Therapeut — was FUEHLT die Person wirklich?
-9. Trigger-Events: Konkrete Situationen die den Wechsel ausloesen
-10. Kernbotschaft: MUSS in einem einzigen Satz die gesamte Kampagne kommunizieren
-
-Unternehmen: {company}
-Gesuchte Rolle: {rolle or 'Siehe Transkript'}
-
-TRANSKRIPT:
-{transcript_text[:8000]}
-
-Extrahiere alle Informationen in exakt dieses JSON-Schema (jedes Feld befuellen!):
-{schema_str}
-
-Antworte NUR mit validem JSON. Kein Markdown, kein Text davor/danach."""
-
-    try:
-        response = await gemini_generate(prompt, max_tokens=8000)
-        # JSON parsen
-        cleaned = response.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        if cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
-        blocks = json.loads(cleaned)
-    except (json.JSONDecodeError, Exception) as e:
-        log.warning(f"V3 Gemini extract parse error: {e}")
-        blocks = {}
-
-    # In Airtable schreiben (nutzt flatten_blocks_for_airtable wie V2 → 352 Records)
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    client_id = context.get("airtable_client_id", "")
-    if client_id and v3_base:
-        flat_records = flatten_blocks_for_airtable(blocks, client_id)
-        written = 0
-        for batch_start in range(0, len(flat_records), 10):
-            batch = flat_records[batch_start:batch_start + 10]
-            try:
-                async with httpx.AsyncClient(timeout=15) as client_http:
-                    await client_http.post(
-                        f"https://api.airtable.com/v0/{v3_base}/Bausteine",
-                        headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                        json={"records": [{"fields": r} for r in batch]},
-                    )
-                    written += len(batch)
-            except Exception as e:
-                log.warning(f"Airtable write batch failed: {e}")
-        log.info(f"V3 Bausteine: {written} Records in Airtable geschrieben")
-
-    # Count fields
-    field_count = sum(len(v) if isinstance(v, dict) else 1 for v in blocks.values())
-
-    return {"bausteine": blocks, "block_count": field_count, "categories": len(blocks)}
-
-
-async def _v3_generate_doc(context: dict, state: ExecutionState, framework_nr: int, doc_name: str, doc_key: str, prev_keys: list[tuple[str, str]]) -> dict:
-    """V3 Doc-Generierung via Gemini + Frameworks. Kein OpenRouter."""
-    bs = context.get("bausteine", {})
-    prev = {}
-    gd = context.get("generated_docs", {})
-    for ctx_key, label in prev_keys:
-        if gd.get(ctx_key):
-            prev[label] = gd[ctx_key]
-
-    # Load framework (fuzzy match by number prefix)
-    fw_dir = os.path.join(os.path.dirname(__file__), "frameworks")
-    framework = ""
-    if os.path.exists(fw_dir):
-        for fname in sorted(os.listdir(fw_dir)):
-            if fname.startswith(f"{framework_nr:02d}-"):
-                with open(os.path.join(fw_dir, fname)) as f:
-                    framework = f.read()
-                break
-
-    company = context.get("company", "Unbekannt")
-    bausteine_text = json.dumps(bs, ensure_ascii=False, indent=2)[:6000] if bs else "Keine Bausteine vorhanden"
-    prev_text = ""
-    for label, content in prev.items():
-        prev_text += f"\n--- {label} ---\n{str(content)[:2000]}\n"
-
-    prompt = f"""Du bist ein Senior Recruiting-Marketing-Stratege. Erstelle das Dokument "{doc_name}" für die Firma "{company}".
-
-FRAMEWORK (halte dich exakt an diese Struktur):
-{framework[:4000]}
-
-BAUSTEINE (nutze diese als Grundlage — JEDES Detail einbauen):
-{bausteine_text}
-
-VORHERIGE DOKUMENTE (referenziere und baue darauf auf):
-{prev_text[:3000] if prev_text else "Keine"}
-
-REGELN:
-- Schreibe auf Deutsch
-- Nutze die Bausteine als Grundlage — sei SPEZIFISCH, keine generischen Phrasen
-- Halte dich exakt an die Struktur und Sections des Frameworks
-- Verwende echte Details, Zahlen, Zitate aus den Bausteinen
-- Jede Section muss befüllt sein
-- Qualität wie von einer Premium-Agentur, nicht wie ChatGPT-Output
-"""
-
-    try:
-        content = await gemini_generate(prompt, max_tokens=6000)
-    except Exception as e:
-        return {"error": str(e), "doc_key": doc_key}
-
-    # Create Google Doc
-    doc_id = ""
-    doc_url = ""
-    try:
-        token = _refresh_google_token_v3()
-        doc_title = f"V3 — {doc_name} | {company}"
-        async with httpx.AsyncClient(timeout=30) as http:
-            resp = await http.post(
-                "https://docs.googleapis.com/v1/documents",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                json={"title": doc_title},
-            )
-            doc_data = resp.json()
-            doc_id = doc_data.get("documentId", "")
-            if doc_id:
-                await http.post(
-                    f"https://docs.googleapis.com/v1/documents/{doc_id}:batchUpdate",
-                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                    json={"requests": [{"insertText": {"location": {"index": 1}, "text": content}}]},
-                )
-        doc_url = f"https://docs.google.com/document/d/{doc_id}/edit" if doc_id else ""
-    except Exception as e:
-        log.warning(f"V3 Google Doc creation failed for {doc_name}: {e}")
-
-    # Update Airtable Dokumente table
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    if v3_base and AIRTABLE_API_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=10) as http:
-                await http.post(
-                    f"https://api.airtable.com/v0/{v3_base}/Dokumente",
-                    headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                    json={"records": [{"fields": {
-                        "Dokument-Typ": doc_key,
-                        "Google Doc URL": doc_url,
-                        "Google Doc ID": doc_id,
-                        "Status": "generated",
-                        "Version": 1,
-                    }}]},
-                )
-        except Exception as e:
-            log.warning(f"Airtable doc tracking failed: {e}")
-
-    generated = dict(gd)
-    generated[doc_key] = content
-    generated[f"{doc_key}_url"] = doc_url
-
-    return {"url": doc_url, "doc_id": doc_id, "content_length": len(content), "generated_docs": generated}
-
-
-async def _v3_st_doc(context: dict, state: ExecutionState, doc_number: int, doc_name: str, doc_key: str, prev_keys: list[tuple[str, str]]) -> dict:
-    """Wrapper für Kompatibilität."""
-    return await _v3_generate_doc(context, state, doc_number, doc_name, doc_key, prev_keys)
-
-
-async def _v3_st01_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 1, "Zielgruppen-Avatar", "zielgruppen_avatar", [])
-
-async def _v3_st02_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 2, "Arbeitgeber-Avatar", "arbeitgeber_avatar",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar")])
-
-async def _v3_st03_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 3, "Messaging-Matrix", "messaging_matrix",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar")])
-
-async def _v3_st04_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 4, "Creative Briefing", "creative_briefing",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix")])
-
-async def _v3_st05_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 5, "Marken-Richtlinien", "marken_richtlinien",
-        [("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("creative_briefing", "Creative Briefing")])
-
-async def _v3_cc01_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 6, "Landingpage-Texte", "landingpage_texte",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("marken_richtlinien", "Marken-Richtlinien")])
-
-async def _v3_cc02_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 7, "Formularseite-Texte", "formularseite_texte",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("landingpage_texte", "Landingpage-Texte")])
-
-async def _v3_cc03_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 8, "Dankeseite-Texte", "dankeseite_texte",
-        [("landingpage_texte", "Landingpage-Texte"), ("formularseite_texte", "Formularseite-Texte")])
-
-async def _v3_cc04_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 9, "Anzeigentexte Hauptkampagne", "anzeigen_haupt",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("marken_richtlinien", "Marken-Richtlinien")])
-
-async def _v3_cc05_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 10, "Anzeigentexte Retargeting", "anzeigen_retargeting",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("anzeigen_haupt", "Anzeigentexte Hauptkampagne")])
-
-async def _v3_cc06_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 11, "Anzeigentexte Warmup", "anzeigen_warmup",
-        [("arbeitgeber_avatar", "Arbeitgeber-Avatar"), ("messaging_matrix", "Messaging-Matrix")])
-
-async def _v3_cc07_handler(context: dict, state: ExecutionState) -> dict:
-    return await _v3_st_doc(context, state, 12, "Videoskript", "videoskript",
-        [("zielgruppen_avatar", "Zielgruppen-Avatar"), ("messaging_matrix", "Messaging-Matrix"), ("anzeigen_haupt", "Anzeigentexte Hauptkampagne")])
-
-
-def _encode_email(to: str, subject: str, body: str) -> str:
-    """Encode email for Gmail API."""
-    import base64
-    from email.mime.text import MIMEText
-    msg = MIMEText(body, "plain", "utf-8")
-    msg["to"] = to
-    msg["subject"] = subject
-    return base64.urlsafe_b64encode(msg.as_bytes()).decode()
-
-
-async def _v3_brand_check(context: dict, state: ExecutionState) -> dict:
-    """Brand Consistency Check — Firmenname korrekt überall?"""
-    generated_docs = context.get("generated_docs", {})
-    company = context.get("company", state.client_name)
-    texts = {k: v.get("content", "")[:2000] for k, v in generated_docs.items() if isinstance(v, dict) and "content" in v}
-    if not texts:
-        return {"passed": True, "message": "No docs to check"}
-    return await brand_consistency_check(texts, company)
-
-
-# Node → Handler Mapping
-V3_NODE_HANDLERS: dict[str, Any] = {
-    # Infra
-    "v3-is02a": _v3_is02a,
-    "v3-is06a": _v3_is06a,
-    # Kickoff
-    "v3-kc00":  _v3_kc00,
-    "v3-kc02a": _v3_kc02a,
-    "v3-kc02b": _v3_kc02b,
-    "v3-kc03a": _v3_kc03a,
-    "v3-kc03b": _v3_kc03b,
-    # Strategy
-    "v3-st-extract": _v3_st_extract,
-    "v3-st00":  _v3_st00,
-    "v3-st01":  _v3_st01_handler,
-    "v3-st02":  _v3_st02_handler,
-    "v3-st03":  _v3_st03_handler,
-    "v3-st04":  _v3_st04_handler,
-    "v3-st05":  _v3_st05_handler,
-    "v3-st02a": _v3_st02a,
-    # Copy Generation
-    "v3-cc01":  _v3_cc01_handler,
-    "v3-cc02":  _v3_cc02_handler,
-    "v3-cc03":  _v3_cc03_handler,
-    "v3-cc04":  _v3_cc04_handler,
-    "v3-cc05":  _v3_cc05_handler,
-    "v3-cc06":  _v3_cc06_handler,
-    "v3-cc07":  _v3_cc07_handler,
-    # Copy QA + Brand
-    "v3-cc01a": _v3_cc01a,
-    "v3-cc01b": _v3_cc01b,
-    "v3-cc02a": _v3_cc02a,
-    "v3-cc02b": _v3_cc02b,
-    "v3-brand-check": _v3_brand_check,
-    # Funnel
-    "v3-fn05a": _v3_fn05a,
-    "v3-fn10a": _v3_fn10a,
-    "v3-fn10b": _v3_fn10b,
-    # Campaigns
-    "v3-ca00":  _v3_ca00,
-    # Launch
-    "v3-rl-e2e":    _v3_rl09a,
-    "v3-rl-url":    _v3_rl_url,
-    "v3-rl-pixel":  _v3_rl_pixel,
-    "v3-rl-policy": _v3_rl_policy,
-    # Post-Launch
-    "v3-pl01": _v3_pl01,
-    "v3-pl02": _v3_pl02,
-    "v3-pl03": _v3_pl03,
-    "v3-pl05": _v3_pl05,
-    "v3-pl06": _v3_pl06,
-    "v3-pl07": _v3_pl06,  # Monthly uses same logic as weekly
-    "v3-pl08": _v3_pl01,  # CPL Alert reuses launch check logic
-    "v3-pl09": _v3_pl09,
-    "v3-pl10": _v3_pl10,
-    "v3-pl11": _v3_pl11,
-    "v3-pl12": _v3_pl12,
-    "v3-cm08": _v3_cm08,
-    # Notion (deaktiviert — Airtable + Drive reicht)
-    # "v3-notion": _v3_notion_wiki,
-    # Screenshots + Winners
-    "v3-fn-screenshots": _v3_fn_screenshots,
-    "v3-pl-winners": _v3_pl_winners,
-}
-
-# Node → Service Mapping (for retry profiles)
-_NODE_SERVICE_MAP: dict[str, str] = {
-    "v3-is02a": "close", "v3-is02": "close", "v3-is10": "close",
-    "v3-is03": "slack", "v3-kc06": "slack",
-    "v3-is04": "google", "v3-is05": "google", "v3-is06": "google", "v3-is06a": "google",
-    "v3-is07": "google", "v3-is-sheet": "google",
-    "v3-is08": "clickup", "v3-is09": "clickup", "v3-kc02b": "clickup",
-    "v3-is11": "miro",
-    "v3-notion": "notion",
-    "v3-st-extract": "openrouter", "v3-st01": "openrouter", "v3-st02": "openrouter",
-    "v3-st03": "openrouter", "v3-st04": "openrouter", "v3-st05": "openrouter",
-    "v3-st02a": "openrouter",
-    "v3-cc01": "openrouter", "v3-cc02": "openrouter", "v3-cc03": "openrouter",
-    "v3-cc04": "openrouter", "v3-cc05": "openrouter", "v3-cc06": "openrouter",
-    "v3-cc07": "openrouter", "v3-cc01a": "openrouter", "v3-cc02a": "openrouter",
-    "v3-st-sync": "airtable", "v3-cc-sync": "airtable",
-    "v3-ca00": "meta", "v3-ca01": "meta", "v3-ca02": "meta", "v3-ca03": "meta",
-    "v3-ca04": "meta", "v3-ca05": "meta", "v3-ca06": "meta", "v3-ca07": "meta",
-    "v3-ca08": "meta", "v3-ca09": "meta",
-    "v3-fn10a": "google", "v3-fn10b": "google",
-    "v3-rl09a": "google",
-    "v3-fn-screenshots": "google",
-    "v3-pl-winners": "meta",
-}
-
-def _get_service_for_node(node_id: str) -> str:
-    """Get the service name for retry profile selection."""
-    return _NODE_SERVICE_MAP.get(node_id, "close")
-
-
-# ── V3 CRUD Endpoints (für UI) ────────────────────────────────
-
-# Dependency Map: Welches Doc hängt von welchem ab
-DOC_DEPENDENCIES: dict[str, list[str]] = {
-    "zielgruppen_avatar": [],
-    "arbeitgeber_avatar": ["zielgruppen_avatar"],
-    "messaging_matrix": ["zielgruppen_avatar", "arbeitgeber_avatar"],
-    "creative_briefing": ["zielgruppen_avatar", "arbeitgeber_avatar", "messaging_matrix"],
-    "marken_richtlinien": ["arbeitgeber_avatar", "messaging_matrix", "creative_briefing"],
-    "lp_text": ["zielgruppen_avatar", "arbeitgeber_avatar", "messaging_matrix", "marken_richtlinien"],
-    "form_text": ["zielgruppen_avatar", "lp_text"],
-    "danke_text": ["lp_text", "form_text"],
-    "anzeigen_haupt": ["zielgruppen_avatar", "messaging_matrix", "marken_richtlinien"],
-    "anzeigen_retargeting": ["zielgruppen_avatar", "messaging_matrix", "anzeigen_haupt"],
-    "anzeigen_warmup": ["arbeitgeber_avatar", "messaging_matrix"],
-    "videoskript": ["zielgruppen_avatar", "messaging_matrix", "anzeigen_haupt"],
-    "landing_page": ["lp_text"],
-    "formular_page": ["form_text"],
-    "danke_page": ["danke_text"],
-    "initial_campaign": ["landing_page", "anzeigen_haupt"],
-    "retargeting_campaign": ["landing_page", "anzeigen_retargeting"],
-    "warmup_campaign": ["landing_page", "anzeigen_warmup"],
-}
-
-
-def get_affected_deliverables(changed_subtype: str) -> list[str]:
-    """Finde alle Deliverables die von einem geänderten Doc abhängen (kaskadierend)."""
-    affected = []
-    to_check = [changed_subtype]
-    checked = set()
-
-    while to_check:
-        current = to_check.pop(0)
-        if current in checked:
-            continue
-        checked.add(current)
-
-        for subtype, deps in DOC_DEPENDENCIES.items():
-            if current in deps and subtype not in checked:
-                affected.append(subtype)
-                to_check.append(subtype)
-
-    return affected
-
-
-@app.get("/api/v3/clients")
-async def v3_get_clients():
-    """Alle Clients aus Airtable V3 Base mit Deliverables, Approvals, Alerts."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    if not v3_base or not AIRTABLE_API_KEY:
-        return {"clients": [], "error": "Airtable nicht konfiguriert"}
-
-    clients = []
-    try:
-        async with httpx.AsyncClient(timeout=15) as client_http:
-            # Clients
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/CLIENTS",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            for record in resp.json().get("records", []):
-                fields = record.get("fields", {})
-                clients.append({
-                    "id": record["id"],
-                    "company": fields.get("Client Name", ""),
-                    "name": fields.get("Ansprechpartner", ""),
-                    "email": fields.get("Email", ""),
-                    "phone": fields.get("Telefon", ""),
-                    "branche": fields.get("Branche", ""),
-                    "status": fields.get("Status", "qualifying"),
-                    "accountManager": fields.get("Account Manager", ""),
-                    "closeLeadUrl": fields.get("Close Lead URL", ""),
-                    "slackChannel": fields.get("Slack Channel", ""),
-                    "driveFolderUrl": fields.get("Google Drive URL", ""),
-                    "executionId": fields.get("Execution ID", ""),
-                    "createdAt": record.get("createdTime", ""),
-                })
-    except Exception as e:
-        log.warning(f"Airtable clients fetch failed: {e}")
-
-    return {"clients": clients}
-
-
-@app.get("/api/v3/clients/{client_id}")
-async def v3_get_client(client_id: str):
-    """Einzelner Client mit Deliverables, Timeline."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    if not v3_base:
-        raise HTTPException(500, "Airtable nicht konfiguriert")
-
-    async with httpx.AsyncClient(timeout=15) as client_http:
-        # Client
-        resp = await client_http.get(
-            f"https://api.airtable.com/v0/{v3_base}/CLIENTS/{client_id}",
-            headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-        )
-        if resp.status_code != 200:
-            raise HTTPException(404, "Client nicht gefunden")
-        record = resp.json()
-        fields = record.get("fields", {})
-
-        # Deliverables für diesen Client
-        resp2 = await client_http.get(
-            f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE",
-            params={"filterByFormula": f"FIND('{client_id}', ARRAYJOIN({{Client}}))"},
-            headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-        )
-        deliverables = []
-        for r in resp2.json().get("records", []):
-            df = r.get("fields", {})
-            deliverables.append({
-                "id": r["id"],
-                "title": df.get("Dokument-Name", ""),
-                "subtype": df.get("Dokument-Typ", ""),
-                "status": df.get("Status", "generating"),
-                "version": df.get("Version", 1),
-                "googleDocUrl": df.get("Google Doc URL", ""),
-                "complianceStatus": df.get("Compliance Status", ""),
-                "freigegebenVon": df.get("Freigegeben von", ""),
-            })
-
-    return {
-        "client": {
-            "id": client_id,
-            "company": fields.get("Client Name", ""),
-            "name": fields.get("Ansprechpartner", ""),
-            "status": fields.get("Status", "qualifying"),
-            "branche": fields.get("Branche", ""),
-            "executionId": fields.get("Execution ID", ""),
-        },
-        "deliverables": deliverables,
-    }
-
-
-@app.post("/api/v3/clients")
-async def v3_create_client(body: dict):
-    """Neuen Client anlegen → Airtable + Automation starten."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    company = body.get("company", "")
-
-    # 1. Client in Airtable anlegen
-    client_record_id = ""
-    if v3_base and AIRTABLE_API_KEY:
-        try:
-            async with httpx.AsyncClient(timeout=15) as client_http:
-                resp = await client_http.post(
-                    f"https://api.airtable.com/v0/{v3_base}/CLIENTS",
-                    headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                    json={"records": [{"fields": {
-                        "Client Name": company,
-                        "Ansprechpartner": body.get("contact", body.get("name", "")),
-                        "Email": body.get("email", ""),
-                        "Telefon": body.get("phone", ""),
-                        "Branche": body.get("branche", ""),
-                        "Account Manager": body.get("accountManager", "Claudio"),
-                        "Status": "onboarding",
-                        "Service Typ": body.get("serviceTyp", "Recruiting"),
-                    }}]},
-                )
-                records = resp.json().get("records", [])
-                if records:
-                    client_record_id = records[0]["id"]
-        except Exception as e:
-            log.warning(f"Airtable client creation failed: {e}")
-
-    # 2. V3 Automation starten
-    exec_result = await v3_start_execution(body)
-
-    # 3. Execution ID in Airtable speichern
-    if client_record_id and exec_result.get("execution_id"):
-        try:
-            async with httpx.AsyncClient(timeout=10) as client_http:
-                await client_http.patch(
-                    f"https://api.airtable.com/v0/{v3_base}/CLIENTS/{client_record_id}",
-                    headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                    json={"fields": {"Execution ID": exec_result["execution_id"]}},
-                )
-        except Exception:
-            pass
-
-    return {
-        "client_id": client_record_id,
-        "execution_id": exec_result.get("execution_id", ""),
-        "status": "created",
-    }
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/regenerate")
-async def v3_regenerate_deliverable(deliv_id: str, body: dict):
-    """Deliverable neu generieren mit Feedback. KI bekommt alten Text + Kommentar."""
-    feedback = body.get("feedback", "")
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-
-    # 1. Altes Deliverable aus Airtable laden
-    old_content = ""
-    doc_subtype = ""
-    client_name = ""
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            fields = resp.json().get("fields", {})
-            old_content = fields.get("Dokument-Name", "")  # Would need content from Google Doc
-            doc_subtype = fields.get("Dokument-Typ", "")
-            version = fields.get("Version", 1)
-    except Exception:
-        raise HTTPException(404, "Deliverable nicht gefunden")
-
-    # 2. KI generiert neue Version mit Feedback
-    prompt = f"""Du hast zuvor folgendes Dokument erstellt, aber es wurde abgelehnt.
-
-FEEDBACK DES REVIEWERS:
-{feedback}
-
-VORHERIGE VERSION:
-{old_content[:3000]}
-
-Bitte erstelle eine VERBESSERTE Version die das Feedback berücksichtigt.
-Behalte die gleiche Struktur, aber verbessere die kritisierten Punkte.
-"""
-
-    try:
-        new_content = await gemini_generate(prompt, max_tokens=6000)
-    except Exception as e:
-        return {"error": str(e)}
-
-    # 3. Neue Version in Airtable speichern
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": {
-                    "Status": "generated",
-                    "Version": version + 1,
-                }},
-            )
-    except Exception:
-        pass
-
-    # 4. Feedback in Airtable Feedback-Tabelle speichern (für Lernschleife)
-    # TODO: Feedback-Tabelle erstellen wenn nötig
-
-    return {
-        "regenerated": True,
-        "version": version + 1,
-        "content_length": len(new_content),
-        "subtype": doc_subtype,
-    }
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/approve")
-async def v3_approve_deliverable(deliv_id: str, body: dict = {}):
-    """Deliverable freigeben (by Deliverable ID, nicht Node ID)."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    reviewer = body.get("reviewer", "Claudio")
-    comment = body.get("comment", "")
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": {
-                    "Status": "approved",
-                    "Freigegeben von": reviewer,
-                }},
-            )
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"approved": True, "deliverable_id": deliv_id, "reviewer": reviewer}
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/reject")
-async def v3_reject_deliverable(deliv_id: str, body: dict):
-    """Deliverable ablehnen mit Kommentar."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    comment = body.get("comment", "")
-    reviewer = body.get("reviewer", "Claudio")
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": {
-                    "Status": "rejected",
-                    "Compliance Issues": f"Abgelehnt von {reviewer}: {comment}",
-                }},
-            )
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"rejected": True, "deliverable_id": deliv_id, "comment": comment}
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/review")
-async def v3_submit_for_review(deliv_id: str):
-    """Deliverable zur Prüfung einreichen."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": {"Status": "in_review"}},
-            )
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"submitted": True, "deliverable_id": deliv_id}
-
-
-@app.patch("/api/v3/deliverables/{deliv_id}")
-async def v3_update_deliverable(deliv_id: str, body: dict):
-    """Deliverable Content/Status updaten."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    updates = {}
-    if "content" in body:
-        updates["Dokument-Name"] = body["content"][:100]  # Summary
-    if "status" in body:
-        updates["Status"] = body["status"]
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": updates},
-            )
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"updated": True, "deliverable_id": deliv_id}
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/cascade-check")
-async def v3_cascade_check(deliv_id: str):
-    """Prüfe welche Deliverables betroffen sind wenn dieses Doc geändert wird."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-
-    # Get subtype of changed deliverable
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            subtype = resp.json().get("fields", {}).get("Dokument-Typ", "")
-    except Exception:
-        return {"affected": []}
-
-    affected = get_affected_deliverables(subtype)
-    return {
-        "changed": subtype,
-        "affected": affected,
-        "count": len(affected),
-        "message": f"{len(affected)} Deliverables sind von dieser Änderung betroffen" if affected else "Keine Abhängigkeiten",
-    }
-
-
-@app.post("/api/v3/deliverables/{deliv_id}/mark-outdated")
-async def v3_mark_outdated(deliv_id: str):
-    """Markiere ein Deliverable als veraltet (weil eine Abhängigkeit sich geändert hat)."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-
-    try:
-        async with httpx.AsyncClient(timeout=10) as client_http:
-            await client_http.patch(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{deliv_id}",
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                json={"fields": {"Status": "needs_revision"}},
-            )
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"marked_outdated": True}
-
-
-@app.post("/api/v3/clients/{client_id}/phases/{phase}/approve-all")
-async def v3_approve_all_phase(client_id: str, phase: str, body: dict = {}):
-    """Batch: Alle Deliverables einer Phase freigeben."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    reviewer = body.get("reviewer", "Claudio")
-
-    # Get all deliverables for this client in this phase
-    phase_subtypes = {
-        "strategy": ["zielgruppen_avatar", "arbeitgeber_avatar", "messaging_matrix", "creative_briefing", "marken_richtlinien"],
-        "copy": ["lp_text", "form_text", "danke_text", "anzeigen_haupt", "anzeigen_retargeting", "anzeigen_warmup", "videoskript"],
-        "funnel": ["landing_page", "formular_page", "danke_page"],
-        "campaigns": ["initial_campaign", "retargeting_campaign", "warmup_campaign"],
-    }.get(phase, [])
-
-    approved_count = 0
-    try:
-        async with httpx.AsyncClient(timeout=15) as client_http:
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE",
-                params={"filterByFormula": f"FIND('{client_id}', ARRAYJOIN({{Client}}))"},
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            for record in resp.json().get("records", []):
-                fields = record.get("fields", {})
-                if fields.get("Dokument-Typ") in phase_subtypes and fields.get("Status") in ("generated", "draft", "in_review"):
-                    await client_http.patch(
-                        f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{record['id']}",
-                        headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                        json={"fields": {"Status": "approved", "Freigegeben von": reviewer}},
-                    )
-                    approved_count += 1
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"approved": approved_count, "phase": phase}
-
-
-@app.post("/api/v3/clients/{client_id}/phases/{phase}/reset")
-async def v3_reset_phase(client_id: str, phase: str):
-    """Phase zurücksetzen — alle Deliverables auf Draft."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-    phase_subtypes = {
-        "strategy": ["zielgruppen_avatar", "arbeitgeber_avatar", "messaging_matrix", "creative_briefing", "marken_richtlinien"],
-        "copy": ["lp_text", "form_text", "danke_text", "anzeigen_haupt", "anzeigen_retargeting", "anzeigen_warmup", "videoskript"],
-        "funnel": ["landing_page", "formular_page", "danke_page"],
-        "campaigns": ["initial_campaign", "retargeting_campaign", "warmup_campaign"],
-    }.get(phase, [])
-
-    reset_count = 0
-    try:
-        async with httpx.AsyncClient(timeout=15) as client_http:
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE",
-                params={"filterByFormula": f"FIND('{client_id}', ARRAYJOIN({{Client}}))"},
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            for record in resp.json().get("records", []):
-                fields = record.get("fields", {})
-                if fields.get("Dokument-Typ") in phase_subtypes:
-                    await client_http.patch(
-                        f"https://api.airtable.com/v0/{v3_base}/DOKUMENTE/{record['id']}",
-                        headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}", "Content-Type": "application/json"},
-                        json={"fields": {"Status": "draft", "Version": (fields.get("Version", 1) or 1)}},
-                    )
-                    reset_count += 1
-    except Exception as e:
-        raise HTTPException(500, str(e))
-
-    return {"reset": reset_count, "phase": phase}
-
-
-@app.get("/api/v3/clients/{client_id}/performance")
-async def v3_get_performance(client_id: str):
-    """Performance-Daten aus Airtable Performance-Tabelle."""
-    v3_base = os.environ.get("AIRTABLE_V3_BASE_ID", AIRTABLE_BASE_ID)
-
-    try:
-        async with httpx.AsyncClient(timeout=15) as client_http:
-            resp = await client_http.get(
-                f"https://api.airtable.com/v0/{v3_base}/Performance",
-                params={"sort[0][field]": "Datum", "sort[0][direction]": "desc", "maxRecords": 30},
-                headers={"Authorization": f"Bearer {AIRTABLE_API_KEY}"},
-            )
-            records = []
-            for r in resp.json().get("records", []):
-                f = r.get("fields", {})
-                records.append({
-                    "datum": f.get("Datum", ""),
-                    "kampagne": f.get("Kampagnen-Name", ""),
-                    "impressions": f.get("Impressions", 0),
-                    "klicks": f.get("Klicks", 0),
-                    "leads": f.get("Leads", 0),
-                    "cpl": f.get("CPL", 0),
-                    "ausgaben": f.get("Ausgaben", 0),
-                    "reichweite": f.get("Reichweite", 0),
-                    "frequenz": f.get("Frequenz", 0),
-                })
-    except Exception as e:
-        return {"records": [], "error": str(e)}
-
-    return {"records": records}
-
-
-# ── V3 Webhook Endpoints ─────────────────────────────────────
-
-@app.post("/api/webhooks/slack")
-async def v3_slack_webhook(body: dict):
-    """Handle Slack Interactive Messages (approval button clicks)."""
-    payload = body.get("payload")
-    if payload and isinstance(payload, str):
-        payload = json.loads(payload)
-
-    if not payload:
-        return {"ok": True}
-
-    actions = payload.get("actions", [])
-    for action in actions:
-        action_id = action.get("action_id", "")
-        user = payload.get("user", {}).get("name", "unknown")
-        if action_id.startswith("approve_"):
-            node_id = action_id.replace("approve_", "")
-            await resolve_approval(node_id, "approve", user)
-        elif action_id.startswith("reject_"):
-            node_id = action_id.replace("reject_", "")
-            await resolve_approval(node_id, "reject", user, comment="Abgelehnt via Slack")
-        elif action_id.startswith("changes_"):
-            node_id = action_id.replace("changes_", "")
-            await resolve_approval(node_id, "changes_requested", user, comment="Änderungen nötig (via Slack)")
-
-    return {"ok": True}
-
-
-@app.post("/api/webhooks/close")
-async def v3_close_webhook(body: dict):
-    """Handle Close CRM webhooks (stage changes)."""
-    event = body.get("event", {})
-    event_type = event.get("action", "")
-    if event_type == "updated" and event.get("object_type") == "opportunity":
-        opp = event.get("data", {})
-        new_status = opp.get("status_label", "")
-        lead_id = opp.get("lead_id", "")
-        log.info(f"Close webhook: Opportunity {opp.get('id')} → {new_status}")
-        return {"received": True, "status": new_status}
-    return {"received": True}
-
-
-@app.post("/api/webhooks/meta")
-async def v3_meta_webhook(body: dict):
-    """Handle Meta Ads webhooks (ad review status)."""
-    entries = body.get("entry", [])
-    for entry in entries:
-        changes = entry.get("changes", [])
-        for change in changes:
-            if change.get("field") == "ad_review_status":
-                ad_id = change.get("value", {}).get("ad_id", "")
-                status = change.get("value", {}).get("review_status", "")
-                if status == "REJECTED":
-                    await _v3_alert(f"Meta Ad {ad_id} ABGELEHNT — Bitte prüfen", "critical")
-                log.info(f"Meta webhook: Ad {ad_id} review → {status}")
-    return {"received": True}
-
-
-@app.post("/api/webhooks/clickup")
-async def v3_clickup_webhook(body: dict):
-    """Handle ClickUp webhooks (task completion)."""
-    event = body.get("event", "")
-    task_id = body.get("task_id", "")
-    if event == "taskStatusUpdated":
-        status = body.get("history_items", [{}])[0].get("after", {}).get("status", "")
-        if status.lower() in ("complete", "closed", "done"):
-            log.info(f"ClickUp webhook: Task {task_id} completed")
-            # Check if this resolves a nudge
-            for nudge in get_open_nudges():
-                if nudge.get("clickup_task_id") == task_id:
-                    resolve_nudge(nudge["id"])
-    return {"received": True}
-
-
-# ── V3 Nudge Endpoints ───────────────────────────────────────
-
-@app.get("/api/v3/nudges")
-async def v3_get_nudges():
-    """Get all open nudges."""
-    return get_open_nudges()
-
-
-@app.post("/api/v3/nudges/{nudge_id}/resolve")
-async def v3_resolve_nudge(nudge_id: str):
-    """Resolve a nudge."""
-    return {"resolved": resolve_nudge(nudge_id)}
-
-
-# ── V3 UTM Helper ────────────────────────────────────────────
-
-def build_utm_params(campaign_name: str, ad_name: str = "", adset_name: str = "") -> str:
-    """Build UTM parameter string for Meta Ads URL Parameters field."""
-    return (
-        f"utm_source=meta"
-        f"&utm_medium=paid"
-        f"&utm_campaign={campaign_name.replace(' ', '+')}"
-        f"&utm_content={ad_name.replace(' ', '+')}"
-        f"&utm_term={adset_name.replace(' ', '+')}"
-    )
-
-
-# ── V3 Slack Block Kit Buttons ────────────────────────────────
-
-def build_approval_blocks(client_name: str, gate_label: str, deliverables: list, node_id: str, deadline: str) -> list:
-    """Build Slack Block Kit message with interactive approval buttons."""
-    deliverable_text = "\n".join(f"• {d}" for d in deliverables) if isinstance(deliverables, list) else str(deliverables)
-
-    return [
-        {"type": "header", "text": {"type": "plain_text", "text": f"📋 Review — {client_name}"}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"*{gate_label}*\n\n{deliverable_text}"}},
-        {"type": "section", "text": {"type": "mrkdwn", "text": f"Deadline: {deadline}"}},
-        {"type": "actions", "elements": [
-            {"type": "button", "text": {"type": "plain_text", "text": "✅ Freigeben"}, "style": "primary", "action_id": f"approve_{node_id}"},
-            {"type": "button", "text": {"type": "plain_text", "text": "❌ Ablehnen"}, "style": "danger", "action_id": f"reject_{node_id}"},
-            {"type": "button", "text": {"type": "plain_text", "text": "🔄 Änderungen"}, "action_id": f"changes_{node_id}"},
-        ]},
-    ]
-
-
-async def send_approval_slack_blocks(client_name: str, gate_label: str, deliverables: list, node_id: str, deadline: str):
-    """Send approval request with real clickable Slack buttons."""
-    if not SLACK_BOT_TOKEN:
-        return
-    blocks = build_approval_blocks(client_name, gate_label, deliverables, node_id, deadline)
-    try:
-        import ssl, certifi
-        ctx = ssl.create_default_context(cafile=certifi.where())
-        data = json.dumps({
-            "channel": "#ff-approvals",
-            "text": f"Review: {client_name} — {gate_label}",
-            "blocks": blocks,
-        }).encode()
-        req = urllib.request.Request(
-            "https://slack.com/api/chat.postMessage",
-            data=data,
-            headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}", "Content-Type": "application/json"},
-        )
-        import urllib.request as ur
-        ur.urlopen(req, timeout=10, context=ctx)
-    except Exception as e:
-        log.warning(f"Slack Block Kit send failed: {e}")
-
-
-    # (Brand check handler defined above V3_NODE_HANDLERS)
-
-
-# ── APScheduler Cron Jobs ─────────────────────────────────────
-
-try:
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    _scheduler = AsyncIOScheduler()
-
-    # Hourly: Check approval escalations
-    _scheduler.add_job(check_escalations, "cron", minute=0, id="v3_escalations",
-        kwargs={"slack_alert_func": lambda msg: _v3_alert(msg)})
-
-    # Every 4 hours: Check nudges (client asset reminders)
-    _scheduler.add_job(check_nudges, "interval", hours=4, id="v3_nudges",
-        kwargs={"slack_token": SLACK_BOT_TOKEN or "", "clickup_token": CLICKUP_TOKEN or ""})
-
-    # Every 5 min: Health check
-    async def _cron_health():
-        tokens = {"CLOSE_API_KEY_V2": CLOSE_API_KEY_V2, "SLACK_BOT_TOKEN": SLACK_BOT_TOKEN,
-                  "CLICKUP_API_TOKEN": CLICKUP_TOKEN, "META_ACCESS_TOKEN": META_ACCESS_TOKEN,
-                  "AIRTABLE_API": AIRTABLE_API_KEY, "OPENROUTER_API_KEY": "", "NOTION_API_KEY_CLAUDIO": NOTION_API_KEY}
-        result = await health_check(tokens)
-        if not result.get("healthy"):
-            failed = [s for s, info in result.get("services", {}).items() if info.get("status") != "ok"]
-            await _v3_alert(f"Health Check: {', '.join(failed)} nicht erreichbar", "warning")
-    _scheduler.add_job(_cron_health, "interval", minutes=5, id="v3_health")
-
-    # Every 25 min: Token refresh
-    async def _cron_token_refresh():
-        _refresh_google_token_v3()
-    _scheduler.add_job(_cron_token_refresh, "interval", minutes=25, id="v3_token_refresh")
-
-    # Daily 09:00: Daily digest
-    async def _cron_daily_digest():
-        from monitoring import daily_digest
-        # Simplified: would need client getter functions in production
-        log.info("Daily digest cron triggered")
-    _scheduler.add_job(_cron_daily_digest, "cron", hour=9, minute=0, id="v3_daily_digest")
-
-    # Friday 16:00: Weekly report
-    async def _cron_weekly_report():
-        log.info("Weekly report cron triggered")
-    _scheduler.add_job(_cron_weekly_report, "cron", day_of_week="fri", hour=16, id="v3_weekly_report")
-
-    # 1st of month 10:00: Monthly report
-    async def _cron_monthly_report():
-        log.info("Monthly report cron triggered")
-    _scheduler.add_job(_cron_monthly_report, "cron", day=1, hour=10, id="v3_monthly_report")
-
-    # Daily 06:00: Meta performance sync to Airtable
-    async def _cron_meta_sync():
-        log.info("Meta performance sync cron triggered")
-    _scheduler.add_job(_cron_meta_sync, "cron", hour=6, id="v3_meta_sync")
-
-    # Daily 10:00: Ghost detection
-    async def _cron_ghost():
-        from monitoring import ghost_detection
-        log.info("Ghost detection cron triggered")
-    _scheduler.add_job(_cron_ghost, "cron", hour=10, id="v3_ghost")
-
-    # Every 6h: CPL alert
-    async def _cron_cpl():
-        log.info("CPL alert cron triggered")
-    _scheduler.add_job(_cron_cpl, "interval", hours=6, id="v3_cpl_alert")
-
-    # Monday 08:00: Ad fatigue check
-    async def _cron_fatigue():
-        log.info("Ad fatigue cron triggered")
-    _scheduler.add_job(_cron_fatigue, "cron", day_of_week="mon", hour=8, id="v3_ad_fatigue")
-
-    # Daily 22:00: DLQ digest
-    async def _cron_dlq():
-        from resilience import DeadLetterQueue
-        unresolved = DeadLetterQueue.get_unresolved()
-        if unresolved:
-            await _v3_alert(f"DLQ: {len(unresolved)} ungelöste Fehler — bitte prüfen", "warning")
-    _scheduler.add_job(_cron_dlq, "cron", hour=22, id="v3_dlq_digest")
-
-    # Daily 07:00: Airtable/Close sync check
-    async def _cron_sync_check():
-        log.info("Airtable/Close sync check cron triggered")
-    _scheduler.add_job(_cron_sync_check, "cron", hour=7, id="v3_sync_check")
-
-    # Weekly Monday 09:00: Meta token expiry check
-    async def _cron_meta_token():
-        log.info("Meta token expiry check cron triggered")
-    _scheduler.add_job(_cron_meta_token, "cron", day_of_week="mon", hour=9, id="v3_meta_token")
-
-    @app.on_event("startup")
-    async def _start_v3_scheduler():
-        _scheduler.start()
-        log.info(f"V3 APScheduler started — {len(_scheduler.get_jobs())} jobs registered")
-
-except ImportError:
-    log.warning("APScheduler not installed — V3 cron jobs disabled")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ const FRAMEWORKS: Record<string, ContentFramework> = {
   'pas': {
     name: 'PAS',
     description: 'Problem → Agitate → Solution',
-    structure: ['PROBLEM: Kernproblem benennen', 'AGITATE: Schmerz verstaerken', 'SOLUTION: Loesung praesentieren'],
+    structure: ['PROBLEM: Kernproblem benennen', 'AGITATE: Schmerz verstärken', 'SOLUTION: Loesung praesentieren'],
   },
   'storytelling': {
     name: 'Storytelling (Heldenreise)',
@@ -39,7 +39,7 @@ const FRAMEWORKS: Record<string, ContentFramework> = {
 
 const PLATFORMS: Record<string, PlatformSpec> = {
   instagram: { name: 'Instagram Reel', max_length: '60-90 Sekunden / 2200 Zeichen Caption', format: 'Vertikal 9:16', style: 'Schnelle Schnitte, Text-Overlays' },
-  youtube: { name: 'YouTube', max_length: '8-15 Minuten', format: 'Horizontal 16:9', style: 'Ausfuehrlich, Kapitel, B-Roll' },
+  youtube: { name: 'YouTube', max_length: '8-15 Minuten', format: 'Horizontal 16:9', style: 'Ausführlich, Kapitel, B-Roll' },
   youtube_short: { name: 'YouTube Short', max_length: '30-60 Sekunden', format: 'Vertikal 9:16', style: 'Schnell, Hook in 1s' },
   linkedin: { name: 'LinkedIn', max_length: '3000 Zeichen', format: 'Text + optional Bild', style: 'Professionell, Storytelling' },
   tiktok: { name: 'TikTok', max_length: '15-60 Sekunden', format: 'Vertikal 9:16', style: 'Trend-basiert, schnell, authentisch' },
@@ -128,7 +128,7 @@ export const useContentResearchStore = create<ContentResearchStore>((set, get) =
       const taskLabels: Record<string, string> = {
         analyze: 'Analysiere die folgenden Inhalte und identifiziere Trends, Muster und Key Takeaways',
         topics: 'Schlage 10 Content-Themen vor basierend auf diesen Recherche-Ergebnissen',
-        frameworks: 'Empfehle die besten Content-Frameworks fuer diese Themen und erklaere warum',
+        frameworks: 'Empfehle die besten Content-Frameworks für diese Themen und erklaere warum',
         script: 'Schreibe ein detailliertes Video-Skript basierend auf diesen Recherche-Ergebnissen',
       }
 
@@ -150,7 +150,7 @@ export const useContentResearchStore = create<ContentResearchStore>((set, get) =
       const fw = FRAMEWORKS[framework]
       const pl = PLATFORMS[platform]
       const toneLabels: Record<string, string> = {
-        professional: 'professionell und vertrauenswuerdig',
+        professional: 'professionell und vertrauenswürdig',
         casual: 'locker und nahbar',
         bold: 'mutig, provokant und polarisierend',
         educational: 'lehrreich und wertvoll',

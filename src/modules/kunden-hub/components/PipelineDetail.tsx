@@ -36,13 +36,13 @@ const PHASE_DURATION_DAYS: Record<string, number> = {
 
 // Node-ID to human-readable label mapping
 const NODE_LABELS: Record<string, string> = {
-  'v3-is02a': 'Close Lead pruefen',
+  'v3-is02a': 'Close Lead prüfen',
   'v3-is02': 'Close Lead erstellen',
   'v3-is02-reuse': 'Close Lead wiederverwenden',
   'v3-is03': 'Slack Channel',
   'v3-is04': 'ClickUp Liste',
   'v3-is05': 'Google Meet Link',
-  'v3-is06a': 'Drive Ordner pruefen',
+  'v3-is06a': 'Drive Ordner prüfen',
   'v3-is06': 'Drive Ordner erstellen',
   'v3-is07': 'E-Mail Signatur',
   'v3-is08': 'Willkommens-E-Mail',
@@ -79,7 +79,7 @@ const NODE_LABELS: Record<string, string> = {
   'v3-fn01': 'Landingpage erstellen',
   'v3-fn05a': 'Formularseite erstellen',
   'v3-fn10a': 'Dankeseite erstellen',
-  'v3-fn10b': 'Dankeseite veroeffentlichen',
+  'v3-fn10b': 'Dankeseite veröffentlichen',
   'v3-fn-pixel': 'Pixel Integration',
   'v3-fn-screenshots': 'Funnel Screenshots',
   'v3-fn-approval': 'Funnel Freigabe',
@@ -90,7 +90,7 @@ const NODE_LABELS: Record<string, string> = {
   'v3-ca04': 'Creatives hochladen',
   'v3-ca05': 'Audiences konfigurieren',
   'v3-ca06': 'Budgets setzen',
-  'v3-ca07': 'Tracking pruefen',
+  'v3-ca07': 'Tracking prüfen',
   'v3-ca08': 'Kampagnen Review',
   'v3-ca09': 'Kampagnen aktivieren',
   'v3-ca-approval': 'Kampagnen Freigabe',

@@ -73,7 +73,6 @@ export default function Home() {
   const loadClients = useFulfillmentStore((s) => s.loadClients);
   const acknowledgeAlert = useFulfillmentStore((s) => s.acknowledgeAlert);
   const approveDeliverable = useFulfillmentStore((s) => s.approveDeliverable);
-  const isUsingMockData = useFulfillmentStore((s) => s.isUsingMockData);
 
   const [sortKey, setSortKey] = useState<SortKey>("company");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -98,16 +97,20 @@ export default function Home() {
     return liveClients.reduce((sum, c) => sum + (c.kpis?.leads ?? 0), 0);
   }, [liveClients]);
 
-  const avgCpl = useMemo(() => {
-    if (liveClients.length === 0) return 0;
-    return (
-      liveClients.reduce((sum, c) => sum + (c.kpis?.cpl ?? 0), 0) / liveClients.length
-    );
+  const totalSpend = useMemo(() => {
+    return liveClients.reduce((sum, c) => sum + (c.kpis?.spend ?? 0), 0);
   }, [liveClients]);
 
+  // Weighted CPL: totalSpend / totalLeads (not average of averages)
+  const avgCpl = useMemo(() => {
+    if (totalLeads === 0) return 0;
+    return totalSpend / totalLeads;
+  }, [totalSpend, totalLeads]);
+
+  // MRR only from active clients (not churned/paused)
   const mrr = useMemo(() => {
-    return clients.reduce((sum, c) => sum + (c.monatspreis ?? 0), 0);
-  }, [clients]);
+    return activeClients.reduce((sum, c) => sum + (c.monatspreis ?? 0), 0);
+  }, [activeClients]);
 
   const pendingApprovals = useMemo(
     () => approvals.filter((a) => a.status === "pending"),
@@ -167,12 +170,6 @@ export default function Home() {
     return arr;
   }, [clients, sortKey, sortDir]);
 
-  // Pending approvals count for 5th KPI card
-  const pendingApprovalsCount = useMemo(
-    () => approvals.filter((a) => a.status === "pending").length,
-    [approvals]
-  );
-
   const headerClass =
     "py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400";
 
@@ -201,18 +198,6 @@ export default function Home() {
       <PageBreadcrumb pageTitle={t("breadcrumb.overview")} />
       <div className="space-y-6">
 
-        {/* Mock-Data Banner */}
-        {isUsingMockData && (
-          <div className="flex items-center gap-3 rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 dark:border-warning-800 dark:bg-warning-900/20">
-            <svg className="h-5 w-5 shrink-0 text-warning-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-            </svg>
-            <p className="text-sm font-medium text-warning-700 dark:text-warning-300">
-              {t("dashboard.mockDataBanner")}
-            </p>
-          </div>
-        )}
-
         {/* ===== TOP: KPI Cards (5er Grid) ===== */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 md:gap-6">
           {/* 1. Aktive Kunden */}
@@ -229,6 +214,9 @@ export default function Home() {
                   {activeClients.length}
                 </h4>
               </div>
+              {liveClients.length > 0 && (
+                <span className="text-xs text-success-500 font-medium">{liveClients.length} live</span>
+              )}
             </div>
           </div>
 
@@ -243,13 +231,13 @@ export default function Home() {
                   {t("dashboard.totalLeads")}
                 </span>
                 <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                  {totalLeads}
+                  {liveClients.length > 0 ? totalLeads : "\u2014"}
                 </h4>
               </div>
             </div>
           </div>
 
-          {/* 3. Avg CPL */}
+          {/* 3. Ø CPL (gewichtet) */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
             <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
               <DollarLineIcon className="text-gray-800 size-6 dark:text-white/90" />
@@ -268,7 +256,28 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 4. MRR */}
+          {/* 4. Gesamtspend */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+            <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
+              <svg className="text-gray-800 size-6 dark:text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z" />
+              </svg>
+            </div>
+            <div className="flex items-end justify-between mt-5">
+              <div>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {t("dashboard.totalSpend")}
+                </span>
+                <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
+                  {totalSpend > 0
+                    ? `\u20AC${totalSpend.toLocaleString("de-DE", { minimumFractionDigits: 0 })}`
+                    : "\u2014"}
+                </h4>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. MRR */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
             <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
               <CheckCircleIcon className="text-gray-800 size-6 dark:text-white/90" />
@@ -282,30 +291,6 @@ export default function Home() {
                   {`\u20AC${mrr.toLocaleString("de-DE", { minimumFractionDigits: 0 })}`}
                 </h4>
               </div>
-            </div>
-          </div>
-
-          {/* 5. Offene Freigaben */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <div className="flex items-center justify-center w-12 h-12 bg-gray-100 rounded-xl dark:bg-gray-800">
-              <svg className="text-gray-800 size-6 dark:text-white/90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="flex items-end justify-between mt-5">
-              <div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {t("dashboard.pendingApprovals")}
-                </span>
-                <h4 className="mt-2 font-bold text-gray-800 text-title-sm dark:text-white/90">
-                  {pendingApprovalsCount}
-                </h4>
-              </div>
-              {pendingApprovalsCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-600 dark:bg-warning-500/10 dark:text-warning-400">
-                  {t("dashboard.needsAction")}
-                </span>
-              )}
             </div>
           </div>
         </div>

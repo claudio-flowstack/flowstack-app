@@ -34,14 +34,14 @@ def _load_extraction_schema() -> dict:
     # Hardcoded fallback — die 10 Kategorien mit ihren Feldern
     EXTRACTION_SCHEMA = {
         "demografie": {"alter": "", "geschlecht": "", "standort": "", "bildung": "", "familienstand": "", "einkommen": "", "berufserfahrung": "", "suchverhalten": ""},
-        "beruflich": {"aktuelle_rolle": "", "gesuchte_rolle": "", "stack_aktuell": "", "stack_gewuenscht": "", "senioritaet": "", "arbeitgeber_typ": "", "gehalt_aktuell": "", "gehalt_gewuenscht": ""},
+        "beruflich": {"aktuelle_rolle": "", "gesuchte_rolle": "", "stack_aktuell": "", "stack_gewünscht": "", "seniorität": "", "arbeitgeber_typ": "", "gehalt_aktuell": "", "gehalt_gewünscht": ""},
         "schmerzpunkte": {"primaer": "", "primaer_zitat": "", "primaer_tiefe": "", "sekundaer_1": "", "sekundaer_1_zitat": "", "sekundaer_1_tiefe": "", "sekundaer_2": "", "sekundaer_2_zitat": "", "sekundaer_2_tiefe": "", "sekundaer_3": "", "sekundaer_3_zitat": "", "sekundaer_3_tiefe": ""},
-        "psychologie": {"primaere_emotion": "", "gewuenschte_emotion": "", "groesste_angst": "", "groesster_wunsch": "", "innerer_konflikt": "", "selbstbild": "", "fremdbild": "", "trigger_events": "", "gedanken_nachts": "", "tagtraeume": ""},
-        "benefits": {"top_1": "", "top_2": "", "top_3": "", "hygiene": "", "differenzierung": "", "dealbreaker": "", "geheime_wuensche": "", "idealer_tag": ""},
-        "sprache": {"duktus": "", "fachwoerter": "", "verbotene_woerter": "", "redewendungen": "", "kommunikationsstil": "", "humor_typ": "", "informationsquellen": "", "communities": "", "vorbilder": "", "entscheidungssprache": ""},
-        "einwaende": {"einwand_1": "", "entkraeftung_1": "", "einwand_2": "", "entkraeftung_2": "", "einwand_3": "", "entkraeftung_3": ""},
+        "psychologie": {"primaere_emotion": "", "gewünschte_emotion": "", "größte_angst": "", "größter_wunsch": "", "innerer_konflikt": "", "selbstbild": "", "fremdbild": "", "trigger_events": "", "gedanken_nachts": "", "tagträume": ""},
+        "benefits": {"top_1": "", "top_2": "", "top_3": "", "hygiene": "", "differenzierung": "", "dealbreaker": "", "geheime_wünsche": "", "idealer_tag": ""},
+        "sprache": {"duktus": "", "fachwörter": "", "verbotene_wörter": "", "redewendungen": "", "kommunikationsstil": "", "humor_typ": "", "informationsquellen": "", "communities": "", "vorbilder": "", "entscheidungssprache": ""},
+        "einwaende": {"einwand_1": "", "entkräftung_1": "", "einwand_2": "", "entkräftung_2": "", "einwand_3": "", "entkräftung_3": ""},
         "arbeitgeber": {"usp_1": "", "usp_1_beweis": "", "usp_2": "", "usp_2_beweis": "", "usp_3": "", "usp_3_beweis": "", "kernpositionierung": "", "differenzierung": "", "kultur_3_worte": "", "anti_muster": ""},
-        "messaging": {"kernbotschaft": "", "hook_1": "", "hook_2": "", "hook_3": "", "hook_4": "", "hook_5": "", "cta_1": "", "cta_2": "", "cta_3": "", "tonalitaetsprofil": ""},
+        "messaging": {"kernbotschaft": "", "hook_1": "", "hook_2": "", "hook_3": "", "hook_4": "", "hook_5": "", "cta_1": "", "cta_2": "", "cta_3": "", "tonalitätsprofil": ""},
         "markt": {"trend_1": "", "trend_2": "", "arbeitsmarkt": "", "gehaltsbenchmark": "", "wettbewerber": "", "saisonalitaet": ""},
     }
     return EXTRACTION_SCHEMA
@@ -54,7 +54,7 @@ def _load_framework(nr: int) -> str:
             with open(os.path.join(FRAMEWORKS_DIR, fname)) as f:
                 return f.read()
     log.warning(f"Framework {nr:02d} nicht gefunden in {FRAMEWORKS_DIR}")
-    return "Erstelle ein professionelles deutsches Dokument fuer eine Recruiting-Agentur. Verwende klare Struktur mit Ueberschriften, Bullet Points und konkreten Beispielen."
+    return "Erstelle ein professionelles deutsches Dokument für eine Recruiting-Agentur. Verwende klare Struktur mit Ueberschriften, Bullet Points und konkreten Beispielen."
 
 
 async def st_extract(context: dict, state) -> dict:

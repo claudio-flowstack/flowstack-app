@@ -17,7 +17,7 @@ const STYLES = [
   { value: 'modern-light', label: 'Modern Light', desc: 'Helles Theme, professionell' },
   { value: 'gradient', label: 'Gradient', desc: 'Farbverlauefe, dynamisch, modern' },
   { value: 'brutalist', label: 'Brutalist', desc: 'Bold, grosse Typografie, kantig' },
-  { value: 'corporate', label: 'Corporate', desc: 'Business-Look, vertrauenswuerdig' },
+  { value: 'corporate', label: 'Corporate', desc: 'Business-Look, vertrauenswürdig' },
 ]
 
 export function LandingPageGenerator() {
@@ -49,7 +49,7 @@ export function LandingPageGenerator() {
 
       const prompt = `Du bist ein erstklassiger Webdesigner und Frontend-Entwickler.
 
-Erstelle eine vollstaendige, einzelne HTML-Datei fuer folgende Webseite:
+Erstelle eine vollstaendige, einzelne HTML-Datei für folgende Webseite:
 
 Beschreibung: ${description}
 Seitentyp: ${typeInfo?.label} — ${typeInfo?.desc}
@@ -62,7 +62,7 @@ WICHTIGE REGELN:
 4. Professionelle Typografie (Google Fonts einbinden via CDN)
 5. Smooth Scroll, Hover-Effekte, subtile Animationen
 6. Sektionen: Hero, Features/Benefits, Social Proof/Testimonials, CTA, Footer
-7. Formulare muessen visuell funktionieren (kein Backend noetig)
+7. Formulare müssen visuell funktionieren (kein Backend nötig)
 8. Nur die HTML-Datei ausgeben, KEIN erklaerungstext davor oder danach
 9. Der Code muss sofort im Browser lauffaehig sein
 10. Deutsche Texte verwenden die zum Thema passen
@@ -127,7 +127,7 @@ Antworte NUR mit dem HTML-Code, kein Markdown, keine Erklaerung.`
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="z.B. Landing Page fuer eine Social Media Marketing Agentur die Kunden hilft 10x mehr Leads ueber Instagram zu generieren. Hero mit Video, Trust-Logos, 3 Pakete, FAQ, Kontaktformular."
+            placeholder="z.B. Landing Page für eine Social Media Marketing Agentur die Kunden hilft 10x mehr Leads über Instagram zu generieren. Hero mit Video, Trust-Logos, 3 Pakete, FAQ, Kontaktformular."
             rows={3}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30 focus:border-ring transition-colors resize-none"
           />

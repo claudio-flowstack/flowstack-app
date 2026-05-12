@@ -11,11 +11,11 @@ interface Message {
 }
 
 const QUICK_PROMPTS = [
-  'Erstelle 5 Hook-Ideen fuer Instagram Reels zum Thema Agentur-Skalierung',
+  'Erstelle 5 Hook-Ideen für Instagram Reels zum Thema Agentur-Skalierung',
   'Schreibe ein YouTube-Skript (AIDA-Framework) zum Thema Lead-Generierung',
   'Analysiere die Top-Trends im Social Media Marketing 2026',
-  'Erstelle einen LinkedIn-Post ueber KI im Marketing',
-  'Gib mir 10 Content-Ideen fuer eine Marketing-Agentur',
+  'Erstelle einen LinkedIn-Post über KI im Marketing',
+  'Gib mir 10 Content-Ideen für eine Marketing-Agentur',
 ]
 
 const SYSTEM_CONTEXT = `Du bist ein KI-Marketing-Assistent in der Flowstack Platform. Du hilfst bei:

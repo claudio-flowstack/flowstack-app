@@ -16,7 +16,7 @@ class IntegrationError(Exception):
 
 
 def retryable(max_retries: int = 1, delay: float = 2.0):
-    """Decorator fuer Client-Methoden: 1x Retry bei Timeout/5xx/ConnectionError."""
+    """Decorator für Client-Methoden: 1x Retry bei Timeout/5xx/ConnectionError."""
     import asyncio
     import functools
     import logging

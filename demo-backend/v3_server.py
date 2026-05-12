@@ -16,7 +16,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http
 
 
 async def verify_api_key(request: Request):
-    """API-Key Pruefung. Health-Endpoints sind ausgenommen."""
+    """API-Key Prüfung. Health-Endpoints sind ausgenommen."""
     if request.url.path in ("/api/health", "/docs", "/openapi.json"):
         return
     key = request.headers.get("X-API-Key", "")
@@ -32,8 +32,10 @@ from v3.resilience.state import ExecutionState
 # Definierte Reihenfolge aller Nodes über alle Phasen
 AUTO_RUN_ORDER = [
     # Phase 1: Onboarding
-    "v3-is02a", "v3-is02", "v3-is03", "v3-is04", "v3-is05",
-    "v3-is06a", "v3-is06", "v3-is07", "v3-is08", "v3-is09",
+    # is06 (Drive) muss vor is04 (Email) laufen, sonst hat der Upload-Link in der Email keinen Ordner
+    "v3-is02a", "v3-is02", "v3-is03",
+    "v3-is06a", "v3-is06", "v3-is04", "v3-is05",
+    "v3-is07", "v3-is08", "v3-is09",
     "v3-is10", "v3-is11", "v3-is-sheet",
     # Phase 2: Kickoff
     "v3-kc00", "v3-kc02a", "v3-kc02b", "v3-kc03", "v3-kc03a",
@@ -68,9 +70,9 @@ AUTO_RUN_ORDER = [
 DEMO_TRANSCRIPT = (
     "Kickoff-Call mit dem Kunden. "
     "Das Unternehmen ist in der {branche}-Branche taetig und sucht dringend qualifizierte Mitarbeiter. "
-    "Zielgruppe: 25-45 Jahre, maennlich und weiblich, Hochschulabschluss oder vergleichbare Qualifikation, "
-    "2-8 Jahre Berufserfahrung. Standort flexibel, Remote moeglich. "
-    "Aktuelle Herausforderungen: Zu wenig qualifizierte Bewerbungen ueber klassische Kanaele wie Indeed und StepStone, "
+    "Zielgruppe: 25-45 Jahre, männlich und weiblich, Hochschulabschluss oder vergleichbare Qualifikation, "
+    "2-8 Jahre Berufserfahrung. Standort flexibel, Remote möglich. "
+    "Aktuelle Herausforderungen: Zu wenig qualifizierte Bewerbungen über klassische Kanaele wie Indeed und StepStone, "
     "hohe Konkurrenz um Fachkraefte, lange Time-to-Hire von durchschnittlich 3 Monaten. "
     "Staerken als Arbeitgeber: Moderne Arbeitskultur, flexible Arbeitszeiten, Home-Office Policy, "
     "ueberdurchschnittliches Gehalt, Weiterbildungsbudget, flache Hierarchien, Team-Events. "
@@ -78,8 +80,8 @@ DEMO_TRANSCRIPT = (
     "keine Karriereperspektiven, toxische Teamkultur, veraltete Technologie. "
     "Psychologische Trigger: Wunsch nach Anerkennung und Sichtbarkeit, Angst vor Karrierestillstand, "
     "Sehnsucht nach sinnvoller Arbeit und modernem Arbeitsumfeld. "
-    "Budget: {budget} Euro monatlich fuer Meta Ads. "
-    "Gewuenschte Ergebnisse: Mindestens 30 qualifizierte Bewerbungen pro Monat, CPL unter 50 Euro. "
+    "Budget: {budget} Euro monatlich für Meta Ads. "
+    "Gewünschte Ergebnisse: Mindestens 30 qualifizierte Bewerbungen pro Monat, CPL unter 50 Euro. "
     "Die Landingpage soll auf der Unternehmenswebsite laufen. "
     "Wichtig ist authentische Kommunikation mit echten Teamfotos. "
     "Der Kunde hat bereits LinkedIn und Xing probiert, aber ohne messbaren Erfolg. "

@@ -9,8 +9,14 @@
 
 const BACKEND_URL = 'http://localhost:3002'
 
-/** Node IDs die echte Side-Effects haben */
-const SIDE_EFFECT_NODES = new Set([
+/**
+ * Version-getrennte Side-Effect Registries.
+ * Jede Version enthaelt AUSSCHLIESSLICH ihre eigenen Node-IDs.
+ * Prüfung via hasSideEffect() oder getVersionForNode() — nie Sets mischen.
+ */
+
+/** V1: Novacode Recruiting Automation (Baseline, ohne Miro/Airtable) */
+const V1_SIDE_EFFECT_NODES = new Set([
   // Infrastructure Setup
   'is02', // Close: Lead erstellen
   'is03', // Setup: Client-Start (Projekt-Übersicht + Slack Channel)
@@ -21,7 +27,6 @@ const SIDE_EFFECT_NODES = new Set([
   'is08', // ClickUp: Projekt
   'is09', // ClickUp: Tasks
   'is10', // Close: Kickoff Scheduled
-  'is11', // Miro: Kampagnen-Board
   // Kickoff
   'kc05', // Close: Kickoff Completed
   'kc06', // Slack: Call fertig
@@ -30,41 +35,25 @@ const SIDE_EFFECT_NODES = new Set([
   // Copy
   'cc05', // Close: Assets Generated
   // Meta Kampagnen
-  'ca01', // Meta: Custom Audience AllVisitors
-  'ca02', // Meta: Custom Audience LP_NoApplication
-  'ca03', // Meta: Custom Audience Application_NoLead
-  'ca04', // Meta: Initial-Kampagne
-  'ca05', // Meta: Initial Ad Sets
-  'ca06', // Meta: Retargeting-Kampagne
-  'ca07', // Meta: Retargeting Ad Sets
-  'ca08', // Meta: Warmup-Kampagne
-  'ca09', // Meta: Warmup Ad Sets
+  'ca01', 'ca02', 'ca03', 'ca04', 'ca05', 'ca06', 'ca07', 'ca08', 'ca09',
   // Review & Launch
-  'rl06', // Slack: Assets ready
-  'rl07', // Close: Waiting for Approval
-  'rl09', // Close: Ready for Launch
-  'rl11', // Close: Live
-  'rl12', // Slack: Wir sind live
-  'rl13', // Airtable: Performance-Sync (Meta → Airtable)
+  'rl06', 'rl07', 'rl09', 'rl11', 'rl12',
+])
+
+/** V2: AI Content Pipeline (Close V2 + Airtable + OpenRouter) */
+const V2_SIDE_EFFECT_NODES = new Set([
   // V2 Close + Airtable + Extraktion
-  'v2-create-lead',      // Close V2: Lead + Opportunity erstellen
-  'v2-airtable-client', // Airtable: Client-Record erstellen
-  'v2-extract',          // AI: Transkript → 88 Bausteine → Airtable
-  // V2 AI-Generierung
-  'v2-st01', // AI: Zielgruppen-Avatar
-  'v2-st02', // AI: Arbeitgeber-Avatar
-  'v2-st03', // AI: Messaging-Matrix
-  'v2-st04', // AI: Creative Briefing
-  'v2-st05', // AI: Marken-Richtlinien
-  'v2-cc01', // AI: Landingpage-Texte
-  'v2-cc02', // AI: Formularseite-Texte
-  'v2-cc03', // AI: Dankeseite-Texte
-  'v2-cc04', // AI: Anzeigentexte Hauptkampagne
-  'v2-cc05', // AI: Anzeigentexte Retargeting
-  'v2-cc06', // AI: Anzeigentexte Warmup
-  'v2-cc07', // AI: Videoskript
-  'v2-close-strategy', // Close: V2 Strategy fertig
-  'v2-close-copy', // Close: V2 Copy fertig
+  'v2-create-lead', 'v2-airtable-client', 'v2-extract',
+  // V2 AI-Generierung Strategy
+  'v2-st01', 'v2-st02', 'v2-st03', 'v2-st04', 'v2-st05',
+  // V2 AI-Generierung Copy
+  'v2-cc01', 'v2-cc02', 'v2-cc03', 'v2-cc04', 'v2-cc05', 'v2-cc06', 'v2-cc07',
+  // V2 Close Updates
+  'v2-close-strategy', 'v2-close-copy',
+])
+
+/** V3: Resilience, Approval Gates, Monitoring (87 Nodes) */
+const V3_SIDE_EFFECT_NODES = new Set([
   // V3 Infra
   'v3-is02a', 'v3-is02', 'v3-is02-reuse', 'v3-is03', 'v3-is04', 'v3-is05',
   'v3-is06a', 'v3-is06', 'v3-is07', 'v3-is08', 'v3-is09', 'v3-is10', 'v3-is11',
@@ -92,11 +81,33 @@ const SIDE_EFFECT_NODES = new Set([
   'v3-pl08', 'v3-pl09', 'v3-pl12', 'v3-cm08',
 ])
 
+export type WorkflowVersion = 'v1' | 'v2' | 'v3'
+
+/** Welche Version "besitzt" diesen Node? Null wenn kein Side-Effect. */
+export function getVersionForNode(nodeId: string): WorkflowVersion | null {
+  if (V1_SIDE_EFFECT_NODES.has(nodeId)) return 'v1'
+  if (V2_SIDE_EFFECT_NODES.has(nodeId)) return 'v2'
+  if (V3_SIDE_EFFECT_NODES.has(nodeId)) return 'v3'
+  return null
+}
+
 /** Kontext der waehrend der Execution aufgebaut wird (Lead ID, Opp ID, etc.) */
 interface ExecutionContext {
   company: string
   contact: string
   email: string
+  contact_title?: string
+  phone?: string
+  url?: string
+  service_type?: string
+  description?: string
+  address?: {
+    label?: string
+    address_1?: string
+    city?: string
+    zipcode?: string
+    country?: string
+  }
   execution_id?: string
   lead_id?: string
   opportunity_id?: string
@@ -110,18 +121,34 @@ interface ExecutionContext {
   meta_campaigns?: Record<string, string>
   image_hashes?: string[]
   generated_docs?: Record<string, string>
+  client_docs?: Record<string, string>
   airtable_client_id?: string
   bausteine?: Record<string, unknown>
   miro_board_id?: string
   overview_sheet_id?: string
   overview_sheet_url?: string
+  meta_audience_ids?: string[]
 }
 
-let _context: ExecutionContext = {
+const NOVACODE_DEFAULTS: ExecutionContext = {
   company: 'Novacode GmbH',
-  contact: 'Max Mustermann',
+  contact: 'Claudio Di Franco',
   email: 'clazahlungskonto@gmail.com',
+  contact_title: 'Head of People & Talent',
+  phone: '+49 30 5683 4421',
+  url: 'https://novacode.de',
+  service_type: 'Recruiting',
+  description: 'Senior Engineer (m/w/d) — Ledger- und Reconciler-Systeme. Berlin oder voll remote in der EU. 105 bis 180k.',
+  address: {
+    label: 'office',
+    address_1: 'Friedrichstraße 76',
+    city: 'Berlin',
+    zipcode: '10117',
+    country: 'DE',
+  },
 }
+
+let _context: ExecutionContext = { ...NOVACODE_DEFAULTS }
 
 /** Per-Node Ergebnisse der Side-Effects */
 interface NodeResult {
@@ -147,15 +174,11 @@ export function enableSideEffects(enabled: boolean) {
 
 /** Kontext zuruecksetzen (bei neuem Execution-Run) */
 export function resetSideEffectContext() {
-  _context = {
-    company: 'Novacode GmbH',
-    contact: 'Max Mustermann',
-    email: 'clazahlungskonto@gmail.com',
-  }
+  _context = { ...NOVACODE_DEFAULTS }
   _nodeResults.clear()
 }
 
-/** Pruefen ob Backend erreichbar ist */
+/** Prüfen ob Backend erreichbar ist */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
     const resp = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(3000) })
@@ -167,20 +190,21 @@ export async function checkBackendHealth(): Promise<boolean> {
   }
 }
 
-/** Hat dieser Node einen Side-Effect? */
+/** Hat dieser Node einen Side-Effect? (irgendeine Version) */
 export function hasSideEffect(nodeId: string): boolean {
-  return SIDE_EFFECT_NODES.has(nodeId)
+  return getVersionForNode(nodeId) !== null
 }
 
 /**
- * Side-Effect fuer einen Node ausfuehren.
+ * Side-Effect für einen Node ausführen.
  * Wird aufgerufen wenn der Node "running" wird.
  * Gibt das Ergebnis zurueck oder null bei Fehler/deaktiviert.
  */
 export async function executeSideEffect(
   nodeId: string,
 ): Promise<Record<string, unknown> | null> {
-  if (!_enabled || !_backendAvailable || !SIDE_EFFECT_NODES.has(nodeId)) {
+  const version = getVersionForNode(nodeId)
+  if (!_enabled || !_backendAvailable || version === null) {
     return null
   }
 
@@ -190,7 +214,7 @@ export async function executeSideEffect(
 
   try {
     // V3 nodes route to V3 endpoint, V1/V2 to legacy endpoint
-    const endpoint = nodeId.startsWith('v3-')
+    const endpoint = version === 'v3'
       ? `${BACKEND_URL}/api/v3/execute-node`
       : `${BACKEND_URL}/api/execute-node`
 
@@ -198,12 +222,12 @@ export async function executeSideEffect(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
-        nodeId.startsWith('v3-')
+        version === 'v3'
           ? { nodeId, executionId: _context.execution_id ?? '', context: contextSnapshot }
           : requestPayload
       ),
       signal: AbortSignal.timeout(
-        nodeId.startsWith('v2-') || nodeId.startsWith('v3-') ? 120000 : 90000
+        version === 'v1' ? 90000 : 120000
       ),
     })
 
@@ -245,17 +269,21 @@ export async function executeSideEffect(
       if (data.result.meta_campaigns) _context.meta_campaigns = { ..._context.meta_campaigns, ...data.result.meta_campaigns }
       if (data.result.image_hashes) _context.image_hashes = data.result.image_hashes
       if (data.result.generated_docs) _context.generated_docs = { ..._context.generated_docs, ...data.result.generated_docs }
+      if (data.result.client_docs) _context.client_docs = { ..._context.client_docs, ...data.result.client_docs }
       if (data.result.airtable_client_id) _context.airtable_client_id = data.result.airtable_client_id
       if (data.result.bausteine) _context.bausteine = data.result.bausteine as Record<string, unknown>
       if (data.result.miro_board_id) _context.miro_board_id = data.result.miro_board_id
       if (data.result.overview_sheet_id) _context.overview_sheet_id = data.result.overview_sheet_id as string
       if (data.result.overview_sheet_url) _context.overview_sheet_url = data.result.overview_sheet_url as string
+      if (data.result.audience_id && typeof data.result.audience_id === 'string' && !data.result.audience_id.startsWith('skipped_')) {
+        _context.meta_audience_ids = [...(_context.meta_audience_ids ?? []), data.result.audience_id]
+      }
     }
 
     return data.result
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    console.warn(`Side-Effect fuer ${nodeId} fehlgeschlagen:`, err)
+    console.warn(`Side-Effect für ${nodeId} fehlgeschlagen:`, err)
     _nodeResults.set(nodeId, {
       result: null,
       error: errMsg,
@@ -286,8 +314,10 @@ export async function cleanupSideEffects(): Promise<Record<string, unknown> | nu
         event_id: _context.event_id,
         channel_id: _context.channel_id,
         meta_campaign_ids: _context.meta_campaigns ? Object.values(_context.meta_campaigns) : undefined,
+        meta_audience_ids: _context.meta_audience_ids,
         airtable_client_id: _context.airtable_client_id,
         miro_board_id: _context.miro_board_id,
+        overview_sheet_id: _context.overview_sheet_id,
       }),
       signal: AbortSignal.timeout(30000),
     })
@@ -313,5 +343,5 @@ export function getNodeResults(): Map<string, NodeResult> {
 
 /** Ist dieser Node ein Side-Effect Node? */
 export function isSideEffectNode(nodeId: string): boolean {
-  return SIDE_EFFECT_NODES.has(nodeId)
+  return getVersionForNode(nodeId) !== null
 }

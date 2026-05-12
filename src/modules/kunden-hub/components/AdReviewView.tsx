@@ -128,7 +128,7 @@ const AdReviewView: React.FC<AdReviewViewProps> = ({
       })
       .catch((err) => {
         if (cancelled) return;
-        console.warn('[AdReviewView] API-Ads nicht verfuegbar, nutze Store-Daten:', err);
+        console.warn('[AdReviewView] API-Ads nicht verfügbar, nutze Store-Daten:', err);
         // Fall back to store data (already initialized below)
       })
       .finally(() => {

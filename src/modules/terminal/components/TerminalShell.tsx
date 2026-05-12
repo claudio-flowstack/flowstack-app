@@ -170,7 +170,7 @@ export function TerminalShell() {
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(text)
     } else {
-      showToast('Terminal nicht verbunden — Reconnect noetig')
+      showToast('Terminal nicht verbunden — Reconnect nötig')
     }
   }, [showToast])
 
@@ -195,7 +195,7 @@ export function TerminalShell() {
     }
     const ws = wsRef.current[tabId]
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      showToast('Terminal nicht verbunden — Reconnect noetig')
+      showToast('Terminal nicht verbunden — Reconnect nötig')
       return
     }
 
@@ -695,7 +695,7 @@ export function TerminalShell() {
                       }}
                     >
                       <Folder className="w-3.5 h-3.5" />
-                      Diesen Ordner auswaehlen
+                      Diesen Ordner auswählen
                     </button>
                   </div>
                   <div className="py-1">
@@ -720,7 +720,7 @@ export function TerminalShell() {
                               className="text-[9px] text-amber-400/70 hover:text-amber-300 font-medium shrink-0 px-1.5 py-0.5 rounded hover:bg-amber-500/10 transition-colors"
                               onClick={() => ffAttachFile(item.name, item.path, true)}
                             >
-                              Auswaehlen
+                              Auswählen
                             </button>
                           </>
                         ) : (

@@ -182,7 +182,8 @@ interface FulfillmentState {
   pipelineByClient: Record<string, PipelineStatus>;
   clientDeliverables: DeliverableFromAPI[];
   clientTimeline: TimelineEventFromAPI[];
-  clientPerformance: PerformanceData | null;
+  clientPerformance: PerformanceData | null; // deprecated, use performanceByClient
+  performanceByClient: Record<string, PerformanceData>;
 
   // Execution tracking: clientId -> executionId
   executionMap: Record<string, string>;
@@ -262,6 +263,7 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   clientDeliverables: [],
   clientTimeline: [],
   clientPerformance: null,
+  performanceByClient: {},
   executionMap: loadExecutionMap(),
 
   // Dirty edits
@@ -1061,7 +1063,10 @@ export const useFulfillmentStore = create<FulfillmentState>((set, get) => ({
   loadPerformance: async (clientId: string) => {
     try {
       const performance = await api.performance.get(clientId);
-      set({ clientPerformance: performance });
+      set((state) => ({
+        clientPerformance: performance, // legacy compat
+        performanceByClient: { ...state.performanceByClient, [clientId]: performance },
+      }));
     } catch {
       set({ clientPerformance: null });
     }

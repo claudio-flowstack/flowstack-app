@@ -174,7 +174,7 @@ NODE_LABELS = {
     "v3-is04": "Welcome-Email gesendet",
     "v3-is05": "Kickoff-Termin erstellt",
     "v3-is06": "Drive-Ordner erstellt",
-    "v3-is06a": "Drive-Quota geprueft",
+    "v3-is06a": "Drive-Quota geprüft",
     "v3-is07": "Dokument-Vorlagen erstellt",
     "v3-is08": "ClickUp-Projekt erstellt",
     "v3-is09": "ClickUp-Tasks erstellt",
@@ -290,7 +290,7 @@ def _find_execution_for_client(client_id: str) -> ExecutionState | None:
     if state:
         return state
 
-    # 2+3) Ueber list_all nach client_name suchen
+    # 2+3) Über list_all nach client_name suchen
     client_lower = client_id.lower()
     for summary in ExecutionState.list_all():
         name_lower = summary["client_name"].lower()
@@ -318,7 +318,7 @@ def _get_deliverable_status(doc_key: str, nodes: dict, approvals: dict) -> str:
     if not node_id:
         return "pending"
 
-    # Pruefe ob explizit approved/rejected
+    # Prüfe ob explizit approved/rejected
     if doc_key in approvals:
         return approvals[doc_key].get("status", "draft")
 
@@ -326,7 +326,7 @@ def _get_deliverable_status(doc_key: str, nodes: dict, approvals: dict) -> str:
     status = node.get("status", "")
 
     if status == "completed":
-        # Pruefe ob Approval Gate aktiv ist
+        # Prüfe ob Approval Gate aktiv ist
         phase = _get_phase(doc_key)
         gate_map = {"strategy": "v3-st-approval", "copy": "v3-cc-approval"}
         gate_id = gate_map.get(phase)
@@ -357,10 +357,10 @@ def _get_phase(doc_key: str) -> str:
 
 @router.get("/clients/{client_id}/execution")
 async def get_client_execution(client_id: str):
-    """Aktive Execution fuer einen Client finden."""
+    """Aktive Execution für einen Client finden."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     return {
         "execution_id": state.execution_id,
@@ -375,7 +375,7 @@ async def get_client_execution(client_id: str):
 
 @router.post("/clients/{client_id}/start")
 async def start_client_execution(client_id: str):
-    """Neue V3 Execution fuer einen Client starten."""
+    """Neue V3 Execution für einen Client starten."""
     records = await airtable.get_records(
         "CLIENTS", filter_formula=f"RECORD_ID()='{client_id}'", max_records=1
     )
@@ -415,7 +415,7 @@ async def get_client_deliverables(client_id: str):
     """Alle Deliverables eines Clients aus der Execution."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     generated_docs = state.context.get("generated_docs", {})
     approvals = state.context.get("deliverable_approvals", {})
@@ -544,7 +544,7 @@ async def approve_execution_deliverable(execution_id: str, doc_key: str, body: d
     }
     state.update_context({"deliverable_approvals": approvals})
 
-    # Pruefe ob alle Deliverables in der Phase approved sind
+    # Prüfe ob alle Deliverables in der Phase approved sind
     phase = _get_phase(doc_key)
     phase_docs = [k for k, v in DOC_NODE_MAP.items() if _get_phase(k) == phase]
     all_approved = all(
@@ -560,7 +560,7 @@ async def approve_execution_deliverable(execution_id: str, doc_key: str, body: d
             if gate_status == "waiting_approval" or not gate_status:
                 state.update_node(gate_id, "completed", result={"auto_released": True, "reviewer": reviewer})
                 gate_released = True
-                log.info(f"Gate {gate_id} auto-released fuer {state.client_name}")
+                log.info(f"Gate {gate_id} auto-released für {state.client_name}")
 
     return {
         "approved": True,
@@ -643,7 +643,7 @@ async def regenerate_deliverable(execution_id: str, doc_key: str, body: dict = {
     }
     state.update_context({"deliverable_approvals": approvals})
 
-    # Node neu ausfuehren
+    # Node neu ausführen
     result = await execute_node(execution_id, node_id)
 
     return {
@@ -662,7 +662,7 @@ async def get_client_pipeline(client_id: str):
     """Pipeline-Fortschritt aggregiert nach Phasen."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     phases = []
     found_current = False
@@ -721,14 +721,14 @@ async def get_client_timeline(client_id: str):
     """Timeline-Events aus abgeschlossenen Nodes."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     events = []
     for node_id, node_data in state.nodes.items():
         status = node_data.get("status", "")
         updated_at = node_data.get("updated_at", "")
 
-        # Bestimme Phase fuer den Node
+        # Bestimme Phase für den Node
         phase = "unknown"
         for phase_key, node_ids in PHASE_NODES.items():
             if node_id in node_ids:
@@ -800,7 +800,7 @@ async def get_client_performance(client_id: str):
     """Meta-Kampagnen Performance aggregiert."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     meta_campaigns = state.context.get("meta_campaigns", {})
     campaign_ids = []
@@ -857,14 +857,14 @@ async def get_client_performance(client_id: str):
             total_spend += spend
             total_leads += leads
         except asyncio.TimeoutError:
-            log.warning(f"Meta Insights Timeout fuer {camp['id']}")
+            log.warning(f"Meta Insights Timeout für {camp['id']}")
             campaigns.append({
                 "campaign_key": camp["key"],
                 "campaign_id": camp["id"],
                 "error": "Timeout nach 10s",
             })
         except Exception as e:
-            log.warning(f"Meta Insights fuer {camp['id']} fehlgeschlagen: {e}")
+            log.warning(f"Meta Insights für {camp['id']} fehlgeschlagen: {e}")
             campaigns.append({
                 "campaign_key": camp["key"],
                 "campaign_id": camp["id"],
@@ -941,7 +941,7 @@ async def get_client_ads(client_id: str):
     """Alle Ads eines Clients mit Creative Details aus Meta."""
     state = _find_execution_for_client(client_id)
     if not state:
-        raise HTTPException(404, f"Keine Execution fuer {client_id}")
+        raise HTTPException(404, f"Keine Execution für {client_id}")
 
     ctx = state.context
     ad_ids = ctx.get("ad_ids", [])
@@ -963,7 +963,7 @@ async def get_client_ads(client_id: str):
             details = await meta.get_ad_details(ad_id)
             ads.append(details)
         except Exception as e:
-            log.warning(f"Ad Details fuer {ad_id} fehlgeschlagen: {e}")
+            log.warning(f"Ad Details für {ad_id} fehlgeschlagen: {e}")
             ads.append({"id": ad_id, "error": str(e)[:100]})
 
     return {
@@ -984,7 +984,7 @@ async def update_ad(ad_id: str, body: dict):
     """Update a Meta ad creative."""
     fields = {k: v for k, v in body.items() if k in ("body", "title", "cta_type", "link_url")}
     if not fields:
-        raise HTTPException(400, "Mindestens ein Feld (body, title, cta_type, link_url) ist noetig")
+        raise HTTPException(400, "Mindestens ein Feld (body, title, cta_type, link_url) ist nötig")
     result = await meta.update_ad_creative(ad_id, fields)
     return result
 

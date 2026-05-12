@@ -51,6 +51,7 @@ export interface Client {
   notionWikiUrl?: string;
   paket?: string;
   monatspreis?: number;
+  funnelType?: FunnelType;
   kickoffDate?: string;
   launchDate?: string;
   createdAt: string;
@@ -78,7 +79,6 @@ export interface ClientKpis {
   clicks: number;
   ctr: number;
   platformData?: Record<string, PlatformKpis>;
-  funnelType?: FunnelType;
   // Recruiting
   qualifiedApplicants?: number;
   interviews?: number;

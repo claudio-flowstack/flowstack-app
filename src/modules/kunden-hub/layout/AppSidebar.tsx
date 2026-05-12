@@ -64,51 +64,7 @@ const navItems: NavItem[] = [
   },
 ];
 
-// Original TailAdmin Elemente (zum Anschauen/Wiederverwenden)
-const originalItems: NavItem[] = [
-  {
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
-    name: "Kalender",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "Profil",
-    path: "/profile",
-  },
-  {
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>,
-    name: "Formulare",
-    subItems: [
-      { name: "Form Elements", path: "/form-elements" },
-    ],
-  },
-  {
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v18"/><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/></svg>,
-    name: "Tabellen",
-    path: "/basic-tables",
-  },
-  {
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/></svg>,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart" },
-      { name: "Bar Chart", path: "/bar-chart" },
-    ],
-  },
-  {
-    icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>,
-    name: "UI Elemente",
-    subItems: [
-      { name: "Alerts", path: "/alerts" },
-      { name: "Avatars", path: "/avatars" },
-      { name: "Badges", path: "/badge" },
-      { name: "Buttons", path: "/buttons" },
-      { name: "Images", path: "/images" },
-      { name: "Videos", path: "/videos" },
-    ],
-  },
-];
+// TailAdmin template items removed — not needed for production
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
@@ -320,11 +276,11 @@ const AppSidebar: React.FC = () => {
         <Link to={BASE}>
           {isExpanded || isHovered || isMobileOpen ? (
             <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              Kunden Hub
+              Flowstack Systems
             </span>
           ) : (
             <span className="text-xl font-semibold text-gray-900 dark:text-white">
-              KH
+              FS
             </span>
           )}
         </Link>
@@ -347,22 +303,6 @@ const AppSidebar: React.FC = () => {
                 )}
               </h2>
               {renderMenuItems(navItems, "main")}
-            </div>
-            <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered ? (
-                  "Elemente"
-                ) : (
-                  <HorizontaLDots className="size-6" />
-                )}
-              </h2>
-              {renderMenuItems(originalItems, "main")}
             </div>
           </div>
         </nav>

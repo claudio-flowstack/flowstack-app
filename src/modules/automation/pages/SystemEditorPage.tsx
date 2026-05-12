@@ -23,7 +23,32 @@ import {
   hasSideEffect,
   executeSideEffect,
   cleanupSideEffects,
+  getExecutionContext,
 } from '../application/side-effects'
+
+// ── UI-only Node → Client-Doc Mapping ─────────────────────────────────────────
+// Nodes ohne Backend-Call, die aber Dokument-Artifacts haben. Patch läuft aus
+// context.client_docs, das is07 füllt (5 duplizierte Master-Docs pro Kunde).
+const UI_NODE_DOC_MAP: Record<string, string> = {
+  kc03: 'Doc 5 Kickoff',
+  kc04: 'Doc 5 Kickoff',
+  st02: 'Doc 1 Strategie',
+  st03: 'Doc 1 Strategie',
+  st04: 'Doc 1 Strategie',
+  st05: 'Doc 2 Messaging',
+  st06: 'Doc 3 Creative Briefing',
+  st07: 'Doc 2 Messaging',
+  cc01: 'Doc 6 Webseiten-Texte',
+  cc02: 'Doc 4 Ads-Copy',
+  cc03: 'Doc 4 Ads-Copy',
+}
+
+// Override pro Artifact-Label für Nodes deren Artefakte in unterschiedliche Docs gehören
+const UI_ARTIFACT_DOC_OVERRIDE: Record<string, Record<string, string>> = {
+  cc02: {
+    'Videoskripte 15 30 60 Sek': 'Doc 7 Videoskript',
+  },
+}
 import { WorkflowCanvas } from '../canvas/WorkflowCanvas'
 import { OutputViewer } from '../components/OutputViewer'
 import { ResourceManager } from '../components/ResourceManager'
@@ -108,9 +133,9 @@ function persistArtifacts(
     const sysOutputs: typeof masterOutputs = []
     for (const node of sys.nodes) {
       if (node.demoConfig?.artifacts) {
-        // Only persist artifacts with real links — skip status notifications (type=text, url=#)
+        // Keep only artifacts with a real link or an image; drop placeholder '#' entries.
         const realArtifacts = node.demoConfig.artifacts.filter(art =>
-          art.url !== '#' || art.type === 'url' || art.type === 'image'
+          (art.url && art.url !== '#') || art.type === 'image'
         )
         for (const art of realArtifacts) {
           const nodeGroupId = sys.groups?.find(g =>
@@ -471,14 +496,17 @@ export function SystemEditorPage() {
           if (hasSideEffect(nodeId)) {
             executeSideEffect(nodeId)
               .then((result) => {
-                // Update artifact URL with real URL from backend
+                // Patch every '#' placeholder artifact of this node with the real backend URL.
                 if (result?.url) {
                   for (const sys of allSystems) {
                     const node = sys.nodes.find(n => n.id === nodeId)
-                    if (node?.demoConfig?.artifacts?.[0]) {
-                      node.demoConfig.artifacts[0].url = result.url as string
-                      if (node.demoConfig.artifacts[0].type === 'text') {
-                        node.demoConfig.artifacts[0].type = 'url'
+                    if (!node?.demoConfig?.artifacts) continue
+                    for (const artifact of node.demoConfig.artifacts) {
+                      if (artifact.url === '#' || !artifact.url) {
+                        artifact.url = result.url as string
+                        if (artifact.type === 'text') {
+                          artifact.type = 'url'
+                        }
                       }
                     }
                   }
@@ -493,6 +521,24 @@ export function SystemEditorPage() {
                 ])
                 completeNode(nodeId)
               })
+          } else if (UI_NODE_DOC_MAP[nodeId]) {
+            // UI-only Node → aus context.client_docs patchen (is07 hat die Docs dupliziert)
+            const defaultDocKey = UI_NODE_DOC_MAP[nodeId]
+            const overrides = UI_ARTIFACT_DOC_OVERRIDE[nodeId]
+            const ctx = getExecutionContext()
+            for (const sys of allSystems) {
+              const node = sys.nodes.find(n => n.id === nodeId)
+              if (!node?.demoConfig?.artifacts) continue
+              for (const artifact of node.demoConfig.artifacts) {
+                if (artifact.url !== '#' && artifact.url) continue
+                const docKey = overrides?.[artifact.label] ?? defaultDocKey
+                const docUrl = ctx.client_docs?.[docKey]
+                if (docUrl) {
+                  artifact.url = docUrl
+                  if (artifact.type === 'text') artifact.type = 'url'
+                }
+              }
+            }
           }
         },
         onNodeCompleted: (nodeId, systemId, durationMs) => {
@@ -516,11 +562,9 @@ export function SystemEditorPage() {
 
           if (!node?.demoConfig?.artifacts) return
 
-          // Only persist artifacts with real links — skip status notifications (type=text, url=#)
-          const realArtifacts = node.demoConfig.artifacts.filter(art =>
-            art.url !== '#' || art.type === 'url' || art.type === 'image'
-          )
-          if (realArtifacts.length === 0) return
+          // Show every artifact in the Documents panel; treat '#' as no link.
+          const allArtifacts = node.demoConfig.artifacts
+          if (allArtifacts.length === 0) return
 
           // Find which group this node belongs to
           const nodeGroupId = sys.groups?.find(g =>
@@ -528,11 +572,11 @@ export function SystemEditorPage() {
             node.y >= g.y && node.y <= g.y + g.height
           )?.id
 
-          const newOutputs = realArtifacts.map(art => ({
+          const newOutputs = allArtifacts.map(art => ({
             id: `out-${node.id}-${Math.random().toString(36).slice(2, 6)}`,
             name: art.label,
             type: mapType(art.type),
-            link: art.url,
+            link: art.url && art.url !== '#' ? art.url : undefined,
             createdAt: new Date().toISOString(),
             contentPreview: art.contentPreview,
             durationMs,

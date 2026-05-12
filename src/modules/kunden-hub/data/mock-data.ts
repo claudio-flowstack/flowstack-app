@@ -33,6 +33,7 @@ export const mockClients: Client[] = [
     branche: 'Recruiting',
     paket: 'Recruiting Pro',
     monatspreis: 3500,
+    funnelType: 'recruiting' as const,
     status: 'live',
     currentPhase: 'live',
     accountManager: 'Claudio',
@@ -50,7 +51,6 @@ export const mockClients: Client[] = [
       impressions: 125000,
       clicks: 3200,
       ctr: 2.56,
-      funnelType: 'recruiting',
       platformData: {
         meta: { spend: 3200, leads: 38, cpl: 84.21, impressions: 98000, clicks: 2500, ctr: 2.55, conversionRate: 1.52 },
         google: { spend: 1050.80, leads: 9, cpl: 116.76, impressions: 27000, clicks: 700, ctr: 2.59, conversionRate: 1.29 },

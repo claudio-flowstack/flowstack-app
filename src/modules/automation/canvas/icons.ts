@@ -23,6 +23,7 @@ import {
   ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
   Maximize2, Minimize2, ZoomIn, ZoomOut, Crosshair,
   MousePointer, Check, Loader2, Plus, Trash2, Save,
+  Building2, Rocket, TestTube, FileCheck, Link as LinkIcon, Shield,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -142,6 +143,14 @@ const ICONS: Record<string, LucideIcon> = {
   'plus': Plus,
   'trash-2': Trash2,
   'save': Save,
+
+  // ── Additional node icons used by demo-data ────────────────────────────
+  'building-2': Building2,
+  'rocket': Rocket,
+  'test-tube': TestTube,
+  'file-check': FileCheck,
+  'link': LinkIcon,
+  'shield': Shield,
 }
 
 /**

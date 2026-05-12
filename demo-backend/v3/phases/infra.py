@@ -56,7 +56,7 @@ async def is02_reuse(context: dict, state) -> dict:
         try:
             await close.add_note(lead_id, f"V3 Automation gestartet (bestehender Lead) — {state.client_name}")
         except Exception as e:
-            log.warning(f"Note fuer bestehenden Lead fehlgeschlagen: {e}")
+            log.warning(f"Note für bestehenden Lead fehlgeschlagen: {e}")
     return {"lead_id": lead_id, "opportunity_id": opp_id, "close_lead_url": f"https://app.close.com/lead/{lead_id}" if lead_id else "", "reused": True}
 
 

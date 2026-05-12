@@ -3,9 +3,20 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import svgr from 'vite-plugin-svgr'
 import path from 'path'
+import { babelDataLocPlugin } from './vite-plugins/babel-data-loc'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), svgr()],
+  plugins: [
+    react({
+      babel: {
+        plugins: [
+          ...(process.env.NODE_ENV !== 'production' ? [babelDataLocPlugin] : []),
+        ],
+      },
+    }),
+    tailwindcss(),
+    svgr(),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

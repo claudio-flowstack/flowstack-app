@@ -1,6 +1,6 @@
 """
 Circuit Breaker — Verhindert dass ein kaputtes Service den ganzen Flow blockiert.
-Wenn ein Service >N Mal hintereinander fehlschlaegt, wird er fuer X Sekunden deaktiviert.
+Wenn ein Service >N Mal hintereinander fehlschlägt, wird er für X Sekunden deaktiviert.
 """
 
 import time
@@ -42,7 +42,7 @@ class CircuitBreaker:
         self._last_failure_time = time.time()
         if self._failures >= self.failure_threshold:
             self._state = "open"
-            log.warning(f"[{self.service}] Circuit OPEN nach {self._failures} Fehlern, skip fuer {self.recovery_timeout}s")
+            log.warning(f"[{self.service}] Circuit OPEN nach {self._failures} Fehlern, skip für {self.recovery_timeout}s")
 
     def status(self) -> dict:
         return {

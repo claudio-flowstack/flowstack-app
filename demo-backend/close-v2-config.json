@@ -1,40 +1,40 @@
 {
-  "org": "Online Marketing",
-  "org_id": "orga_eJRqzURpzGqQJ0e5dP1cJeWKGShv9TGHcnQtf7wXTAA",
+  "org": "Test Account",
+  "org_id": "orga_Hb8Dx96gpcnLQj8JkfHEXajj1cRTcbxTIw8FC8bQPhw",
   "pipeline": {
-    "id": "pipe_4lyPiMGjTKKXDQmSffdUEC",
+    "id": "pipe_29QVKx39dnXZrEdmC3Ea6v",
     "name": "Fulfillment",
     "stages": {
-      "onboarding_gestartet": "stat_O1GNQqA0fbFFtvcOGVJtFidpofOx6UkvXqm4iwA02C9",
-      "kickoff_geplant": "stat_sSRDHdontp127iFdcfyNcg1s9XUDc5P3lV27O9VFRZL",
-      "kickoff_abgeschlossen": "stat_2sd5LSGQJcMzkAhN7Uyqr4ka3NExdtdQ4JRntUwPVRR",
-      "strategie_erstellt": "stat_v13acXsVTfe4qH3UxrenIUPlfEm1WbgS7UhcQnWNHti",
-      "assets_erstellt": "stat_gEccJCzGFNjBaGLXbeZNbPIGMOFw2okPeZbCzfuSsY7",
-      "warte_auf_freigabe": "stat_P7yP7GMXUF4KciuYS8bJHQqXpUzuddOZNFGIL5O5ToC",
-      "bereit_fuer_launch": "stat_Ltu08vpP3aAEJuHdEylNCMlT8yCsRJ10scl1ci84hpi",
-      "live": "stat_GH8dnjZI9rs8ivFZgVdjXAiyD2LfCSrKaXe0fmuGR4q"
+      "onboarding_gestartet": "stat_J2PMuaNueUCYRg223pMmC7s3XNWU4c06IS8l9sgLphJ",
+      "kickoff_geplant": "stat_ZjI9zqNn7gLa01UYbZNfki4fJOAbIBmKnSQ0EKsjQER",
+      "kickoff_abgeschlossen": "stat_52YexHg1wrJTd3IlMt8jyGSzt2VdqeUy9LLsP2Ios4g",
+      "strategie_erstellt": "stat_xiN3DJrMOXI2kLMFVwf6K2GbHoCLH9EAkKoM2EDrpMp",
+      "assets_erstellt": "stat_xSBPZiRIYbagC5tIJdG7fGAKqzG4ZYrYam9qapps0aA",
+      "warte_auf_freigabe": "stat_Sl5RzegrMVQCv087fqqfwYFaPxX1YSYz1rw0Sv8F5wk",
+      "bereit_fuer_launch": "stat_U5pa3lMPlNDhpAvIr35kQirLeN4VbnKhTR5uzzN1Y2V",
+      "live": "stat_XyTx3UClRiTFhT16EQCwnUo6j5NrOri8sutUdnBRGsj"
     }
   },
   "custom_fields": {
     "service_type": {
-      "id": "cf_DkzobLU04gL6s2KCIsdnC8xeL0RDdwQf475I93RByAs",
+      "id": "cf_bihJnLLxKxpvjYAVZ9AqdWnzNH5S7O7rC1WFhgrs6xO",
       "type": "choices"
     },
     "account_manager": {
-      "id": "cf_jayOHDeBvUQUC4rIZXp3b3z9bFDWYAilmieMTtp9N52",
+      "id": "cf_oNqqlOPL0AAZfowUSrkx5nFMbyKTVJxUxtAetXJtVAY",
       "type": "text"
     },
     "onboarding_date": {
-      "id": "cf_ulgPaeRz3PunRXtquyxdUwFf3KUIuLEGiWsi90xdM4b",
+      "id": "cf_rCeI7tH70274qaBzeaCmtpSdqX6ofARBnolyWd08sA6",
       "type": "date"
     },
     "automation_status": {
-      "id": "cf_CKPyxoGAafTrmMnroepY8NOkwU7NbBbeaMY8RuYRxZp",
+      "id": "cf_Lufb065GVOQWlWwIloY3sdO9sVc8HCAVLdIjnYkcXwZ",
       "type": "choices"
     }
   },
   "doppler": {
-    "secret_name": "CLOSE_API_KEY_V2",
+    "secret_name": "CLOSE_API_KEY",
     "project": "fulfillment-automation",
     "config": "dev_claudio"
   }

@@ -275,7 +275,7 @@ class MetaClient:
             })
             ad_ids.append(ad["id"])
 
-        log.info(f"Meta Ads erstellt fuer AdSet {adset_id}: {len(ad_ids)} Ads")
+        log.info(f"Meta Ads erstellt für AdSet {adset_id}: {len(ad_ids)} Ads")
         return ad_ids
 
     # ── Ad Details ───────────────────────────────────────────

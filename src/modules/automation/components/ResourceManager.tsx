@@ -131,7 +131,7 @@ const MOCK_RESOURCES: SystemResource[] = [
     systemId: 'sys-1',
     title: 'Brainstorming Notizen',
     type: 'note',
-    content: 'Ideen fuer die neue Kampagne...',
+    content: 'Ideen für die neue Kampagne...',
     createdAt: '2026-02-14T11:15:00Z',
   },
   {
@@ -150,7 +150,7 @@ const MOCK_RESOURCES: SystemResource[] = [
     systemId: 'sys-1',
     title: 'Lead-Formular Website',
     type: 'form',
-    content: 'Kontaktformular fuer Landingpage...',
+    content: 'Kontaktformular für Landingpage...',
     createdAt: '2026-02-16T16:45:00Z',
     linkedNodeId: 'node-3',
   },

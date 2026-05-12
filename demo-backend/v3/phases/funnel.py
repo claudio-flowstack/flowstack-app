@@ -293,7 +293,7 @@ async def fn_pixel(context: dict, state) -> dict:
 
 
 async def fn_screenshots(context: dict, state) -> dict:
-    """Screenshot-Check — URLs vorhanden fuer manuelles Review."""
+    """Screenshot-Check — URLs vorhanden für manuelles Review."""
     lp = context.get("lp_url", "")
     form = context.get("form_url", "")
     thankyou = context.get("thankyou_url", "")

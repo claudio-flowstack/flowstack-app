@@ -31,7 +31,7 @@ function TabErrorCard({ tab, onRetry }: { tab: string; onRetry: (tab: string) =>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
       </svg>
       <p className="mb-1 text-sm font-medium text-red-600 dark:text-red-400">Laden fehlgeschlagen</p>
-      <p className="mb-4 text-xs text-red-400 dark:text-red-500">Backend nicht erreichbar oder Daten nicht verfuegbar.</p>
+      <p className="mb-4 text-xs text-red-400 dark:text-red-500">Backend nicht erreichbar oder Daten nicht verfügbar.</p>
       <button
         onClick={() => onRetry(tab)}
         className="rounded-lg bg-red-100 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
@@ -515,7 +515,7 @@ export default function ClientDetail() {
               </svg>
             </div>
           ) : (
-            <PerformanceTab kpis={mergedKpis} branche={client.branche} t={t} performanceData={clientPerformance} />
+            <PerformanceTab kpis={mergedKpis} branche={client.branche} t={t} performanceData={clientPerformance} funnelType={client.funnelType} />
           )}
         </>
       )}
@@ -684,11 +684,11 @@ function ErrorsTab({ alerts, t }: { alerts: { id: string; error: string }[]; t: 
 }
 
 // Performance tab - complete with funnel visualization, trend charts, insights
-function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('../data/types').ClientKpis; branche?: string; t: (key: string, params?: Record<string, string | number>) => string; performanceData?: PerformanceData | null }) {
+function PerformanceTab({ kpis, branche, t, performanceData, funnelType }: { kpis?: import('../data/types').ClientKpis; branche?: string; t: (key: string, params?: Record<string, string | number>) => string; performanceData?: PerformanceData | null; funnelType?: string }) {
   const [selectedPlatform, setSelectedPlatform] = useState<string>('gesamt');
 
-  const inferredFunnel = kpis?.funnelType ?? (branche?.toLowerCase().includes('recruit') ? 'recruiting' : 'kundengewinnung');
-  const [selectedFunnel, setSelectedFunnel] = useState<string>(inferredFunnel);
+  // Funnel type from client (set during onboarding), fallback to branche inference
+  const selectedFunnel = funnelType ?? (branche?.toLowerCase().includes('recruit') ? 'recruiting' : 'kundengewinnung');
 
   const activeKpis = useMemo(() => {
     if (!kpis) return null;
@@ -714,21 +714,21 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
     if (!kpis) return [];
     if (selectedFunnel === 'recruiting') {
       return [
-        { label: t('perf.stageImpressions'), value: kpis.impressions ?? 0, cost: null },
-        { label: t('perf.stageClicks'), value: kpis.clicks ?? 0, cost: null },
-        { label: t('perf.stageApplications'), value: kpis.leads ?? 0, cost: kpis.costPerApplication ?? kpis.cpl },
-        { label: t('perf.stageQualified'), value: kpis.qualifiedApplicants ?? 0, cost: kpis.spend && kpis.qualifiedApplicants ? kpis.spend / kpis.qualifiedApplicants : null },
-        { label: t('perf.stageInterviews'), value: kpis.interviews ?? 0, cost: kpis.costPerInterview ?? null },
-        { label: t('perf.stageHires'), value: kpis.hires ?? 0, cost: kpis.costPerHire ?? null },
+        { label: t('perf.stageImpressions'), costLabel: '', value: kpis.impressions ?? 0, cost: null },
+        { label: t('perf.stageClicks'), costLabel: 'Klick', value: kpis.clicks ?? 0, cost: null },
+        { label: t('perf.stageApplications'), costLabel: 'Bewerbung', value: kpis.leads ?? 0, cost: kpis.costPerApplication ?? kpis.cpl },
+        { label: t('perf.stageQualified'), costLabel: 'Kandidat', value: kpis.qualifiedApplicants ?? 0, cost: kpis.spend && kpis.qualifiedApplicants ? kpis.spend / kpis.qualifiedApplicants : null },
+        { label: t('perf.stageInterviews'), costLabel: 'Gespräch', value: kpis.interviews ?? 0, cost: kpis.costPerInterview ?? null },
+        { label: t('perf.stageHires'), costLabel: 'Einstellung', value: kpis.hires ?? 0, cost: kpis.costPerHire ?? null },
       ];
     }
     return [
-      { label: t('perf.stageImpressions'), value: kpis.impressions ?? 0, cost: null },
-      { label: t('perf.stageClicks'), value: kpis.clicks ?? 0, cost: null },
-      { label: t('perf.stageLeads'), value: kpis.leads ?? 0, cost: kpis.cpl },
-      { label: t('perf.stageQualifiedLeads'), value: kpis.qualifiedLeads ?? 0, cost: kpis.costPerQualifiedLead ?? null },
-      { label: t('perf.stageAppointments'), value: kpis.bookedAppointments ?? 0, cost: kpis.costPerAppointment ?? null },
-      { label: t('perf.stageDeals'), value: kpis.closedDeals ?? 0, cost: kpis.costPerDeal ?? null },
+      { label: t('perf.stageImpressions'), costLabel: '', value: kpis.impressions ?? 0, cost: null },
+      { label: t('perf.stageClicks'), costLabel: 'Klick', value: kpis.clicks ?? 0, cost: null },
+      { label: t('perf.stageLeads'), costLabel: 'Lead', value: kpis.leads ?? 0, cost: kpis.cpl },
+      { label: t('perf.stageQualifiedLeads'), costLabel: 'Lead', value: kpis.qualifiedLeads ?? 0, cost: kpis.costPerQualifiedLead ?? null },
+      { label: t('perf.stageAppointments'), costLabel: 'Termin', value: kpis.bookedAppointments ?? 0, cost: kpis.costPerAppointment ?? null },
+      { label: t('perf.stageDeals'), costLabel: 'Abschluss', value: kpis.closedDeals ?? 0, cost: kpis.costPerDeal ?? null },
     ];
   }, [kpis, selectedFunnel, t]);
 
@@ -774,7 +774,7 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
         return 0;
       });
     }
-    if (kpis?.dailyCpl) return kpis.dailyCpl;
+    if (kpis?.dailyCpl?.length) return kpis.dailyCpl;
     const base = kpis?.cpl ?? 80;
     return Array.from({ length: 30 }, (_, i) => {
       const seed = Math.sin(i * 127.1 + 311.7) * 43758.5453;
@@ -797,7 +797,7 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
         return 0;
       });
     }
-    if (kpis?.dailyConversionRate) return kpis.dailyConversionRate;
+    if (kpis?.dailyConversionRate?.length) return kpis.dailyConversionRate;
     const base = kpis && kpis.clicks > 0 ? (kpis.leads / kpis.clicks) * 100 : 1.5;
     return Array.from({ length: 30 }, (_, i) => {
       const seed = Math.sin(i * 83.3 + 217.1) * 43758.5453;
@@ -857,12 +857,13 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
       .filter(([, data]) => data && Object.keys(data).length > 0)
       .map(([key, data]) => ({
         label: labels[key] || key,
-        impressions: Number(data.impressions ?? 0),
-        clicks: Number(data.clicks ?? 0),
-        spend: Number(data.spend ?? 0),
-        leads: Number(data.leads ?? 0),
-        ctr: Number(data.ctr ?? (Number(data.impressions ?? 0) > 0 ? (Number(data.clicks ?? 0) / Number(data.impressions ?? 1)) * 100 : 0)),
-        cpl: Number(data.cpl ?? (Number(data.leads ?? 0) > 0 ? Number(data.spend ?? 0) / Number(data.leads ?? 1) : 0)),
+        impressions: Number(data.impressions) || 0,
+        clicks: Number(data.clicks) || 0,
+        spend: Number(data.spend) || 0,
+        leads: Number(data.leads) || 0,
+        ctr: Number(data.ctr) || ((Number(data.impressions) || 0) > 0 ? ((Number(data.clicks) || 0) / (Number(data.impressions) || 1)) * 100 : 0),
+        // Note: CTR is 0 when impressions is 0 (no division issue)
+        cpl: Number(data.cpl) || ((Number(data.leads) || 0) > 0 ? (Number(data.spend) || 0) / (Number(data.leads) || 1) : 0),
       }));
   }, [performanceData, t]);
 
@@ -871,8 +872,10 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
     if (!kpis?.platformData) return [];
     const platforms = Object.entries(kpis.platformData);
     if (platforms.length === 0) return [];
-    const best = platforms.reduce((a, b) => (a[1].cpl < b[1].cpl ? a : b));
-    const overallCr = kpis.clicks > 0 ? ((kpis.leads / kpis.clicks) * 100).toFixed(1) : '0.0';
+    const best = platforms.reduce((a, b) => ((a[1].cpl ?? Infinity) < (b[1].cpl ?? Infinity) ? a : b));
+    // Use activeKpis (respects platform filter) for CR calculation
+    const crSource = activeKpis ?? kpis;
+    const overallCr = crSource.clicks > 0 ? ((crSource.leads / crSource.clicks) * 100).toFixed(1) : '0.0';
     const result: { label: string; value: string; color: string }[] = [
       { label: t('perf.bestPlatform'), value: `${best[0].charAt(0).toUpperCase() + best[0].slice(1)} (CPL ${best[1].cpl.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })})`, color: 'text-success-500' },
       { label: t('perf.conversionRate'), value: `${overallCr}%`, color: 'text-brand-500' },
@@ -883,11 +886,12 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
     if (selectedFunnel === 'kundengewinnung' && kpis.costPerDeal) {
       result.push({ label: t('perf.costPerDeal'), value: kpis.costPerDeal.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }), color: 'text-warning-500' });
     }
-    if (kpis.customerLifetimeValue && kpis.costPerDeal) {
-      result.push({ label: t('perf.ltvRatio'), value: `${(kpis.customerLifetimeValue / kpis.costPerDeal).toFixed(1)}x`, color: parseFloat((kpis.customerLifetimeValue / kpis.costPerDeal).toFixed(1)) >= 3 ? 'text-success-500' : 'text-warning-500' });
+    if (kpis.customerLifetimeValue && kpis.costPerDeal && kpis.costPerDeal > 0) {
+      const ratio = kpis.customerLifetimeValue / kpis.costPerDeal;
+      result.push({ label: t('perf.ltvRatio'), value: `${ratio.toFixed(1)}x`, color: ratio >= 3 ? 'text-success-500' : 'text-warning-500' });
     }
     return result;
-  }, [kpis, selectedFunnel, t]);
+  }, [kpis, activeKpis, selectedFunnel, t]);
 
   // Early return AFTER all hooks
   if (!kpis) {
@@ -912,25 +916,18 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
             { key: 'google', label: 'Google' },
             { key: 'linkedin', label: 'LinkedIn' },
             { key: 'tiktok', label: 'TikTok' },
-          ].map((p) => (
+          ].filter((p) => p.key === 'gesamt' || kpis?.platformData?.[p.key]).map((p) => (
             <button key={p.key} onClick={() => setSelectedPlatform(p.key)}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${selectedPlatform === p.key ? 'bg-brand-500 text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-800'}`}
             >{p.label}</button>
           ))}
         </div>
 
+        {/* Funnel type label (auto-detected from onboarding) */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400">{t('perf.funnelType')}:</span>
-          <div className="flex rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            {[
-              { key: 'recruiting', label: t('perf.funnelRecruiting') },
-              { key: 'kundengewinnung', label: t('perf.funnelKundengewinnung') },
-            ].map((f) => (
-              <button key={f.key} onClick={() => setSelectedFunnel(f.key)}
-                className={`px-3 py-1.5 text-xs font-medium transition ${selectedFunnel === f.key ? 'bg-brand-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'}`}
-              >{f.label}</button>
-            ))}
-          </div>
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+            {selectedFunnel === 'recruiting' ? t('perf.funnelRecruiting') : t('perf.funnelKundengewinnung')}
+          </span>
         </div>
       </div>
 
@@ -944,36 +941,25 @@ function PerformanceTab({ kpis, branche, t, performanceData }: { kpis?: import('
         ))}
       </div>
 
-      {/* Conversion Funnel */}
+      {/* Conversion Funnel as KPI boxes */}
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800">
           <h3 className="text-base font-medium text-gray-800 dark:text-white/90">{t('perf.conversionFunnel')}</h3>
         </div>
-        <div className="p-6 space-y-2.5">
+        <div className="grid grid-cols-2 gap-4 p-6 sm:grid-cols-3 lg:grid-cols-6">
           {funnelStages.map((stage, i) => {
-            const maxVal = funnelStages[0]?.value || 1;
-            const pct = Math.max((stage.value / maxVal) * 100, 6);
             const prev = i > 0 ? (funnelStages[i - 1]?.value ?? stage.value) : stage.value;
             const stepCr = i > 0 && prev > 0 ? ((stage.value / prev) * 100).toFixed(1) : null;
-            const totalCr = i > 0 && maxVal > 0 ? ((stage.value / maxVal) * 100).toFixed(2) : null;
-            const barColors = ['from-blue-500 to-blue-400', 'from-blue-500 to-blue-400', 'from-indigo-500 to-indigo-400', 'from-violet-500 to-violet-400', 'from-purple-500 to-purple-400', 'from-emerald-500 to-emerald-400'];
             return (
-              <div key={stage.label} className="flex items-center gap-3">
-                <div className="w-36 shrink-0 text-right pr-2">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 leading-tight">{stage.label}</p>
-                  {stage.cost != null && <p className="text-[10px] text-gray-400">{stage.cost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</p>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={`h-9 rounded-lg bg-gradient-to-r ${barColors[i] ?? barColors[0]} flex items-center justify-end pr-3 transition-all duration-700`} style={{ width: `${pct}%` }}>
-                    <span className="text-xs font-bold text-white drop-shadow-sm">{stage.value.toLocaleString('de-DE')}</span>
-                  </div>
-                </div>
-                <div className="w-24 shrink-0 text-left">
+              <div key={stage.label} className="rounded-xl border border-gray-100 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.02]">
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">{stage.label}</p>
+                <p className="text-xl font-bold text-gray-800 dark:text-white/90">{stage.value.toLocaleString('de-DE')}</p>
+                <div className="mt-2 flex flex-col gap-0.5">
                   {stepCr && (
-                    <>
-                      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">{stepCr}%</p>
-                      <p className="text-[10px] text-gray-400">{totalCr}% gesamt</p>
-                    </>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">CR: <span className="font-medium text-brand-500">{stepCr}%</span></p>
+                  )}
+                  {stage.cost != null && stage.cost > 0 && stage.costLabel && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Kosten pro {stage.costLabel}: <span className="font-medium">{stage.cost.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })}</span></p>
                   )}
                 </div>
               </div>

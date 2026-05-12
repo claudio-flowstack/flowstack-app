@@ -86,7 +86,7 @@ function FunnelConnectionInner({
     [fromElement, toElement, connection.fromPort, connection.toPort, curveStyle],
   )
 
-  // Mittelpunkt fuer Label berechnen
+  // Mittelpunkt für Label berechnen
   const midpoint = useMemo(
     () => getFunnelPathMidpoint(fromElement, connection.fromPort, toElement, connection.toPort, curveStyle),
     [fromElement, toElement, connection.fromPort, connection.toPort, curveStyle],

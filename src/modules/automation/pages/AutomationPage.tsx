@@ -59,8 +59,6 @@ function SystemOverview() {
     deleteSystem,
     duplicateSystem,
     toggleSystemStatus,
-    activeSystemCount,
-    totalExecutionCount,
   } = useAutomationStore()
 
   const [activeTab, setActiveTab] = useState<OverviewTab>('systems')
@@ -84,12 +82,17 @@ function SystemOverview() {
     fetchTemplates()
   }, [fetchSystems, fetchTemplates])
 
-  const filtered = systems
+  const visibleSystems = systems.filter((s) => {
+    if (s.parentId) return false
+    if (!demoMode && s.isDemo) return false
+    return true
+  })
+
+  const visibleActiveCount = visibleSystems.filter((s) => s.status === 'active').length
+  const visibleExecutionCount = visibleSystems.reduce((sum, s) => sum + s.executionCount, 0)
+
+  const filtered = visibleSystems
     .filter((s) => {
-      // Hide sub-systems from overview (they appear inside their master)
-      if (s.parentId) return false
-      // Hide demo systems when demo mode is off
-      if (!demoMode && s.isDemo) return false
       const matchesSearch =
         !search ||
         s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -216,7 +219,7 @@ function SystemOverview() {
               {t('automation.totalSystems')}
             </p>
             <p className="mt-1 text-2xl font-bold text-foreground">
-              {systems.length}
+              {visibleSystems.length}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
@@ -224,7 +227,7 @@ function SystemOverview() {
               {t('automation.activeSystems')}
             </p>
             <p className="mt-1 text-2xl font-bold text-emerald-500">
-              {activeSystemCount()}
+              {visibleActiveCount}
             </p>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
@@ -232,7 +235,7 @@ function SystemOverview() {
               {t('automation.totalRuns')}
             </p>
             <p className="mt-1 text-2xl font-bold text-foreground">
-              {totalExecutionCount()}
+              {visibleExecutionCount}
             </p>
           </div>
         </div>

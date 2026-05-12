@@ -89,7 +89,7 @@ export function BatchUpload() {
               <>
                 <Upload className="h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-sm font-medium text-foreground">CSV-Datei hierher ziehen</p>
-                <p className="text-xs text-muted-foreground mt-1">oder klicken zum Auswaehlen</p>
+                <p className="text-xs text-muted-foreground mt-1">oder klicken zum Auswählen</p>
               </>
             )}
           </div>

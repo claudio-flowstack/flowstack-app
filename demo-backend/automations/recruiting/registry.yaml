@@ -1,0 +1,114 @@
+# V2 - Recruiting Engine Registry
+# Single source of truth for nodes, master docs, folder IDs, and protection rules.
+# V1 (V1 - Novacode Recruiting, server.py) is still the active demo runtime;
+# V2 delegates via Strangler-Fig until each node is natively reimplemented.
+
+automation:
+  name: recruiting
+  display_name: V2 - Recruiting Engine
+  version: 2.0
+  status: parallel-with-v1
+  domain: recruiting-marketing-agencies
+  legacy_version:
+    name: V1 - Novacode Recruiting
+    location: demo-backend/server.py
+    endpoint: /api/execute-node
+    status: active-demo-runtime
+
+# ── Phases & Nodes ──────────────────────────────────────────────────────────────
+phases:
+  infrastruktur:
+    description: CRM, Slack, Drive, ClickUp, Calendar setup
+    nodes: [is02, is03, is04, is05, is06, is07, is08, is09, is10]
+  kickoff:
+    description: Stage update + follow-up tasks after kickoff call
+    nodes: [kc05, kc06]
+  strategie:
+    description: Stage update + Texte review + Videodreh tasks
+    nodes: [st10]
+  copy:
+    description: Stage update + Video schneiden + Funnel review tasks
+    nodes: [cc05]
+  campaigns:
+    description: Meta Audiences + 3 Campaigns (Initial, Retargeting, Warmup)
+    nodes: [ca01, ca02, ca03, ca04, ca05, ca06, ca07, ca08, ca09]
+  retention:
+    description: Asset package + QA + Launch + Performance sync
+    nodes: [rl06, rl07, rl09, rl11, rl12, rl13]
+
+# ── Master Documents (NEVER trash these from Drive) ─────────────────────────────
+master_docs:
+  parent_folder_id: "1zP_i6aN_y6NPAn_khY_J0VyH9okV6h08"
+  parent_folder_name: "Backup Novacode Docs 2026-04-23"
+  drive_id: "0APjh0y5dNHoWUk9PVA"
+  drive_name: "Flowstack - Fulfillment Automation"
+  protected: true
+  templates:
+    - id: "1kxjSIWDIN-ssN_i466a4dPX4TEluijaPm9J2ywLmB-M"
+      label: "Doc 1 Strategie"
+      display_name: "Strategie"
+      target_folder: "02_Strategie"
+    - id: "1pprK5yG15Vjbx7AmE7b-FMGZXxhHrXMjryB_cKbpGmo"
+      label: "Doc 2 Messaging"
+      display_name: "Messaging-Matrix"
+      target_folder: "02_Strategie"
+    - id: "1l6zo_I-Sb_PxbSdzbpoTeIGesuuHXvu7CiRcFOI9Yuw"
+      label: "Doc 3 Creative Briefing"
+      display_name: "Creative-Briefing"
+      target_folder: "02_Strategie"
+    - id: "1py5_IHRsst707gKzBnnEYjRkQO4SCixeZFAR8DUnPlo"
+      label: "Doc 4 Ads-Copy"
+      display_name: "Ads-Copy"
+      target_folder: "06_Anzeigen"
+    - id: "1lKO8VjuYp47uOpWVl1Rh6dU_57Vx1DzRAwrcgJZonpo"
+      label: "Doc 5 Kickoff"
+      display_name: "Kickoff-Transkript"
+      target_folder: "08_Transkripte"
+    - id: "1IMt8W5zKZrrJW6dOj6OfuZn5xA_iQjrwnAGj28h3c4M"
+      label: "Doc 6 Webseiten-Texte"
+      display_name: "Webseiten-Texte"
+      target_folder: ""
+    - id: "171Eg7V8jKGOYrqdYOLUM6DvfDodet_mxPrUB5DmMqEs"
+      label: "Doc 7 Videoskript"
+      display_name: "Videoskript"
+      target_folder: ""
+
+# ── Funnel demo URLs ────────────────────────────────────────────────────────────
+funnel:
+  base_domain: flowstack-agentur.de
+  pages:
+    - name: Landingpage
+      path: /demo
+    - name: Bewerbungsseite
+      path: /demo-bewerbung
+    - name: Dankeseite
+      path: /demo-danke
+    - name: Impressum
+      path: /demo-impressum
+    - name: Datenschutz
+      path: /demo-datenschutz
+
+# ── External resources ──────────────────────────────────────────────────────────
+external:
+  tracking_sheet: "https://docs.google.com/spreadsheets/d/1EmgdSqPPpouA20wY3OhMu1PGCA-Y_aCeztDHUF2zXeY/edit"
+  tracking_dashboard: "https://lookerstudio.google.com/reporting/00000000-0000-0000-0000-000000000000"
+
+# ── Pipeline (Close CRM) ────────────────────────────────────────────────────────
+close_pipeline:
+  id: "pipe_29QVKx39dnXZrEdmC3Ea6v"
+  stages:
+    - "Lead"
+    - "Kickoff geplant"
+    - "Kickoff abgeschlossen"
+    - "Strategie erstellt"
+    - "Assets erstellt"
+    - "Warte auf Freigabe"
+    - "Bereit für Launch"
+    - "Live"
+
+# ── Migration status ────────────────────────────────────────────────────────────
+migration:
+  status: phase_3_complete
+  fully_ported_nodes: [kc05, kc06]
+  strangler_bridge_nodes: [is02, is03, is04, is05, is06, is07, is08, is09, is10, st10, cc05, ca01, ca02, ca03, ca04, ca05, ca06, ca07, ca08, ca09, rl06, rl07, rl09, rl11, rl12, rl13]
+  phase_5_target: full port of all bridge nodes (after demo)

@@ -102,10 +102,11 @@ export function AutomationSettingsPage() {
     setSettings({ ...DEFAULT_SETTINGS })
   }
 
-  // Derived counts
-  const totalSystems = systems.length
+  // Derived counts (exclude sub-systems — they belong to a master)
+  const masterSystems = systems.filter((s) => !s.parentId)
+  const totalSystems = masterSystems.length
   const activeSystems = activeSystemCount()
-  const draftSystems = systems.filter((s) => s.status === 'draft').length
+  const draftSystems = masterSystems.filter((s) => s.status === 'draft').length
   const totalExecutions = totalExecutionCount()
 
   const STAT_BOXES: { label: string; value: number; color: string }[] = [

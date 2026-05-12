@@ -21,20 +21,20 @@ DOPPLER_PREFIX = ["doppler", "run", "-p", "fulfillment-automation", "-c", "dev_c
 
 OPTIMIZER_SYSTEM_PROMPT = """Du bist ein Prompt-Engineering-Experte. Deine Aufgabe: Verwandle den rohen Gedanken-Text des Users in einen perfekt strukturierten Prompt.
 
-## Regeln fuer den optimierten Prompt
+## Regeln für den optimierten Prompt
 
 1. **Klar & Spezifisch** — Vage Formulierungen in praezise Anweisungen umwandeln
-2. **Kontext geben** — Relevanten Hintergrund/Rolle definieren wenn noetig
+2. **Kontext geben** — Relevanten Hintergrund/Rolle definieren wenn nötig
 3. **Struktur nutzen** — Markdown-Ueberschriften, Bullet-Points, nummerierte Schritte
 4. **Output-Format definieren** — Klar sagen was als Ergebnis erwartet wird
 5. **Constraints setzen** — Grenzen, Laenge, Stil, Sprache angeben wenn sinnvoll
-6. **Schritt-fuer-Schritt** — Komplexe Aufgaben in klare Steps zerlegen
+6. **Schritt-für-Schritt** — Komplexe Aufgaben in klare Steps zerlegen
 
 ## Anthropic Best Practices
 
-- Nutze <tags> fuer klar getrennte Sektionen wenn es Sinn macht
+- Nutze <tags> für klar getrennte Sektionen wenn es Sinn macht
 - Gib dem Modell eine Rolle/Perspektive wenn hilfreich
-- Sei explizit ueber gewuenschtes Format und Detailgrad
+- Sei explizit über gewünschtes Format und Detailgrad
 - Vermeide Negationen ("tue X" statt "tue nicht Y")
 - Bei Code-Aufgaben: Sprache, Framework, Constraints angeben
 

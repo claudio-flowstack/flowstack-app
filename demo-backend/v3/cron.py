@@ -137,7 +137,7 @@ def setup_cron(app):
                     elif updated < cutoff_24h:
                         try:
                             await slack.send_alert(
-                                f"{state.client_name} — Approval '{node_id}' wartet seit >24h! Bitte pruefen.",
+                                f"{state.client_name} — Approval '{node_id}' wartet seit >24h! Bitte prüfen.",
                                 "warning",
                             )
                         except Exception:
@@ -192,7 +192,7 @@ def setup_cron(app):
 
             try:
                 report = await ai.generate(
-                    f"Erstelle einen kurzen Wochenreport fuer {state.client_name}.\n"
+                    f"Erstelle einen kurzen Wochenreport für {state.client_name}.\n"
                     f"Daten: {_json.dumps(weekly_data, indent=2, ensure_ascii=False)[:3000]}\n"
                     f"Format: Executive Summary, Key Metrics, 3 Empfehlungen. Deutsch.",
                     max_tokens=2000,
@@ -300,7 +300,7 @@ def setup_cron(app):
                         cpl = spend / leads
                         if cpl > target_cpl * 1.5:
                             await slack.send_alert(
-                                f"{state.client_name} — CPL {cpl:.0f}EUR liegt {((cpl / target_cpl) - 1) * 100:.0f}% ueber Ziel ({target_cpl:.0f}EUR)!",
+                                f"{state.client_name} — CPL {cpl:.0f}EUR liegt {((cpl / target_cpl) - 1) * 100:.0f}% über Ziel ({target_cpl:.0f}EUR)!",
                                 "warning",
                             )
                 except Exception as e:
